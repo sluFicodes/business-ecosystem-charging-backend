@@ -45,6 +45,7 @@ class Organization(models.Model):
     managers = models.JSONField(default=[]) # List
     actor_id = models.CharField(null=True, blank=True, max_length=100)
     idp = models.CharField(null=True, blank=True, max_length=100)
+    issuerDid = models.CharField(null=True, blank=True, max_length=100)
 
     def get_party_url(self):
         party_type = 'individual' if self.private else 'organization'
