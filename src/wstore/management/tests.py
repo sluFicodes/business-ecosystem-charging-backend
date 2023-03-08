@@ -28,7 +28,7 @@ from django.test import TestCase
 from django.core.management import call_command
 from django.core.management.base import CommandError
 
-from wstore.management.commands import loadplugin, removeplugin, resend_upgrade
+from wstore.management.commands import loadplugin, removeplugin, downgradeplugin, resend_upgrade
 
 
 class FakeCommandError(Exception):
@@ -42,11 +42,17 @@ class PluginManagementTestCase(TestCase):
     def _install_plugin_error(self):
         self.loader_mock.install_plugin.side_effect = Exception('Error installing plugin')
 
+    def _downgrade_plugin_error(self):
+        self.loader_mock.downgrade_plugin.side_effect = Exception('Error downgrading plugin')
+    
     def _unistall_plugin_error(self):
         self.loader_mock.uninstall_plugin.side_effect = Exception('Error uninstalling plugin')
 
     def _check_loaded(self):
         self.loader_mock.install_plugin.assert_called_once_with('test_plugin.zip')
+
+    def _check_downgraded(self):
+        self.loader_mock.downgrade_plugin.assert_called_once_with('test_plugin', None)
 
     def _check_removed(self):
         self.loader_mock.uninstall_plugin.assert_called_once_with('test_plugin')
@@ -86,6 +92,14 @@ class PluginManagementTestCase(TestCase):
     ])
     def test_load_plugin(self, name, args, checker=None, side_effect=None, err_msg=None):
         self._test_plugin_command(loadplugin, 'loadplugin', args, checker, side_effect, err_msg)
+
+    @parameterized.expand([
+        ('correct', ['test_plugin'], _check_downgraded),
+        ('inv_argument', ['test_plugin', '2.0', '1.0'], None,  None, "Error: Number of arguments is too high, specify only one plugin and optionally a version number."),
+        ('exception', ['test_plugin'], None, _downgrade_plugin_error, 'Error downgrading plugin')
+    ])
+    def test_downgrade_plugin(self, name, args, checker=None, side_effect=None, err_msg=None):
+        self._test_plugin_command(downgradeplugin, 'downgradeplugin', args, checker, side_effect, err_msg)
 
     @parameterized.expand([
         ('correct', ['test_plugin'], _check_removed),

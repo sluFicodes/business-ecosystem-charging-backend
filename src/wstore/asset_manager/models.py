@@ -81,6 +81,7 @@ class ResourcePlugin(models.Model):
     plugin_id = models.CharField(max_length=100)
     name = models.CharField(max_length=100)
     version = models.CharField(max_length=50)
+    version_history = models.JSONField(default=[])
     author = models.CharField(max_length=100)
     form_order = models.JSONField(default=[])  # String List
     module = models.CharField(max_length=200)

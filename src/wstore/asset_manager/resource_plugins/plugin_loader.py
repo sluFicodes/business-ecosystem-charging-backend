@@ -32,6 +32,7 @@ from wstore.asset_manager.resource_plugins.plugin_error import PluginError
 from wstore.asset_manager.resource_plugins.plugin_rollback import installPluginRollback
 from wstore.models import ResourcePlugin, Resource
 from wstore.asset_manager.resource_plugins.plugin import Plugin
+from wstore.store_commons.utils.version import is_lower_version
 
 
 class PluginLoader(object):
@@ -42,21 +43,35 @@ class PluginLoader(object):
 
     def __init__(self):
         self._plugin_manager = PluginValidator()
-        self._plugins_path = os.path.join(settings.BASEDIR, 'wstore')
-        self._plugins_path = os.path.join(self._plugins_path, 'asset_manager')
-        self._plugins_path = os.path.join(self._plugins_path, 'resource_plugins')
-        self._plugins_path = os.path.join(self._plugins_path, 'plugins')
+        self._plugins_path = os.path.join(settings.BASEDIR,
+                                          'wstore',
+                                          'asset_manager',
+                                          'resource_plugins',
+                                          'plugins')
         self._plugins_module = 'wstore.asset_manager.resource_plugins.plugins.'
 
-    def _get_plugin_module(self, module, plugin_id):
+    def _get_plugin_module(self, module):
         module_class_name = module.split('.')[-1]
         module_package = module.partition('.' + module_class_name)[0]
 
         return getattr(__import__(module_package, globals(), locals(), [module_class_name], 0), module_class_name)
 
+    def _update_model_data_from_json(self, model, module, json_info):
+        # Create or update plugin model data
+        model.name = json_info["name"]
+        model.version = json_info["version"]
+        model.author = json_info["author"]
+        model.module = module
+        model.formats = json_info["formats"]
+        model.media_types = json_info.get("media_types", [])
+        model.form = json_info.get('form', {})
+        model.form_order = json_info.get('form_order', [])
+        model.overrides = json_info.get('overrides', [])
+        model.pull_accounting = json_info.get('pull_accounting', False)
+        model.save()
+
     @installPluginRollback
     def install_plugin(self, path, logger=None):
-
         # Validate package file
         if not zipfile.is_zipfile(path):
             raise PluginError('Invalid package format: Not a zip file')
@@ -72,69 +87,60 @@ class PluginLoader(object):
             json_file = z.read('package.json')
             try:
                 json_info = json.loads(json_file)
-            except:
+            except json.JSONDecodeError:
                 raise PluginError('Invalid format in package.json file. JSON cannot be parsed')
 
             # Create a directory for the plugin
             # Validate plugin info
-            validation = self._plugin_manager.validate_plugin_info(json_info)
+            validation_errors = self._plugin_manager.validate_plugin_info(json_info)
 
-            if validation is not None:
-                raise PluginError('Invalid format in package.json file. ' + validation)
+            if validation_errors:
+                raise PluginError('Invalid format in package.json file.\n'
+                                  + '\n'.join(validation_errors))
 
             # Create plugin id
             plugin_id = json_info['name'].lower().replace(' ', '-')
-            if len(ResourcePlugin.objects.filter(plugin_id=plugin_id)) > 0:
-                raise PluginError('A plugin with the same id (' + plugin_id + ') already exists')
 
             # Check if the directory already exists
-            plugin_path = os.path.join(self._plugins_path, plugin_id)
+            plugin_dir = f"{plugin_id}-{json_info['version'].replace('.', '-')}"
+            plugin_path = os.path.join(self._plugins_path, plugin_dir)
 
             # Create the directory
-            os.mkdir(plugin_path)
+            try:
+                os.mkdir(plugin_path)
+            except FileExistsError:
+                raise PluginError('An equal version of this plugin is already installed')
 
-            if logger is not None:
-                logger.log_action('PATH', plugin_path)
+            logger.log_action('PATH', plugin_path)
 
             # Extract files
             z.extractall(plugin_path)
 
-            # Create a  __init__.py file if needed
-            open(os.path.join(plugin_path, '__init__.py'), 'a').close()
+        # Get plugin model
+        try:
+            plugin_model = ResourcePlugin.objects.get(plugin_id=plugin_id)
+            if not is_lower_version(plugin_model.version, json_info["version"]):
+                raise PluginError('A newer version of this plugin is already installed')
+            plugin_model.version_history.append(plugin_model.version)
+        except ObjectDoesNotExist:
+            plugin_model = ResourcePlugin(plugin_id=plugin_id)
+
+        # Create a  __init__.py file if needed
+        open(os.path.join(plugin_path, '__init__.py'), 'a').close()
 
         # Validate plugin main class
-        module = self._plugins_module + plugin_id + '.' + json_info['module']
-        module_class = self._get_plugin_module(module, plugin_id)
+        module = self._plugins_module + plugin_dir + '.' + json_info['module']
+        module_class = self._get_plugin_module(module)
 
         if Plugin not in module_class.__bases__:
             raise PluginError('No Plugin implementation has been found')
 
         # Check accounting implementations
-        if json_info.get('pull_accounting', False) and \
-                ('get_pending_accounting' not in module_class.__dict__ or 'get_usage_specs' not in module_class.__dict__):
+        pull_accounting_errors = self._plugin_manager.validate_pull_accounting(json_info, module_class)
+        if pull_accounting_errors:
+            raise PluginError(pull_accounting_errors)
 
-            raise PluginError('If pull accounting is true, methods get_pending_accounting and get_usage_specs must be implemented')
-
-        if not json_info.get('pull_accounting', False) and \
-                ('get_pending_accounting' in module_class.__dict__ or 'get_usage_specs' in module_class.__dict__):
-
-            raise PluginError('If pull accounting is false, methods get_pending_accounting and get_usage_specs must not be implemented')
-
-        # Save plugin model
-        plugin_model = ResourcePlugin.objects.create(
-            plugin_id=plugin_id,
-            name=json_info['name'],
-            version=json_info['version'],
-            author=json_info['author'],
-            module=module,
-            formats=json_info['formats'],
-            media_types=json_info.get('media_types', []),
-            form=json_info.get('form', {}),
-            form_order=json_info.get('form_order', []),
-            overrides=json_info.get('overrides', []),
-            pull_accounting=json_info.get('pull_accounting', False)
-        )
-
+        self._update_model_data_from_json(plugin_model, module, json_info)
         logger.log_action('MODEL', plugin_model)
 
         # Configure usage specifications if needed
@@ -143,16 +149,57 @@ class PluginLoader(object):
 
         return plugin_id
 
+    def _downgrade_plugin_to_last_version(self, plugin_id, plugin_model):
+        cur_version = plugin_model.version
+        dg_version = plugin_model.version_history.pop()
+        cur_plugin_dir = f"{plugin_id}-{cur_version.replace('.', '-')}"
+        dg_plugin_dir = f"{plugin_id}-{dg_version.replace('.', '-')}"
+        cur_plugin_path = os.path.join(self._plugins_path, cur_plugin_dir)
+        dg_plugin_path = os.path.join(self._plugins_path, dg_plugin_dir)
+
+        with open(os.path.join(dg_plugin_path, "package.json"), 'r') as dg_json_file:
+            dg_json_info = json.load(dg_json_file)
+            dg_module = self._plugins_module + dg_plugin_dir + '.' + dg_json_info['module']
+
+        # Remove usage specifications if needed
+        if plugin_model.pull_accounting:
+            cur_module_class = self._get_plugin_module(plugin_model.module)
+            cur_module_class(plugin_model).remove_usage_specs()
+
+        self._update_model_data_from_json(plugin_model, dg_module, dg_json_info)
+
+        # Configure usage specifications if needed
+        if plugin_model.pull_accounting:
+            dg_module_class = self._get_plugin_module(plugin_model.module)
+            dg_module_class(plugin_model).configure_usage_spec()
+
+        rmtree(cur_plugin_path)
+
+    def downgrade_plugin(self, plugin_id, version=None):
+        """
+        Downgrades a plugin to a specified version. Newer versions are removed.
+        """
+
+        # Get plugin model
+        plugin_model = ResourcePlugin.objects.get(plugin_id=plugin_id)
+
+        if version is None:
+            version = plugin_model.version_history[-1] if plugin_model.version_history else None
+        if version not in plugin_model.version_history:
+            raise PluginError("Specified version is not installed for this plugin or plugin cannot be further downgraded")
+
+        while plugin_model.version != version:
+            self._downgrade_plugin_to_last_version(plugin_id, plugin_model)
+
     def uninstall_plugin(self, plugin_id):
         """
         Removes a plugin from the system including model and files
         """
-
         # Get plugin model
         try:
             plugin_model = ResourcePlugin.objects.get(plugin_id=plugin_id)
-        except:
-            raise ObjectDoesNotExist('The plugin ' + plugin_id + ' is not registered')
+        except ObjectDoesNotExist as e:
+            raise ObjectDoesNotExist(f"The plugin {plugin_id} is not registered") from e
 
         name = plugin_model.name
         # Check if the plugin is in use
@@ -161,10 +208,13 @@ class PluginLoader(object):
         if len(resources) > 0:
             raise PermissionDenied('The plugin ' + plugin_id + ' is being used in some resources')
 
+        while plugin_model.version_history:
+            version = plugin_model.version_history[-1]
+            self._downgrade_plugin_to_last_version(plugin_id, plugin_model)
+
         if plugin_model.pull_accounting:
-            module_class = self._get_plugin_module(plugin_model.module, plugin_id)
-            plugin = module_class(plugin_model)
-            plugin.remove_usage_specs()
+            module_class = self._get_plugin_module(plugin_model.module)
+            module_class(plugin_model).remove_usage_specs()
 
         # Remove plugin files
         plugin_path = os.path.join(self._plugins_path, plugin_id)

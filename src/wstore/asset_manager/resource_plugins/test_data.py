@@ -81,6 +81,32 @@ PLUGIN_INFO2 = {
     "formats": ["FILE"]
 }
 
+PLUGIN_INFO_ACCOUNTING = {
+    "name": "test plugin",
+    "author": "test author",
+    "version": "1.0",
+    "module": "test.TestPlugin",
+    "formats": ["FILE"],
+    "pull_accounting": True,
+}
+
+PLUGIN_INFO_DOWNGRADE = {
+    "name": "test plugin",
+    "author": "test author dg",
+    "version": "0.2",
+    "module": "test.TestPluginDg",
+    "formats": ["FILE", "URL"],
+}
+
+PLUGIN_INFO_DOWNGRADE_ACCOUNTING = {
+    "name": "test plugin",
+    "author": "test author dg",
+    "version": "0.2",
+    "module": "test.TestPluginDg",
+    "formats": ["FILE", "URL"],
+    "pull_accounting": True,
+}
+
 MISSING_NAME = {
     "author": "test author",
     "version": "1.0",
