@@ -23,7 +23,6 @@ from django.conf import settings
 
 
 class ChargePeriod(object):
-
     @staticmethod
     def contains(title):
         return title.lower() in settings.CHARGE_PERIODS
@@ -34,15 +33,14 @@ class ChargePeriod(object):
 
     @staticmethod
     def to_json():
-        return [{'title': t, 'value': v} for t, v in settings.CHARGE_PERIODS.items()]
+        return [{"title": t, "value": v} for t, v in settings.CHARGE_PERIODS.items()]
 
 
 class CurrencyCode(object):
-
     @staticmethod
     def contains(value):
         return value.upper() in [v for v, t in settings.CURRENCY_CODES]
 
     @staticmethod
     def to_json():
-        return [{'title': t, 'value': v} for v, t in settings.CURRENCY_CODES]
+        return [{"title": t, "value": v} for v, t in settings.CURRENCY_CODES]

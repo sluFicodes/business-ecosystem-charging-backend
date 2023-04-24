@@ -24,12 +24,10 @@ from wstore.store_commons.utils.units import ChargePeriod, CurrencyCode
 
 
 class ChargePeriodCollection(Resource):
-
     def read(self, request):
         return JsonResponse(200, ChargePeriod.to_json())
 
 
 class CurrencyCodeCollection(Resource):
-
     def read(self, request):
         return JsonResponse(200, CurrencyCode.to_json())

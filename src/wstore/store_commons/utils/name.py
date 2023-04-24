@@ -20,9 +20,13 @@
 
 import re
 
+ID_REGEX = re.compile("^[\w -]+$")
+FILE_REGEX = re.compile("^[\w .-]+\.[\w]+$")
+
+
 def is_valid_id(id_):
-    return re.match(re.compile('^[\w -]+$'), id_)
+    return ID_REGEX.match(id_)
 
 
 def is_valid_file(file_name):
-    return re.match(re.compile('^[\w .-]+\.[\w]+$'), file_name)
+    return FILE_REGEX.match(file_name)

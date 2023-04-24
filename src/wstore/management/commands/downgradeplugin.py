@@ -21,14 +21,12 @@
 
 
 from django.core.management.base import BaseCommand, CommandError
-
 from wstore.asset_manager.resource_plugins.plugin_loader import PluginLoader
 
 
 class Command(BaseCommand):
-
     def add_arguments(self, parser):
-        parser.add_argument('args', nargs='*')
+        parser.add_argument("args", nargs="*")
 
     def handle(self, *args, **options):
         """
@@ -39,15 +37,16 @@ class Command(BaseCommand):
         if len(args) < 1:
             raise CommandError("Error: Please specify the plugin to be deleted")
         elif len(args) > 2:
-            raise CommandError("Error: Number of arguments is too high, " 
-            "specify only one plugin and optionally a version number.")
+            raise CommandError(
+                "Error: Number of arguments is too high, " "specify only one plugin and optionally a version number."
+            )
 
         try:
             name = args[0]
             version = args[1] if len(args) == 2 else None
             # Load plugin
             plugin_loader = PluginLoader()
-            plugin_loader.downgrade_plugin(name,version)
+            plugin_loader.downgrade_plugin(name, version)
         except Exception as e:
             raise CommandError(str(e))
 

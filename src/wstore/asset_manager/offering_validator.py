@@ -19,9 +19,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import requests
-
 from decimal import Decimal
+
+import requests
 
 from wstore.asset_manager.catalog_validator import CatalogValidator
 from wstore.asset_manager.models import Resource
@@ -31,23 +31,22 @@ from wstore.store_commons.utils.units import ChargePeriod, CurrencyCode
 
 
 class OfferingValidator(CatalogValidator):
-
     def _get_bundled_offerings(self, product_offering):
         bundled_offerings = []
 
         # Validate Bundle fields
-        if 'isBundle' in product_offering and product_offering['isBundle']:
-            if 'bundledProductOffering' not in product_offering:
-                raise ValueError('Offering bundles must contain a bundledProductOffering field')
+        if "isBundle" in product_offering and product_offering["isBundle"]:
+            if "bundledProductOffering" not in product_offering:
+                raise ValueError("Offering bundles must contain a bundledProductOffering field")
 
-            if len(product_offering['bundledProductOffering']) < 2:
-                raise ValueError('Offering bundles must contain at least two bundled offerings')
+            if len(product_offering["bundledProductOffering"]) < 2:
+                raise ValueError("Offering bundles must contain at least two bundled offerings")
 
-            for bundle in product_offering['bundledProductOffering']:
+            for bundle in product_offering["bundledProductOffering"]:
                 # Check if the specified offerings have been already registered
-                offerings = Offering.objects.filter(off_id=bundle['id'])
+                offerings = Offering.objects.filter(off_id=bundle["id"])
                 if not len(offerings):
-                    raise ValueError('The bundled offering ' + bundle['id'] + ' is not registered')
+                    raise ValueError("The bundled offering " + bundle["id"] + " is not registered")
 
                 bundled_offerings.append(offerings[0])
 
@@ -63,7 +62,7 @@ class OfferingValidator(CatalogValidator):
     def _set_asset_public_status(self, asset, is_open):
         if is_open and len(asset.bundled_assets) > 0:
             # If the asset is single set the is_public flag
-            raise ValueError('Product bundles cannot be published in open offerings. Create an offering bundle instead')
+            raise ValueError("Product bundles cannot be published in open offerings. Create an offering bundle instead")
 
         asset.is_public = is_open
         asset.save()
@@ -73,52 +72,58 @@ class OfferingValidator(CatalogValidator):
         is_open = False
 
         # Validate offering pricing fields
-        if 'productOfferingPrice' in product_offering:
-
+        if "productOfferingPrice" in product_offering:
             names = []
-            for price_model in product_offering['productOfferingPrice']:
+            for price_model in product_offering["productOfferingPrice"]:
+                if "name" not in price_model:
+                    raise ValueError("Missing required field name in productOfferingPrice")
 
-                if 'name' not in price_model:
-                    raise ValueError('Missing required field name in productOfferingPrice')
+                if price_model["name"].lower() in names:
+                    raise ValueError("Price plans names must be unique (" + price_model["name"] + ")")
 
-                if price_model['name'].lower() in names:
-                    raise ValueError('Price plans names must be unique (' + price_model['name'] + ')')
-
-                names.append(price_model['name'].lower())
+                names.append(price_model["name"].lower())
 
                 # Check if the offering is an open offering
-                if price_model['name'].lower() == 'open' and (len(price_model.keys()) == 1 or (len(price_model.keys()) == 2 and 'description' in price_model)):
+                if price_model["name"].lower() == "open" and (
+                    len(price_model.keys()) == 1 or (len(price_model.keys()) == 2 and "description" in price_model)
+                ):
                     is_open = True
                     continue
 
                 # Validate price unit
-                if 'priceType' not in price_model:
-                    raise ValueError('Missing required field priceType in productOfferingPrice')
+                if "priceType" not in price_model:
+                    raise ValueError("Missing required field priceType in productOfferingPrice")
 
-                if price_model['priceType'] != 'one time' and price_model['priceType'] != 'recurring' and price_model['priceType'] != 'usage':
-                    raise ValueError('Invalid priceType, it must be one time, recurring, or usage')
+                if (
+                    price_model["priceType"] != "one time"
+                    and price_model["priceType"] != "recurring"
+                    and price_model["priceType"] != "usage"
+                ):
+                    raise ValueError("Invalid priceType, it must be one time, recurring, or usage")
 
-                if price_model['priceType'] == 'recurring' and 'recurringChargePeriod' not in price_model:
-                    raise ValueError('Missing required field recurringChargePeriod for recurring priceType')
+                if price_model["priceType"] == "recurring" and "recurringChargePeriod" not in price_model:
+                    raise ValueError("Missing required field recurringChargePeriod for recurring priceType")
 
-                if price_model['priceType'] == 'recurring' and not ChargePeriod.contains(price_model['recurringChargePeriod']):
-                    raise ValueError('Unrecognized recurringChargePeriod: ' + price_model['recurringChargePeriod'])
+                if price_model["priceType"] == "recurring" and not ChargePeriod.contains(
+                    price_model["recurringChargePeriod"]
+                ):
+                    raise ValueError("Unrecognized recurringChargePeriod: " + price_model["recurringChargePeriod"])
 
                 # Validate currency
-                if 'price' not in price_model:
-                    raise ValueError('Missing required field price in productOfferingPrice')
+                if "price" not in price_model:
+                    raise ValueError("Missing required field price in productOfferingPrice")
 
-                if 'currencyCode' not in price_model['price']:
-                    raise ValueError('Missing required field currencyCode in price')
+                if "currencyCode" not in price_model["price"]:
+                    raise ValueError("Missing required field currencyCode in price")
 
-                if not CurrencyCode.contains(price_model['price']['currencyCode']):
-                    raise ValueError('Unrecognized currency: ' + price_model['price']['currencyCode'])
+                if not CurrencyCode.contains(price_model["price"]["currencyCode"]):
+                    raise ValueError("Unrecognized currency: " + price_model["price"]["currencyCode"])
 
-                if Decimal(price_model['price']['taxIncludedAmount']) <= Decimal("0"):
-                    raise ValueError('Invalid price, it must be greater than zero.')
+                if Decimal(price_model["price"]["taxIncludedAmount"]) <= Decimal("0"):
+                    raise ValueError("Invalid price, it must be greater than zero.")
 
             if is_open and len(names) > 1:
-                raise ValueError('Open offerings cannot include price plans')
+                raise ValueError("Open offerings cannot include price plans")
 
         return is_open
 
@@ -126,7 +131,7 @@ class OfferingValidator(CatalogValidator):
         r = requests.get(url)
 
         if r.status_code != 200:
-            raise ValueError('There has been a problem accessing the product spec included in the offering')
+            raise ValueError("There has been a problem accessing the product spec included in the offering")
 
         return r.json()
 
@@ -134,7 +139,7 @@ class OfferingValidator(CatalogValidator):
         asset = None
         # Check if the offering is a bundle
         if not len(bundled_offerings):
-            assets = Resource.objects.filter(product_id=product_offering['productSpecification']['id'])
+            assets = Resource.objects.filter(product_id=product_offering["productSpecification"]["id"])
 
             if len(assets):
                 asset = assets[0]
@@ -145,7 +150,9 @@ class OfferingValidator(CatalogValidator):
             digital = len([offering for offering in bundled_offerings if offering.is_digital])
 
             if digital > 0 and digital != len(bundled_offerings):
-                raise ValueError('Mixed bundle offerings are not allowed. All bundled offerings must be digital or physical')
+                raise ValueError(
+                    "Mixed bundle offerings are not allowed. All bundled offerings must be digital or physical"
+                )
 
             is_digital = digital > 0
 
@@ -156,11 +163,11 @@ class OfferingValidator(CatalogValidator):
 
         # Open offerings only can be digital
         if is_open and not is_digital:
-            raise ValueError('Non digital products cannot be open')
+            raise ValueError("Non digital products cannot be open")
 
         # If the offering is a bundle and is open all the bundled offerings must be open
         if is_open and len(bundled_offerings) != len([offer for offer in bundled_offerings if offer.is_open]):
-            raise ValueError('If a bundle is open all the bundled offerings must be open')
+            raise ValueError("If a bundle is open all the bundled offerings must be open")
 
         return asset, is_digital
 
@@ -169,39 +176,45 @@ class OfferingValidator(CatalogValidator):
 
         # Open products can only be included in a single offering
         offering_count = self._count_resource_offerings(asset)
-        if is_digital and ((is_open and offering_count > 0) or (not is_open and offering_count == 1 and asset.is_public)):
-            raise ValueError('Assets of open offerings cannot be monetized in other offerings')
+        if is_digital and (
+            (is_open and offering_count > 0) or (not is_open and offering_count == 1 and asset.is_public)
+        ):
+            raise ValueError("Assets of open offerings cannot be monetized in other offerings")
 
         # Check if the offering contains a description
-        description = ''
-        if 'description' in product_offering:
-            description = product_offering['description']
+        description = ""
+        if "description" in product_offering:
+            description = product_offering["description"]
 
         if asset is not None:
             self._set_asset_public_status(asset, is_open)
 
         Offering.objects.create(
             owner_organization=provider,
-            name=product_offering['name'],
+            name=product_offering["name"],
             description=description,
-            version=product_offering['version'],
+            version=product_offering["version"],
             is_digital=is_digital,
             asset=asset,
             is_open=is_open,
-            bundled_offerings=[offering.pk for offering in bundled_offerings]
+            bundled_offerings=[offering.pk for offering in bundled_offerings],
         )
 
     def attach_info(self, provider, product_offering):
         # Find the offering model to attach the info
         offerings = Offering.objects.filter(
-            off_id=None, owner_organization=provider, name=product_offering['name'], version=product_offering['version'])
+            off_id=None,
+            owner_organization=provider,
+            name=product_offering["name"],
+            version=product_offering["version"],
+        )
 
         if not len(offerings):
-            raise ValueError('The specified offering has not been registered')
+            raise ValueError("The specified offering has not been registered")
 
         offering = offerings[0]
-        offering.off_id = product_offering['id']
-        offering.href = product_offering['href']
+        offering.off_id = product_offering["id"]
+        offering.href = product_offering["href"]
         offering.save()
 
     def validate_creation(self, provider, product_offering):
@@ -217,7 +230,7 @@ class OfferingValidator(CatalogValidator):
 
         # Open products can only be included in a single offering
         if is_open and self._count_resource_offerings(asset) > 1:
-            raise ValueError('Assets of open offerings cannot be monetized in other offerings')
+            raise ValueError("Assets of open offerings cannot be monetized in other offerings")
 
         if asset is not None:
             self._set_asset_public_status(asset, is_open)

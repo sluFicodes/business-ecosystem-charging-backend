@@ -25,7 +25,6 @@ from wstore.models import ResourcePlugin
 
 
 class Command(BaseCommand):
-
     def handle(self, *args, **options):
         """
         List the existing plugins in the system
@@ -34,7 +33,7 @@ class Command(BaseCommand):
         try:
             plugins = ResourcePlugin.objects.all()
             for plugin in plugins:
-                self.stdout.write('Name: ' + plugin.name + ' id: ' + plugin.plugin_id + "\n")
+                self.stdout.write("Name: " + plugin.name + " id: " + plugin.plugin_id + "\n")
 
         except Exception as e:
             raise CommandError(str(e))

@@ -21,16 +21,20 @@
 
 
 import os
+from logging import getLogger
 
 from django.conf import settings
 
+logger = getLogger("wstore.default_logger")
+
 
 def downgrade_asset(asset):
+    logger.debug(f"Downgrading asset {asset}")
     prev_version = asset.old_versions.pop()
 
     # Check if a file has to be removed
-    if asset.resource_path != '':
-        file_path = settings.BASEDIR + '/' + asset.resource_path
+    if asset.resource_path != "":
+        file_path = settings.BASEDIR + "/" + asset.resource_path
 
         if os.path.exists(file_path):
             os.remove(file_path)
@@ -40,12 +44,14 @@ def downgrade_asset(asset):
     asset.download_link = prev_version.download_link
     asset.meta_info = prev_version.meta_info
     asset.content_type = prev_version.content_type
-    asset.state = 'attached'
+    asset.state = "attached"
     asset.save()
+
+    logger.debug(f"Downgraded asset {asset} OK")
 
 
 def downgrade_asset_pa(self):
-    if hasattr(self, '_to_downgrade') and self._to_downgrade is not None and len(self._to_downgrade.old_versions):
+    if hasattr(self, "_to_downgrade") and self._to_downgrade is not None and len(self._to_downgrade.old_versions):
         downgrade_asset(self._to_downgrade)
 
 
@@ -56,33 +62,32 @@ def rollback(post_action=None):
     :return:
     """
 
+    def _remove_file(file_):
+        os.remove(file_)
+
+    def _remove_model(model):
+        model.delete()
+
     def wrap(method):
-        def _remove_file(file_):
-            os.remove(file_)
-
-        def _remove_model(model):
-            model.delete()
-
         def wrapper(self, *args, **kwargs):
             # Inject rollback logger
-            self.rollback_logger = {
-                'files': [],
-                'models': []
-            }
+            self.rollback_logger = {"files": [], "models": []}
 
             try:
                 result = method(self, *args, **kwargs)
             except Exception as e:
-
                 # Remove created files
-                for file_ in self.rollback_logger['files']:
+                for file_ in self.rollback_logger["files"]:
+                    logger.debug(f"Rolling back file creation: {file_}")
                     _remove_file(file_)
 
                 # Remove created models
-                for model in self.rollback_logger['models']:
+                for model in self.rollback_logger["models"]:
+                    logger.debug(f"Rolling back model creation: {model}")
                     _remove_model(model)
 
                 if post_action is not None:
+                    logger.debug(f"Running post_action hook for rollback")
                     post_action(self)
 
                 raise e
@@ -90,4 +95,5 @@ def rollback(post_action=None):
             return result
 
         return wrapper
+
     return wrap

@@ -20,8 +20,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from djongo import models
 from django.contrib.auth.models import User
+from djongo import models
 
 from wstore.models import Organization, Resource
 from wstore.ordering.errors import OrderingError
@@ -38,11 +38,13 @@ class Offering(models.Model):
     is_digital = models.BooleanField(default=True)
     asset = models.ForeignKey(Resource, on_delete=models.DO_NOTHING, null=True, blank=True)
     is_open = models.BooleanField(default=False)
-    bundled_offerings = models.JSONField(default=[]) # List
+    bundled_offerings = models.JSONField(default=[])  # List
 
 
 class Charge(models.Model):
-    concept = models.CharField(max_length=100, primary_key=True)  # Workarround to prevent issues, not really a primary Key
+    concept = models.CharField(
+        max_length=100, primary_key=True
+    )  # Workarround to prevent issues, not really a primary Key
     date = models.DateTimeField()
     cost = models.CharField(max_length=100)
     duty_free = models.CharField(max_length=100)
@@ -57,14 +59,16 @@ class Charge(models.Model):
 
 
 class Contract(models.Model):
-    item_id = models.CharField(max_length=50, primary_key=True)  # Workarround to prevent issues, not really a primary Key
+    item_id = models.CharField(
+        max_length=50, primary_key=True
+    )  # Workarround to prevent issues, not really a primary Key
     product_id = models.CharField(max_length=50, blank=True, null=True)
 
     offering = models.CharField(max_length=50)  # Offering.pk as Foreing Key is not working for EmbeddedFields
-    #offering = models.ForeignKey(Offering, on_delete=models.DO_NOTHING)
+    # offering = models.ForeignKey(Offering, on_delete=models.DO_NOTHING)
 
     # Parsed version of the pricing model used to calculate charges
-    pricing_model = models.JSONField(default={}) # Dict
+    pricing_model = models.JSONField(default={})  # Dict
     # Date of the last charge to the customer
     last_charge = models.DateTimeField(blank=True, null=True)
     # List with the made charges
@@ -88,8 +92,10 @@ class Contract(models.Model):
 
 
 class Payment(models.Model):
-    concept = models.CharField(max_length=20, primary_key=True)  # Workarround to prevent issues, not really a primary Key
-    transactions = models.JSONField() # List
+    concept = models.CharField(
+        max_length=20, primary_key=True
+    )  # Workarround to prevent issues, not really a primary Key
+    transactions = models.JSONField()  # List
     free_contracts = models.ArrayField(model_container=Contract)
 
     class Meta:
@@ -106,10 +112,10 @@ class Order(models.Model):
     customer = models.ForeignKey(User, on_delete=models.DO_NOTHING)
     owner_organization = models.ForeignKey(Organization, on_delete=models.DO_NOTHING, null=True, blank=True)
     date = models.DateTimeField()
-    sales_ids = models.JSONField(default=[]) # List
+    sales_ids = models.JSONField(default=[])  # List
 
     state = models.CharField(max_length=50)
-    tax_address = models.JSONField(default={}) # Dict
+    tax_address = models.JSONField(default={})  # Dict
 
     # List of contracts attached to the current order
     contracts = models.ArrayField(model_container=Contract)
@@ -121,17 +127,17 @@ class Order(models.Model):
 
     def _build_contract(self, contract_info):
         return Contract(
-            item_id=contract_info['item_id'],
-            product_id=contract_info['product_id'],
-            offering=contract_info['offering'],
-            pricing_model=contract_info['pricing_model'],
-            last_charge=contract_info['last_charge'],
-            charges=contract_info['charges'],
-            correlation_number=contract_info['correlation_number'],
-            last_usage=contract_info['last_usage'],
-            revenue_class=contract_info['revenue_class'],
-            suspended=contract_info['suspended'],
-            terminated=contract_info['terminated']
+            item_id=contract_info["item_id"],
+            product_id=contract_info["product_id"],
+            offering=contract_info["offering"],
+            pricing_model=contract_info["pricing_model"],
+            last_charge=contract_info["last_charge"],
+            charges=contract_info["charges"],
+            correlation_number=contract_info["correlation_number"],
+            last_usage=contract_info["last_usage"],
+            revenue_class=contract_info["revenue_class"],
+            suspended=contract_info["suspended"],
+            terminated=contract_info["terminated"],
         )
 
     def get_contracts(self):
@@ -140,24 +146,24 @@ class Order(models.Model):
     def get_item_contract(self, item_id):
         # Search related contract
         for c in self.contracts:
-            if c['item_id'] == item_id:
+            if c["item_id"] == item_id:
                 contract = c
                 break
         else:
-            raise OrderingError('Invalid item id')
+            raise OrderingError("Invalid item id")
 
         return self._build_contract(contract)
 
     def get_product_contract(self, product_id):
         # Search related contract
         for c in self.contracts:
-            if c['product_id'] == product_id:
+            if c["product_id"] == product_id:
                 contract = c
                 break
         else:
-            raise OrderingError('Invalid product id')
+            raise OrderingError("Invalid product id")
 
         return self._build_contract(contract)
 
     class Meta:
-        app_label = 'wstore'
+        app_label = "wstore"

@@ -24,7 +24,7 @@ class OrderingError(Exception):
         self.value = msg
 
     def __str__(self):
-        return 'OrderingError: ' + self.value
+        return "OrderingError: " + self.value
 
 
 class PaymentError(Exception):
@@ -32,7 +32,7 @@ class PaymentError(Exception):
         self.value = msg
 
     def __str__(self):
-        return 'PaymentError: ' + self.value
+        return "PaymentError: " + self.value
 
 
 class PayoutError(Exception):
@@ -41,4 +41,4 @@ class PayoutError(Exception):
         self.value = msg
 
     def __str__(self):
-        return 'PayoutError: ' + self.value
+        return "PayoutError: " + self.value

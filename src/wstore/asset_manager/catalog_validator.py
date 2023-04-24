@@ -23,22 +23,21 @@ from wstore.asset_manager.errors import ProductError
 
 
 class CatalogValidator:
-
     def __init__(self):
         self._has_terms = False
 
     def _get_characteristic_value(self, characteristic):
-        if len(characteristic['productSpecCharacteristicValue']) > 1:
-            raise ProductError('The characteristic ' + characteristic['name'] + ' must not contain multiple values')
+        if len(characteristic["productSpecCharacteristicValue"]) > 1:
+            raise ProductError(f"The characteristic {characteristic['name']} must not contain multiple values")
 
-        return characteristic['productSpecCharacteristicValue'][0]['value']
+        return characteristic["productSpecCharacteristicValue"][0]["value"]
 
     def parse_characteristics(self, product_spec):
         expected_chars = {
-            'asset type': [],
-            'media type': [],
-            'location': [],
-            'asset': []
+            "asset type": [],
+            "media type": [],
+            "location": [],
+            "asset": [],
         }
 
         asset_type = None
@@ -46,38 +45,40 @@ class CatalogValidator:
         location = None
         asset_id = None
 
-        if 'productSpecCharacteristic' in product_spec:
+        if "productSpecCharacteristic" in product_spec:
             terms = []
 
             # Extract the needed characteristics for processing digital assets
             is_digital = False
-            for char in product_spec['productSpecCharacteristic']:
-                if char['name'].lower() in expected_chars:
+            for char in product_spec["productSpecCharacteristic"]:
+                if char["name"].lower() in expected_chars:
                     is_digital = True
-                    expected_chars[char['name'].lower()].append(self._get_characteristic_value(char))
+                    expected_chars[char["name"].lower()].append(self._get_characteristic_value(char))
 
-                if char['name'].lower() == 'license':
+                if char["name"].lower() == "license":
                     terms.append(self._get_characteristic_value(char))
 
             for char_name in expected_chars:
                 # Validate the existence of the characteristic
                 if not len(expected_chars[char_name]) and is_digital:
-                    raise ProductError('Digital product specifications must contain a ' + char_name + ' characteristic')
+                    raise ProductError("Digital product specifications must contain a " + char_name + " characteristic")
 
                 # Validate that only a value has been provided
                 if len(expected_chars[char_name]) > 1:
-                    raise ProductError('The product specification must not contain more than one ' + char_name + ' characteristic')
+                    raise ProductError(
+                        "The product specification must not contain more than one " + char_name + " characteristic"
+                    )
 
             if len(terms) > 1:
-                raise ProductError('The product specification must not contain more than one license characteristic')
+                raise ProductError("The product specification must not contain more than one license characteristic")
 
             self._has_terms = len(terms) > 0
 
             if is_digital:
-                asset_type = expected_chars['asset type'][0]
-                media_type = expected_chars['media type'][0]
-                location = expected_chars['location'][0]
-                asset_id = expected_chars['asset'][0]
+                asset_type = expected_chars["asset type"][0]
+                media_type = expected_chars["media type"][0]
+                location = expected_chars["location"][0]
+                asset_id = expected_chars["asset"][0]
 
         return asset_type, media_type, location, asset_id
 
@@ -107,19 +108,19 @@ class CatalogValidator:
 
     def validate(self, action, provider, catalog_element):
         validators = {
-            'create': self.validate_creation,
-            'attach': self.attach_info,
-            'rollback_create': self.rollback_create,
-            'update': self.validate_update,
-            'upgrade': self.validate_upgrade,
-            'rollback_upgrade': self.rollback_upgrade,
-            'attach_upgrade': self.attach_upgrade,
-            'delete': self.validate_deletion
+            "create": self.validate_creation,
+            "attach": self.attach_info,
+            "rollback_create": self.rollback_create,
+            "update": self.validate_update,
+            "upgrade": self.validate_upgrade,
+            "rollback_upgrade": self.rollback_upgrade,
+            "attach_upgrade": self.attach_upgrade,
+            "delete": self.validate_deletion,
         }
 
         if action not in validators:
-            msg = 'The provided action (' + action
-            msg += ') is not valid. Allowed values are create, attach, update, upgrade, and delete'
+            msg = "The provided action (" + action
+            msg += ") is not valid. Allowed values are create, attach, update, upgrade, and delete"
             raise ValueError(msg)
 
         validators[action](provider, catalog_element)

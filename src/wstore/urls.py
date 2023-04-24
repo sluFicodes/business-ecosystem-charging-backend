@@ -24,33 +24,95 @@ from django.conf.urls import url
 from wstore.admin import views as admin_views
 from wstore.asset_manager import views as offering_views
 from wstore.asset_manager.resource_plugins import views as plugins_views
-from wstore.ordering import views as ordering_views
 from wstore.charging_engine import views as charging_views
 from wstore.charging_engine.accounting import views as accounting_views
+from wstore.ordering import views as ordering_views
 from wstore.reports import views as reports_views
 
 urlpatterns = [
     # API
-    url(r'^charging/api/assetManagement/assets/?$', offering_views.AssetCollection(permitted_methods=('GET',))),
-    url(r'^charging/api/assetManagement/assets/uploadJob/?$', offering_views.UploadCollection(permitted_methods=('POST',))),
-    url(r'^charging/api/assetManagement/assets/validateJob/?$', offering_views.ValidateCollection(permitted_methods=('POST',))),
-    url(r'^charging/api/assetManagement/assets/offeringJob/?$', offering_views.ValidateOfferingCollection(permitted_methods=('POST',))),
-    url(r'^charging/api/assetManagement/assets/(?P<asset_id>\w+)/?$', offering_views.AssetEntry(permitted_methods=('GET',))),
-    url(r'^charging/api/assetManagement/assets/(?P<asset_id>\w+)/upgradeJob/?$', offering_views.UpgradeCollection(permitted_methods=('POST',))),
-    url(r'^charging/api/assetManagement/assets/product/(?P<product_id>\w+)/?$', offering_views.AssetEntryFromProduct(permitted_methods=('GET',))),
-    url(r'^charging/api/assetManagement/assetTypes/?$', plugins_views.PluginCollection(permitted_methods=('GET', ))),
-    url(r'^charging/api/assetManagement/assetTypes/(?P<plugin_id>[\w -]+)/?$', plugins_views.PluginEntry(permitted_methods=('GET',))),
-    url(r'^charging/api/assetManagement/chargePeriods/?$', admin_views.ChargePeriodCollection(permitted_methods=('GET',))),
-    url(r'^charging/api/assetManagement/currencyCodes/?$', admin_views.CurrencyCodeCollection(permitted_methods=('GET',))),
-
-    url(r'^charging/api/orderManagement/orders/?$', ordering_views.OrderingCollection(permitted_methods=('POST',))),
-    url(r'^charging/api/orderManagement/orders/accept/?$', charging_views.PayPalConfirmation(permitted_methods=('POST',))),
-    url(r'^charging/api/orderManagement/orders/cancel/?$', charging_views.PayPalCancellation(permitted_methods=('POST',))),
-    url(r'^charging/api/orderManagement/orders/refund/?$', charging_views.PayPalRefund(permitted_methods=('POST',))),
-    url(r'^charging/api/orderManagement/products/?$', ordering_views.InventoryCollection(permitted_methods=('POST',))),
-    url(r'^charging/api/orderManagement/products/renewJob/?$', ordering_views.RenovationCollection(permitted_methods=('POST',))),
-    url(r'^charging/api/orderManagement/products/unsubscribeJob/?$', ordering_views.UnsubscriptionCollection(permitted_methods=('POST',))),
-    url(r'^charging/api/orderManagement/accounting/?$', accounting_views.ServiceRecordCollection(permitted_methods=('POST',))),
-    url(r'^charging/api/orderManagement/accounting/refresh/?$', accounting_views.SDRRefreshCollection(permitted_methods=('POST',))),
-    url(r'^charging/api/reportManagement/created/?$', reports_views.ReportReceiver(permitted_methods=('POST',)))
+    url(
+        r"^charging/api/assetManagement/assets/?$",
+        offering_views.AssetCollection(permitted_methods=("GET",)),
+    ),
+    url(
+        r"^charging/api/assetManagement/assets/uploadJob/?$",
+        offering_views.UploadCollection(permitted_methods=("POST",)),
+    ),
+    url(
+        r"^charging/api/assetManagement/assets/validateJob/?$",
+        offering_views.ValidateCollection(permitted_methods=("POST",)),
+    ),
+    url(
+        r"^charging/api/assetManagement/assets/offeringJob/?$",
+        offering_views.ValidateOfferingCollection(permitted_methods=("POST",)),
+    ),
+    url(
+        r"^charging/api/assetManagement/assets/(?P<asset_id>\w+)/?$",
+        offering_views.AssetEntry(permitted_methods=("GET",)),
+    ),
+    url(
+        r"^charging/api/assetManagement/assets/(?P<asset_id>\w+)/upgradeJob/?$",
+        offering_views.UpgradeCollection(permitted_methods=("POST",)),
+    ),
+    url(
+        r"^charging/api/assetManagement/assets/product/(?P<product_id>\w+)/?$",
+        offering_views.AssetEntryFromProduct(permitted_methods=("GET",)),
+    ),
+    url(
+        r"^charging/api/assetManagement/assetTypes/?$",
+        plugins_views.PluginCollection(permitted_methods=("GET",)),
+    ),
+    url(
+        r"^charging/api/assetManagement/assetTypes/(?P<plugin_id>[\w -]+)/?$",
+        plugins_views.PluginEntry(permitted_methods=("GET",)),
+    ),
+    url(
+        r"^charging/api/assetManagement/chargePeriods/?$",
+        admin_views.ChargePeriodCollection(permitted_methods=("GET",)),
+    ),
+    url(
+        r"^charging/api/assetManagement/currencyCodes/?$",
+        admin_views.CurrencyCodeCollection(permitted_methods=("GET",)),
+    ),
+    url(
+        r"^charging/api/orderManagement/orders/?$",
+        ordering_views.OrderingCollection(permitted_methods=("POST",)),
+    ),
+    url(
+        r"^charging/api/orderManagement/orders/accept/?$",
+        charging_views.PayPalConfirmation(permitted_methods=("POST",)),
+    ),
+    url(
+        r"^charging/api/orderManagement/orders/cancel/?$",
+        charging_views.PayPalCancellation(permitted_methods=("POST",)),
+    ),
+    url(
+        r"^charging/api/orderManagement/orders/refund/?$",
+        charging_views.PayPalRefund(permitted_methods=("POST",)),
+    ),
+    url(
+        r"^charging/api/orderManagement/products/?$",
+        ordering_views.InventoryCollection(permitted_methods=("POST",)),
+    ),
+    url(
+        r"^charging/api/orderManagement/products/renewJob/?$",
+        ordering_views.RenovationCollection(permitted_methods=("POST",)),
+    ),
+    url(
+        r"^charging/api/orderManagement/products/unsubscribeJob/?$",
+        ordering_views.UnsubscriptionCollection(permitted_methods=("POST",)),
+    ),
+    url(
+        r"^charging/api/orderManagement/accounting/?$",
+        accounting_views.ServiceRecordCollection(permitted_methods=("POST",)),
+    ),
+    url(
+        r"^charging/api/orderManagement/accounting/refresh/?$",
+        accounting_views.SDRRefreshCollection(permitted_methods=("POST",)),
+    ),
+    url(
+        r"^charging/api/reportManagement/created/?$",
+        reports_views.ReportReceiver(permitted_methods=("POST",)),
+    ),
 ]

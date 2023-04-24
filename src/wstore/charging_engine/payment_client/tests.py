@@ -20,29 +20,29 @@
 
 
 import mock
-from mock import MagicMock
-
 from django.test import TestCase
+from mock import MagicMock
 
 from wstore.charging_engine.payment_client import paypal_client
 
 
 class PaypalTestCase(TestCase):
-
-    tags = ('payment-client', 'payment-client-paypal')
+    tags = ("payment-client", "payment-client-paypal")
 
     def setUp(self):
         paypal_client.paypalrestsdk = MagicMock()
 
     def test_paypal(self):
         paypal = paypal_client.PayPalClient(None)
-        paypal.batch_payout(['item1', 'item2'])
-        paypal_client.paypalrestsdk.Payout.assert_called_once_with({
-            'sender_batch_header': {
-                'sender_batch_id': mock.ANY,
-                'email_subject': "You have a payment"
-            },
-            'items': ['item1', 'item2']
-        })
+        paypal.batch_payout(["item1", "item2"])
+        paypal_client.paypalrestsdk.Payout.assert_called_once_with(
+            {
+                "sender_batch_header": {
+                    "sender_batch_id": mock.ANY,
+                    "email_subject": "You have a payment",
+                },
+                "items": ["item1", "item2"],
+            }
+        )
 
         paypal_client.paypalrestsdk.Payout().create.assert_called_once_with()

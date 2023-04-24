@@ -42,20 +42,20 @@ def get_xml_response(request, mimetype, status_code, value):
 def get_json_response(request, mimetype, status_code, message):
     response = {}
     if status_code >= 400:
-        response['result'] = 'error'
-        response['error'] = message
+        response["result"] = "error"
+        response["error"] = message
     else:
-        response['result'] = 'correct'
-        response['message'] = message
+        response["result"] = "correct"
+        response["message"] = message
 
     return json.dumps(response)
 
 
 def get_unicode_response(request, mimetype, status_code, message):
-    response = ''
+    response = ""
     if status_code >= 400:
-        response += 'Error: ' + message
+        response += "Error: " + message
     else:
-        response += 'Correct: ' + message
+        response += "Correct: " + message
 
     return str(response)

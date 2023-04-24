@@ -20,62 +20,63 @@
 
 
 from decimal import Decimal
-from requests import Session, Request
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urljoin, urlparse
 
 from django.conf import settings
+from requests import Request, Session
 
 
 class BillingClient:
-
     def __init__(self):
         self._billing_api = settings.BILLING
-        if not self._billing_api.endswith('/'):
-            self._billing_api += '/'
+        if not self._billing_api.endswith("/"):
+            self._billing_api += "/"
 
     def create_charge(self, charge_model, product_id, start_date=None, end_date=None):
-
-        str_time = charge_model['date'].isoformat() + 'Z'
-        tax_rate = ((Decimal(charge_model['cost']) - Decimal(charge_model['duty_free'])) * Decimal('100') / Decimal(charge_model['cost']))
+        str_time = charge_model["date"].isoformat() + "Z"
+        tax_rate = (
+            (Decimal(charge_model["cost"]) - Decimal(charge_model["duty_free"]))
+            * Decimal("100")
+            / Decimal(charge_model["cost"])
+        )
 
         domain = settings.SITE
-        invoice_url = urljoin(domain, charge_model['invoice'])
-        description = charge_model['concept'] + ' charge of ' + charge_model['cost'] + ' ' + charge_model['currency'] + ' ' + invoice_url
+        invoice_url = urljoin(domain, charge_model["invoice"])
+        description = (
+            charge_model["concept"]
+            + " charge of "
+            + charge_model["cost"]
+            + " "
+            + charge_model["currency"]
+            + " "
+            + invoice_url
+        )
 
         charge = {
-            'date': str_time,
-            'description': description,
-            'type': charge_model['concept'],
-            'currencyCode': charge_model['currency'],
-            'taxIncludedAmount': charge_model['cost'],
-            'taxExcludedAmount': charge_model['duty_free'],
-            'appliedCustomerBillingTaxRate': [{
-                'amount': str(tax_rate),
-                'taxCategory': 'VAT'
-            }],
-            'serviceId': [{
-                'id': product_id,
-                'type': 'Inventory product'
-            }]
+            "date": str_time,
+            "description": description,
+            "type": charge_model["concept"],
+            "currencyCode": charge_model["currency"],
+            "taxIncludedAmount": charge_model["cost"],
+            "taxExcludedAmount": charge_model["duty_free"],
+            "appliedCustomerBillingTaxRate": [{"amount": str(tax_rate), "taxCategory": "VAT"}],
+            "serviceId": [{"id": product_id, "type": "Inventory product"}],
         }
 
         if end_date is not None or start_date is not None:
-            start_period = start_date.isoformat() + 'Z' if start_date is not None else str_time
-            end_period = end_date.isoformat() + 'Z' if end_date is not None else str_time
+            start_period = start_date.isoformat() + "Z" if start_date is not None else str_time
+            end_period = end_date.isoformat() + "Z" if end_date is not None else str_time
 
-            charge['period'] = [{
-                'startPeriod': start_period,
-                'endPeriod': end_period
-            }]
+            charge["period"] = [{"startPeriod": start_period, "endPeriod": end_period}]
 
-        url = self._billing_api + 'api/billingManagement/v2/appliedCustomerBillingCharge'
-        req = Request('POST', url, json=charge)
+        url = self._billing_api + "api/billingManagement/v2/appliedCustomerBillingCharge"
+        req = Request("POST", url, json=charge)
 
         session = Session()
         prepped = session.prepare_request(req)
 
         # Override host header to avoid inconsistent hrefs in the API
-        prepped.headers['Host'] = urlparse(domain).netloc
+        prepped.headers["Host"] = urlparse(domain).netloc
 
         resp = session.send(prepped)
         resp.raise_for_status()

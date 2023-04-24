@@ -26,9 +26,8 @@ from wstore.asset_manager.resource_plugins.plugin_loader import PluginLoader
 
 
 class Command(BaseCommand):
-
     def add_arguments(self, parser):
-        parser.add_argument('args', nargs='*')
+        parser.add_argument("args", nargs="*")
 
     def handle(self, *args, **options):
         """

@@ -18,9 +18,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+
 class ProductError(Exception):
     def __init__(self, msg):
         self.value = msg
 
     def __str__(self):
-        return 'ProductError: ' + self.value
+        return "ProductError: " + self.value

@@ -20,7 +20,6 @@
 
 
 class ConflictError(Exception):
-
     def __init__(self, msg):
         self.value = msg
 

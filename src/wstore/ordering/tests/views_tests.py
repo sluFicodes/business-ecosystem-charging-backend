@@ -22,10 +22,10 @@
 
 import json
 from datetime import datetime
-from mock import MagicMock, call
-from parameterized import parameterized
 
 from django.test import TestCase
+from mock import MagicMock, call
+from parameterized import parameterized
 
 from wstore.ordering import views
 from wstore.ordering.errors import OrderingError
@@ -34,7 +34,7 @@ from wstore.ordering.errors import OrderingError
 def api_call(self, collection, data, side_effect, extra_headers=[]):
     # Create request
     self.request = MagicMock()
-    self.request.META.get.side_effect = 4 * ['application/json'] + extra_headers
+    self.request.META.get.side_effect = 4 * ["application/json"] + extra_headers
     self.request.user.is_anonymous = False
 
     if isinstance(data, dict):
@@ -52,54 +52,82 @@ def api_call(self, collection, data, side_effect, extra_headers=[]):
     return response, json.loads(response.content)
 
 
-CORRECT_RESP = {
-    'result': 'correct',
-    'message': 'OK'
-}
+CORRECT_RESP = {"result": "correct", "message": "OK"}
 
 
 class OrderingCollectionTestCase(TestCase):
-
-    tags = ('ordering', 'ordering-view')
+    tags = ("ordering", "ordering-view")
 
     def _missing_billing(self):
         self.request.user.userprofile.current_organization.tax_address = {}
 
     def _ordering_error(self):
-        views.OrderingManager().process_order.side_effect = OrderingError('order error')
+        views.OrderingManager().process_order.side_effect = OrderingError("order error")
 
     def _exception(self):
-        views.OrderingManager().process_order.side_effect = Exception('Unexpected error')
+        views.OrderingManager().process_order.side_effect = Exception("Unexpected error")
 
-    @parameterized.expand([
-        ('basic', {
-            'id': 1,
-            'orderItem': [{
-                'id': '2'
-            }, {
-                'id': '3'
-            }]
-        }, None, 200, CORRECT_RESP),
-        ('redirection', {
-            'id': 1
-        }, 'http://redirection.com/', 200, {
-            'redirectUrl': 'http://redirection.com/'
-        }),
-        ('invalid_data', 'invalid', None, 400, {
-            'result': 'error',
-            'error': 'The provided data is not a valid JSON object'
-        }, False),
-        ('ordering_error', {}, None, 400, {
-            'result': 'error',
-            'error': 'order error'
-        }, True, True, _ordering_error),
-        ('exception', {}, None, 500, {
-            'result': 'error',
-            'error': 'Your order could not be processed'
-        }, True, True, _exception)
-    ])
-    def test_create_order(self, name, data, redirect_url, exp_code, exp_response, called=True, failed=False, side_effect=None, terms_accepted=False):
-
+    @parameterized.expand(
+        [
+            (
+                "basic",
+                {"id": 1, "orderItem": [{"id": "2"}, {"id": "3"}]},
+                None,
+                200,
+                CORRECT_RESP,
+            ),
+            (
+                "redirection",
+                {"id": 1},
+                "http://redirection.com/",
+                200,
+                {"redirectUrl": "http://redirection.com/"},
+            ),
+            (
+                "invalid_data",
+                "invalid",
+                None,
+                400,
+                {
+                    "result": "error",
+                    "error": "The provided data is not a valid JSON object",
+                },
+                False,
+            ),
+            (
+                "ordering_error",
+                {},
+                None,
+                400,
+                {"result": "error", "error": "order error"},
+                True,
+                True,
+                _ordering_error,
+            ),
+            (
+                "exception",
+                {},
+                None,
+                500,
+                {"result": "error", "error": "Your order could not be processed"},
+                True,
+                True,
+                _exception,
+            ),
+        ]
+    )
+    def test_create_order(
+        self,
+        name,
+        data,
+        redirect_url,
+        exp_code,
+        exp_response,
+        called=True,
+        failed=False,
+        side_effect=None,
+        terms_accepted=False,
+    ):
         # Create mocks
         views.OrderingManager = MagicMock()
         views.OrderingManager().process_order.return_value = redirect_url
@@ -110,9 +138,9 @@ class OrderingCollectionTestCase(TestCase):
         views.Order.objects.get.return_value = order
 
         c1 = MagicMock()
-        c1.offering = '61004aba5e05acc115f022f0'
+        c1.offering = "61004aba5e05acc115f022f0"
         c2 = MagicMock()
-        c2.offering = '61004aba5e05acc115f022f1'
+        c2.offering = "61004aba5e05acc115f022f1"
 
         off1 = MagicMock()
         off1.is_digital = True
@@ -121,10 +149,10 @@ class OrderingCollectionTestCase(TestCase):
         off2.is_digital = False
 
         def get_offering(pk):
-            if str(pk) == '61004aba5e05acc115f022f0':
+            if str(pk) == "61004aba5e05acc115f022f0":
                 return off1
 
-            if str(pk) == '61004aba5e05acc115f022f1':
+            if str(pk) == "61004aba5e05acc115f022f1":
                 return off2
 
         views.Offering = MagicMock()
@@ -132,65 +160,62 @@ class OrderingCollectionTestCase(TestCase):
 
         order.get_item_contract.side_effect = [c1, c2]
 
-        collection = views.OrderingCollection(permitted_methods=('POST',))
+        collection = views.OrderingCollection(permitted_methods=("POST",))
         response, body = api_call(self, collection, data, side_effect, ["%s" % terms_accepted])
 
         self.assertEquals(exp_code, response.status_code)
         self.assertEquals(exp_response, body)
 
         if called:
-            views.OrderingManager().process_order.assert_called_once_with(self.request.user, data, terms_accepted=terms_accepted)
+            views.OrderingManager().process_order.assert_called_once_with(
+                self.request.user, data, terms_accepted=terms_accepted
+            )
 
             if redirect_url is None and not failed:
-                self.assertEquals([
-                    call(data, 'InProgress'),
-                ], views.OrderingClient().update_state.call_args_list)
+                self.assertEquals(
+                    [
+                        call(data, "InProgress"),
+                    ],
+                    views.OrderingClient().update_state.call_args_list,
+                )
 
-                self.assertEquals([
-                    call(data, 'Completed', [{'id': '2'}])
-                ], views.OrderingClient().update_items_state.call_args_list)
+                self.assertEquals(
+                    [call(data, "Completed", [{"id": "2"}])],
+                    views.OrderingClient().update_items_state.call_args_list,
+                )
 
         if failed:
-            self.assertEquals([call(data, 'InProgress')], views.OrderingClient().update_state.call_args_list)
-            self.assertEquals([call(data, 'Failed')], views.OrderingClient().update_items_state.call_args_list)
+            self.assertEquals(
+                [call(data, "InProgress")],
+                views.OrderingClient().update_state.call_args_list,
+            )
+            self.assertEquals(
+                [call(data, "Failed")],
+                views.OrderingClient().update_items_state.call_args_list,
+            )
 
 
 BASIC_PRODUCT_EVENT = {
-    'eventType': 'ProductCreationNotification',
-    'event': {
-        'product': {
-            'id': 1,
-            'name': 'oid=23',
-            'productOffering': {
-                'id': 10
-            }
-        }
-    }
+    "eventType": "ProductCreationNotification",
+    "event": {"product": {"id": 1, "name": "oid=23", "productOffering": {"id": 10}}},
 }
 
 
 class InventoryCollectionTestCase(TestCase):
-
-    tags = ('inventory', 'inventory-view')
+    tags = ("inventory", "inventory-view")
 
     _ren_date = datetime(2016, 6, 1)
 
     def _initial_charge(self):
         self.contract.charges = [MagicMock()]
-        self.contract.pricing_model = {
-            'single_payment': []
-        }
+        self.contract.pricing_model = {"single_payment": []}
 
     def _subscription_charge(self):
         self.contract.charges = [MagicMock()]
-        self.contract.pricing_model = {
-            'subscription': [{
-                'renovation_date': self._ren_date
-            }]
-        }
+        self.contract.pricing_model = {"subscription": [{"renovation_date": self._ren_date}]}
 
     def _missing_contract(self):
-        self.contract.offering= '61004aba5e05acc115f022f0'
+        self.contract.offering = "61004aba5e05acc115f022f0"
         offering = MagicMock()
         offering.off_id = 26
 
@@ -198,42 +223,92 @@ class InventoryCollectionTestCase(TestCase):
         views.Offering.objects.get.return_value = offering
 
     def _activation_error(self):
-        views.on_product_acquired.side_effect = Exception('Error')
+        views.on_product_acquired.side_effect = Exception("Error")
 
-    @parameterized.expand([
-        ('basic', BASIC_PRODUCT_EVENT, 200, CORRECT_RESP),
-        ('initial_charge', BASIC_PRODUCT_EVENT, 200, CORRECT_RESP, True, _initial_charge, True),
-        ('subscription_charge', BASIC_PRODUCT_EVENT, 200, CORRECT_RESP, True, _subscription_charge, True, _ren_date),
-        ('no_creation', {
-            'eventType': 'ProductUpdateNotification'
-        }, 200, CORRECT_RESP, False),
-        ('invalid_data', 'invalid', 400, {
-            'result': 'error',
-            'error': 'The provided data is not a valid JSON object'
-        }, False),
-        ('missing_contract', BASIC_PRODUCT_EVENT, 404, {
-            'result': 'error',
-            'error': 'There is not a contract for the specified product'
-        }, False, _missing_contract),
-        ('activation_failure', BASIC_PRODUCT_EVENT, 400, {
-            'result': 'error',
-            'error': 'The asset has failed to be activated'
-        }, False, _activation_error)
-    ])
-    def test_activate_product(self, name, data, exp_code, exp_response, called=True, side_effect=None, billing_exp=False, exp_date=None):
+    @parameterized.expand(
+        [
+            ("basic", BASIC_PRODUCT_EVENT, 200, CORRECT_RESP),
+            (
+                "initial_charge",
+                BASIC_PRODUCT_EVENT,
+                200,
+                CORRECT_RESP,
+                True,
+                _initial_charge,
+                True,
+            ),
+            (
+                "subscription_charge",
+                BASIC_PRODUCT_EVENT,
+                200,
+                CORRECT_RESP,
+                True,
+                _subscription_charge,
+                True,
+                _ren_date,
+            ),
+            (
+                "no_creation",
+                {"eventType": "ProductUpdateNotification"},
+                200,
+                CORRECT_RESP,
+                False,
+            ),
+            (
+                "invalid_data",
+                "invalid",
+                400,
+                {
+                    "result": "error",
+                    "error": "The provided data is not a valid JSON object",
+                },
+                False,
+            ),
+            (
+                "missing_contract",
+                BASIC_PRODUCT_EVENT,
+                404,
+                {
+                    "result": "error",
+                    "error": "There is not a contract for the specified product",
+                },
+                False,
+                _missing_contract,
+            ),
+            (
+                "activation_failure",
+                BASIC_PRODUCT_EVENT,
+                400,
+                {"result": "error", "error": "The asset has failed to be activated"},
+                False,
+                _activation_error,
+            ),
+        ]
+    )
+    def test_activate_product(
+        self,
+        name,
+        data,
+        exp_code,
+        exp_response,
+        called=True,
+        side_effect=None,
+        billing_exp=False,
+        exp_date=None,
+    ):
         views.InventoryClient = MagicMock()
         views.on_product_acquired = MagicMock()
 
         views.BillingClient = MagicMock()
 
         self.contract = MagicMock()
-        self.contract.offering = '61004aba5e05acc115f022f0';
+        self.contract.offering = "61004aba5e05acc115f022f0"
 
         offering = MagicMock()
         offering.off_id = 10
 
         contract1 = MagicMock()
-        contract1.offering = '61004aba5e05acc115f022f1';
+        contract1.offering = "61004aba5e05acc115f022f1"
 
         offering2 = MagicMock()
         offering2.off_id = 20
@@ -247,14 +322,14 @@ class InventoryCollectionTestCase(TestCase):
         views.Order = MagicMock()
         views.Order.objects.get.return_value = order
 
-        collection = views.InventoryCollection(permitted_methods=('POST',))
+        collection = views.InventoryCollection(permitted_methods=("POST",))
         response, body = api_call(self, collection, data, side_effect)
 
         self.assertEquals(exp_code, response.status_code)
         self.assertEquals(exp_response, body)
 
         if called:
-            views.Order.objects.get.assert_called_once_with(order_id='23')
+            views.Order.objects.get.assert_called_once_with(order_id="23")
             views.on_product_acquired.assert_called_once_with(order, self.contract)
             views.InventoryClient.assert_called_once_with()
             views.InventoryClient().activate_product.assert_called_once_with(1)
@@ -263,105 +338,176 @@ class InventoryCollectionTestCase(TestCase):
         if billing_exp:
             views.BillingClient.assert_called_once_with()
             views.BillingClient().create_charge.assert_called_once_with(
-                self.contract.charges[0], data['event']['product']['id'], start_date=None, end_date=exp_date)
+                self.contract.charges[0],
+                data["event"]["product"]["id"],
+                start_date=None,
+                end_date=exp_date,
+            )
         else:
             self.assertEquals(0, views.BillingClient.call_count)
 
-RENOVATION_DATA = {
-    'name': 'oid=1',
-    'id': '24',
-    'priceType': 'recurring'
-}
+
+RENOVATION_DATA = {"name": "oid=1", "id": "24", "priceType": "recurring"}
 
 MISSING_FIELD_RESP = {
-    'result': 'error',
-    'error': 'Missing required field, must contain name, id  and priceType fields'
+    "result": "error",
+    "error": "Missing required field, must contain name, id  and priceType fields",
 }
 
 INV_OID_RESP = {
-    'result': 'error',
-    'error': 'The oid specified in the product name is not valid'
+    "result": "error",
+    "error": "The oid specified in the product name is not valid",
 }
 
 
 class RenovationCollectionTestCase(TestCase):
-
-    tags = ('renovation', )
+    tags = ("renovation",)
 
     def _order_not_found(self):
-        views.Order.objects.get.side_effect = Exception('Not found')
+        views.Order.objects.get.side_effect = Exception("Not found")
 
     def _product_not_found(self):
-        views.Order.objects.get().get_product_contract.side_effect = OrderingError('Not found')
+        views.Order.objects.get().get_product_contract.side_effect = OrderingError("Not found")
 
     def _charging_engine_value_error(self):
-        self.charging_inst.resolve_charging.side_effect = ValueError('Value error')
+        self.charging_inst.resolve_charging.side_effect = ValueError("Value error")
 
     def _charging_engine_ordering_error(self):
-        self.charging_inst.resolve_charging.side_effect = OrderingError('ordering error')
+        self.charging_inst.resolve_charging.side_effect = OrderingError("ordering error")
 
     def _charging_engine_exception(self):
-        self.charging_inst.resolve_charging.side_effect = Exception('Exception')
+        self.charging_inst.resolve_charging.side_effect = Exception("Exception")
 
-    @parameterized.expand([
-        ('subscription', RENOVATION_DATA, 'http://redirecturl.com', 'recurring', 200, CORRECT_RESP),
-        ('usage', {
-            'name': 'oid=1',
-            'id': '24',
-            'priceType': 'usage'
-        }, 'http://redirecturl.com', 'usage', 200, CORRECT_RESP),
-        ('free', {
-            'name': 'oid=1',
-            'id': '24',
-            'priceType': 'recurring'
-        }, None, 'recurring', 200, CORRECT_RESP),
-        ('invalid_data', 'invalid_data', None, None, 400, {
-            'result': 'error',
-            'error': 'The provided data is not a valid JSON object'
-        }),
-        ('missing_name', {
-            'id': '24',
-            'priceType': 'recurring'
-        }, None, None, 400, MISSING_FIELD_RESP),
-        ('missing_id', {
-            'name': 'oid=1',
-            'priceType': 'recurring'
-        }, None, None, 400, MISSING_FIELD_RESP),
-        ('missing_price_type', {
-            'name': 'oid=1',
-            'id': '24'
-        }, None, None, 400, MISSING_FIELD_RESP),
-        ('invalid_oid', {
-            'name': '1',
-            'id': '24',
-            'priceType': 'usage'
-        }, None, None, 404, INV_OID_RESP),
-        ('order_not_found', RENOVATION_DATA, None, None, 404, INV_OID_RESP, _order_not_found),
-        ('invalid_product_id', RENOVATION_DATA, None, None, 404, {
-            'result': 'error',
-            'error': 'The specified product id is not valid'
-        }, _product_not_found),
-        ('invalid_type', {
-            'name': 'oid=1',
-            'id': '24',
-            'priceType': 'one time'
-        }, None, None, 400, {
-            'result': 'error',
-            'error': 'Invalid priceType only recurring and usage types can be renovated'
-        }),
-        ('charging_error_value', RENOVATION_DATA, None, None, 400, {
-            'result': 'error',
-            'error': 'Value error'
-        }, _charging_engine_value_error),
-        ('charging_error_ordering', RENOVATION_DATA, None, None, 422, {
-            'result': 'error',
-            'error': 'OrderingError: ordering error'
-        }, _charging_engine_ordering_error),
-        ('charging_error_unexp', RENOVATION_DATA, None, None, 500, {
-            'result': 'error',
-            'error': 'An unexpected event prevented your payment to be created'
-        }, _charging_engine_exception)
-    ])
+    @parameterized.expand(
+        [
+            (
+                "subscription",
+                RENOVATION_DATA,
+                "http://redirecturl.com",
+                "recurring",
+                200,
+                CORRECT_RESP,
+            ),
+            (
+                "usage",
+                {"name": "oid=1", "id": "24", "priceType": "usage"},
+                "http://redirecturl.com",
+                "usage",
+                200,
+                CORRECT_RESP,
+            ),
+            (
+                "free",
+                {"name": "oid=1", "id": "24", "priceType": "recurring"},
+                None,
+                "recurring",
+                200,
+                CORRECT_RESP,
+            ),
+            (
+                "invalid_data",
+                "invalid_data",
+                None,
+                None,
+                400,
+                {
+                    "result": "error",
+                    "error": "The provided data is not a valid JSON object",
+                },
+            ),
+            (
+                "missing_name",
+                {"id": "24", "priceType": "recurring"},
+                None,
+                None,
+                400,
+                MISSING_FIELD_RESP,
+            ),
+            (
+                "missing_id",
+                {"name": "oid=1", "priceType": "recurring"},
+                None,
+                None,
+                400,
+                MISSING_FIELD_RESP,
+            ),
+            (
+                "missing_price_type",
+                {"name": "oid=1", "id": "24"},
+                None,
+                None,
+                400,
+                MISSING_FIELD_RESP,
+            ),
+            (
+                "invalid_oid",
+                {"name": "1", "id": "24", "priceType": "usage"},
+                None,
+                None,
+                404,
+                INV_OID_RESP,
+            ),
+            (
+                "order_not_found",
+                RENOVATION_DATA,
+                None,
+                None,
+                404,
+                INV_OID_RESP,
+                _order_not_found,
+            ),
+            (
+                "invalid_product_id",
+                RENOVATION_DATA,
+                None,
+                None,
+                404,
+                {"result": "error", "error": "The specified product id is not valid"},
+                _product_not_found,
+            ),
+            (
+                "invalid_type",
+                {"name": "oid=1", "id": "24", "priceType": "one time"},
+                None,
+                None,
+                400,
+                {
+                    "result": "error",
+                    "error": "Invalid priceType only recurring and usage types can be renovated",
+                },
+            ),
+            (
+                "charging_error_value",
+                RENOVATION_DATA,
+                None,
+                None,
+                400,
+                {"result": "error", "error": "Value error"},
+                _charging_engine_value_error,
+            ),
+            (
+                "charging_error_ordering",
+                RENOVATION_DATA,
+                None,
+                None,
+                422,
+                {"result": "error", "error": "OrderingError: ordering error"},
+                _charging_engine_ordering_error,
+            ),
+            (
+                "charging_error_unexp",
+                RENOVATION_DATA,
+                None,
+                None,
+                500,
+                {
+                    "result": "error",
+                    "error": "An unexpected event prevented your payment to be created",
+                },
+                _charging_engine_exception,
+            ),
+        ]
+    )
     def test_renovate_product(self, name, data, url, concept, exp_code, exp_response, side_effect=None):
         # Create mocks
         views.Order = MagicMock()
@@ -372,24 +518,28 @@ class RenovationCollectionTestCase(TestCase):
 
         views.on_usage_refreshed = MagicMock()
 
-        collection = views.RenovationCollection(permitted_methods=('POST', ))
+        collection = views.RenovationCollection(permitted_methods=("POST",))
         response, body = api_call(self, collection, data, side_effect)
 
         self.assertEquals(exp_code, response.status_code)
         self.assertEquals(exp_response, body)
 
         if url is not None:
-            self.assertEquals(url, response['X-Redirect-URL'])
+            self.assertEquals(url, response["X-Redirect-URL"])
         else:
-            self.assertFalse('X-Redirect-URL' in response)
+            self.assertFalse("X-Redirect-URL" in response)
 
         # Validate calls if needed
         if concept is not None:
-            views.Order.objects.get.assert_called_once_with(order_id='1')
-            views.Order.objects.get().get_product_contract.assert_called_once_with('24')
+            views.Order.objects.get.assert_called_once_with(order_id="1")
+            views.Order.objects.get().get_product_contract.assert_called_once_with("24")
             views.ChargingEngine.assert_called_once_with(views.Order.objects.get())
             self.charging_inst.resolve_charging.assert_called_once_with(
-                type_=concept, related_contracts=[views.Order.objects.get().get_product_contract()])
+                type_=concept,
+                related_contracts=[views.Order.objects.get().get_product_contract()],
+            )
 
             views.on_usage_refreshed.assert_called_once_with(
-                views.Order.objects.get(), views.Order.objects.get().get_product_contract())
+                views.Order.objects.get(),
+                views.Order.objects.get().get_product_contract(),
+            )

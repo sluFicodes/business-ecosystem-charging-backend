@@ -19,12 +19,15 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>..
 
 
-from wstore.store_commons.utils.version import is_valid_version
+from logging import getLogger
+
 from wstore.store_commons.utils.name import is_valid_id
+from wstore.store_commons.utils.version import is_valid_version
+
+logger = getLogger("wstore.default_logger")
 
 
-class PluginValidator():
-
+class PluginValidator:
     REQUIRED_FIELDS = [
         ("name", str),
         ("author", str),
@@ -33,21 +36,11 @@ class PluginValidator():
         ("version", str),
     ]
 
-    VALID_FORMATS = [
-        "FILE",
-        "URL"
-    ]
+    VALID_FORMATS = ["FILE", "URL"]
 
-    VALID_OVERRIDE_VALUES = [
-        "NAME",
-        "VERSION",
-        "OPEN"
-    ]
+    VALID_OVERRIDE_VALUES = ["NAME", "VERSION", "OPEN"]
 
-    PULL_ACCOUNTING_REQ_METHODS = [
-        "get_pending_accounting",
-        "get_usage_specs"
-    ]
+    PULL_ACCOUNTING_REQ_METHODS = ["get_pending_accounting", "get_usage_specs"]
 
     def _validate_plugin_form(self, form_info):
         """
@@ -55,79 +48,85 @@ class PluginValidator():
         included in the package.json file
         """
 
+        logger.debug("Validating plugin form")
+
         reason = None
 
         def _text_type(key, value, attrs):
-            reasonStr = ''
+            reasonStr = ""
             for attr in attrs:
                 if attr in value and not isinstance(value[attr], str):
-                    reasonStr += f'\nInvalid form field: {attr} field in {key} entry must be an string'
+                    reasonStr += f"\nInvalid form field: {attr} field in {key} entry must be an string"
 
             return reasonStr
 
         def _bool_type(key, value, attrs):
-            reasonStr = ''
+            reasonStr = ""
             for attr in attrs:
                 if attr in value and not isinstance(value[attr], bool):
-                    reasonStr += f'\nInvalid form field: {attr} field in {key} entry must be a boolean'
+                    reasonStr += f"\nInvalid form field: {attr} field in {key} entry must be a boolean"
 
             return reasonStr
 
         def _validate_text_type(key, value):
-            reasonStr = _text_type(key, value, ['default', 'placeholder', 'label'])
-            reasonStr += _bool_type(key, value, ['mandatory'])
+            reasonStr = _text_type(key, value, ["default", "placeholder", "label"])
+            reasonStr += _bool_type(key, value, ["mandatory"])
             return reasonStr if len(reasonStr) else None
 
         def _validate_checkbox_type(key, value):
-            reasonStr = _text_type(key, value, ['label'])
-            reasonStr += _bool_type(key, value, ['default', 'mandatory'])
+            reasonStr = _text_type(key, value, ["label"])
+            reasonStr += _bool_type(key, value, ["default", "mandatory"])
 
             return reasonStr if len(reasonStr) else None
 
         def _validate_select_type(key, value):
-            reasonStr = _text_type(key, value, ['default', 'label'])
-            reasonStr += _bool_type(key, value, ['mandatory'])
+            reasonStr = _text_type(key, value, ["default", "label"])
+            reasonStr += _bool_type(key, value, ["mandatory"])
 
-            if 'options' not in value or not isinstance(value['options'], list) or not len(value['options']):
-                reasonStr += '\nInvalid form field: Missing or invalid options in ' + k + ' field'
+            if "options" not in value or not isinstance(value["options"], list) or not len(value["options"]):
+                reasonStr += "\nInvalid form field: Missing or invalid options in " + k + " field"
             else:
-                for option in value['options']:
-                    if not isinstance(option, dict) or not 'text' in option or not 'value' in option:
-                        reasonStr += '\nInvalid form field: Invalid option in ' + k + ' field, wrong option type or missing field'
+                for option in value["options"]:
+                    if not isinstance(option, dict) or "text" not in option or "value" not in option:
+                        reasonStr += (
+                            "\nInvalid form field: Invalid option in "
+                            + k
+                            + " field, wrong option type or missing field"
+                        )
                     else:
-                        reasonStr += _text_type(key, option, ['text', 'value'])
+                        reasonStr += _text_type(key, option, ["text", "value"])
 
             return reasonStr if len(reasonStr) else None
 
         valid_types = {
-            'text': _validate_text_type,
-            'textarea': _validate_text_type,
-            'checkbox': _validate_checkbox_type,
-            'select': _validate_select_type
+            "text": _validate_text_type,
+            "textarea": _validate_text_type,
+            "checkbox": _validate_checkbox_type,
+            "select": _validate_select_type,
         }
 
         for k, v in form_info.items():
             # Validate component
             if not isinstance(v, dict):
-                reason = 'Invalid form field: ' + k + ' entry is not an object'
+                reason = "Invalid form field: " + k + " entry is not an object"
                 break
 
             # Validate type value
-            if 'type' not in v:
-                reason = 'Invalid form field: Missing type in ' + k + ' entry'
+            if "type" not in v:
+                reason = "Invalid form field: Missing type in " + k + " entry"
                 break
 
-            if not v['type'] in valid_types:
-                reason = 'Invalid form field: type ' + v['type'] + ' in ' + k + ' entry is not a valid type'
+            if not v["type"] in valid_types:
+                reason = "Invalid form field: type " + v["type"] + " in " + k + " entry is not a valid type"
                 break
 
             # Validate name format
             if not is_valid_id(k):
-                reason = 'Invalid form field: ' + k + ' is not a valid name'
+                reason = "Invalid form field: " + k + " is not a valid name"
                 break
 
             # Validate specific fields
-            reason = valid_types[v['type']](k, v)
+            reason = valid_types[v["type"]](k, v)
             if reason is not None:
                 break
 
@@ -140,7 +139,9 @@ class PluginValidator():
             if field[0] not in plugin_info:
                 errors.append(f"Missing required field: {field[0]}")
             elif not isinstance(plugin_info[field[0]], field[1]):
-                errors.append(f"Field `{field[0]}` should be {field[1].__name__} but found {type(plugin_info[field[0]]).__name__}.")
+                errors.append(
+                    f"Field `{field[0]}` should be {field[1].__name__} but found {type(plugin_info[field[0]]).__name__}."
+                )
         return errors
 
     def validate_plugin_info(self, plugin_info):
@@ -148,77 +149,100 @@ class PluginValidator():
         Validates the structure of the package.json file of a plugin
         """
 
+        logger.debug("Validating plugin info.")
+
         # Check plugin_info format
         if not isinstance(plugin_info, dict):
-            return ['Plugin info must be a dict instance']
+            logger.error("Plugin info is not a dictionary")
+            return ["Plugin info must be a dict instance"]
 
         errors = self._check_required_fields(plugin_info)
         if errors:
+            logger.error("Errors in required fields in plugin info")
             return errors
 
-        if not is_valid_id(plugin_info['name']):
-            errors.append('Invalid name format: invalid character')
+        if not is_valid_id(plugin_info["name"]):
+            logger.error("Invalid name format: invalid character")
+            errors.append("Invalid name format: invalid character")
 
         # Validate formats
-        if (any(pformat not in self.VALID_FORMATS for pformat in plugin_info['formats']) or
-                not (0 < len(plugin_info['formats']) <= len(self.VALID_FORMATS))):
-            errors.append(f'Format must contain at least one format of: {self.VALID_FORMATS}')
+        if any(pformat not in self.VALID_FORMATS for pformat in plugin_info["formats"]) or not (
+            0 < len(plugin_info["formats"]) <= len(self.VALID_FORMATS)
+        ):
+            logger.error("Invalid format")
+            errors.append(f"Format must contain at least one format of: {self.VALID_FORMATS}")
 
         # Validate overrides
-        if ('overrides' in plugin_info and not 
-                all(ovrd in self.VALID_OVERRIDE_VALUES for ovrd in plugin_info['overrides'])):
+        if "overrides" in plugin_info and not all(
+            ovrd in self.VALID_OVERRIDE_VALUES for ovrd in plugin_info["overrides"]
+        ):
+            logger.error("Invalid override values")
             errors.append(f"Override values should be one of: {self.VALID_OVERRIDE_VALUES}")
 
-        if 'media_types' in plugin_info and not isinstance(plugin_info['media_types'], list):
-            errors.append('Plugin `media_types` must be a list')
+        if "media_types" in plugin_info and not isinstance(plugin_info["media_types"], list):
+            logger.error("Invalid media types")
+            errors.append("Plugin `media_types` must be a list")
 
-        if not is_valid_version(plugin_info['version']):
-            errors.append('Invalid format in plugin version')
+        if not is_valid_version(plugin_info["version"]):
+            logger.error("Invalid plugin version")
+            errors.append("Invalid format in plugin version")
 
-        if 'pull_accounting' in plugin_info and not isinstance(plugin_info['pull_accounting'], bool):
-            errors.append('Plugin `pull_accounting` property must be a boolean')
+        if "pull_accounting" in plugin_info and not isinstance(plugin_info["pull_accounting"], bool):
+            logger.error("Invalid pull accounting")
+            errors.append("Plugin `pull_accounting` property must be a boolean")
 
-        if 'form' in plugin_info:
-            if not isinstance(plugin_info['form'], dict):
-                errors.append('Invalid format in `form` field, must be an object')
+        if "form" in plugin_info:
+            if not isinstance(plugin_info["form"], dict):
+                logger.error("Invalid form")
+                errors.append("Invalid format in `form` field, must be an object")
             else:
-                validate_form_error = self._validate_plugin_form(plugin_info['form'])
+                validate_form_error = self._validate_plugin_form(plugin_info["form"])
                 if validate_form_error:
+                    logger.error("Invalid form")
                     errors.append(validate_form_error)
 
-        if 'form_order' in plugin_info:
+        if "form_order" in plugin_info:
             can_check_keys = True
-            if not isinstance(plugin_info['form_order'], list):
-                errors.append('Invalid format in `form_order`')
+            if not isinstance(plugin_info["form_order"], list):
+                logger.error("Invalid form order")
+                errors.append("Invalid format in `form_order`")
                 can_check_keys = False
-            if 'form' not in plugin_info:
-                errors.append('`form_order` cannot be specified without a `form`')
+            if "form" not in plugin_info:
+                logger.error("Form order but no form")
+                errors.append("`form_order` cannot be specified without a `form`")
                 can_check_keys = False
             else:
-                matched_keys = [key for key in plugin_info['form'].keys() if key in plugin_info['form_order']]
-                if (can_check_keys and (
-                        len(plugin_info['form'].keys()) != len(plugin_info['form_order']) or
-                        len(matched_keys) != len(plugin_info['form_order']))):
-                    errors.append('If `form_order` is provided all form keys need to be provided')
+                matched_keys = [key for key in plugin_info["form"].keys() if key in plugin_info["form_order"]]
+                if can_check_keys and (
+                    len(plugin_info["form"].keys()) != len(plugin_info["form_order"])
+                    or len(matched_keys) != len(plugin_info["form_order"])
+                ):
+                    logger.error("Form incomplete")
+                    errors.append("If `form_order` is provided all form keys need to be provided")
 
         return errors
 
     def validate_pull_accounting(self, plugin_info, plugin_class):
-        pulls_accounting = plugin_info.get('pull_accounting', False)
+        pulls_accounting = plugin_info.get("pull_accounting", False)
         pull_accounting_implemented = {
             method: method in plugin_class.__dict__ for method in self.PULL_ACCOUNTING_REQ_METHODS
         }
 
         if pulls_accounting and sum(pull_accounting_implemented.values()) != 2:
+            logger.error("Pull accounting methods missing")
             return (
-                f"Pull accounting is true, but some neccesary methods are missing. Here are the neccesary methods: \n" +
-                "\n".join(f"{method}: {'IMPLEMENTED' if value else 'MISSING'}" 
-                          for method, value in pull_accounting_implemented.items())
+                "Pull accounting is true, but some neccesary methods are missing. Here are the neccesary methods: \n"
+                + "\n".join(
+                    f"{method}: {'IMPLEMENTED' if value else 'MISSING'}"
+                    for method, value in pull_accounting_implemented.items()
+                )
             )
         elif not pulls_accounting and sum(pull_accounting_implemented.values()) != 0:
+            logger.error("Pull accounting methods unnecessary")
             return (
-                f"Pull accounting is false, but some methods are implemented. Here are the neccesary methods: \n" +
-                "\n".join(f"{method}: {'IMPLEMENTED' if value else 'OK'}" 
-                          for method, value in pull_accounting_implemented.items())
-
+                "Pull accounting is false, but some methods are implemented. Here are the neccesary methods: \n"
+                + "\n".join(
+                    f"{method}: {'IMPLEMENTED' if value else 'OK'}"
+                    for method, value in pull_accounting_implemented.items()
+                )
             )

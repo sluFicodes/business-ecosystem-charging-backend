@@ -22,7 +22,6 @@
 
 from functools import reduce
 
-
 """
 MIME-Type Parser
 
@@ -54,17 +53,15 @@ def parse_mime_type(mime_type):
     into:
 
        ('application', 'xhtml', {'q', '0.5'})
-       """
-    parts = mime_type.split(';')
-    params = dict([tuple([s.strip() for s in param.split('=', 1)])
-            for param in parts[1:]
-                  ])
+    """
+    parts = mime_type.split(";")
+    params = dict([tuple([s.strip() for s in param.split("=", 1)]) for param in parts[1:]])
     full_type = parts[0].strip()
     # Java URLConnection class sends an Accept header that includes a
     # single '*'. Turn it into a legal wildcard.
-    if full_type == '*':
-        full_type = '*/*'
-    (type, subtype) = full_type.split('/')
+    if full_type == "*":
+        full_type = "*/*"
+    (type, subtype) = full_type.split("/")
 
     return (type.strip(), subtype.strip(), params)
 
@@ -84,10 +81,14 @@ def parse_media_range(range):
     necessary.
     """
     (type, subtype, params) = parse_mime_type(range)
-    if 'q' not in params or not params['q'] or \
-            not float(params['q']) or float(params['q']) > 1\
-            or float(params['q']) < 0:
-        params['q'] = '1'
+    if (
+        "q" not in params
+        or not params["q"]
+        or not float(params["q"])
+        or float(params["q"]) > 1
+        or float(params["q"]) < 0
+    ):
+        params["q"] = "1"
 
     return (type, subtype, params)
 
@@ -104,19 +105,21 @@ def fitness_and_quality_parsed(mime_type, parsed_ranges):
     best_fitness = -1
     best_fit_q = 0
     (target_type, target_subtype, target_params) = parse_media_range(mime_type)
-    for (type, subtype, params) in parsed_ranges:
-        type_match = (type == target_type or type == '*' or target_type == '*')
-        subtype_match = (subtype == target_subtype or subtype == '*' or target_subtype == '*')
+    for type, subtype, params in parsed_ranges:
+        type_match = type == target_type or type == "*" or target_type == "*"
+        subtype_match = subtype == target_subtype or subtype == "*" or target_subtype == "*"
         if type_match and subtype_match:
-            param_matches = reduce(lambda x, y: x + y, [1 for (key, value) in
-                    target_params.items() if key != 'q' and
-                    key in params and value == params[key]], 0)
+            param_matches = reduce(
+                lambda x, y: x + y,
+                [1 for (key, value) in target_params.items() if key != "q" and key in params and value == params[key]],
+                0,
+            )
             fitness = (type == target_type) and 100 or 0
             fitness += (subtype == target_subtype) and 10 or 0
             fitness += param_matches
             if fitness > best_fitness:
                 best_fitness = fitness
-                best_fit_q = params['q']
+                best_fit_q = params["q"]
 
     return best_fitness, float(best_fit_q)
 
@@ -128,7 +131,7 @@ def quality_parsed(mime_type, parsed_ranges):
     that have already been parsed by parse_media_range(). Returns the 'q'
     quality parameter of the best match, 0 if no match was found. This function
     bahaves the same as quality() except that 'parsed_ranges' must be a list of
-    parsed media ranges. """
+    parsed media ranges."""
 
     return fitness_and_quality_parsed(mime_type, parsed_ranges)[1]
 
@@ -144,7 +147,7 @@ def quality(mime_type, ranges):
     0.7
 
     """
-    parsed_ranges = [parse_media_range(r) for r in ranges.split(',')]
+    parsed_ranges = [parse_media_range(r) for r in ranges.split(",")]
 
     return quality_parsed(mime_type, parsed_ranges)
 
@@ -163,17 +166,16 @@ def best_match(supported, header):
                    'text/*;q=0.5,*/*; q=0.1')
     'text/xml'
     """
-    split_header = _filter_blank(header.split(','))
+    split_header = _filter_blank(header.split(","))
     parsed_header = [parse_media_range(r) for r in split_header]
     weighted_matches = []
     pos = 0
     for mime_type in supported:
-        weighted_matches.append((fitness_and_quality_parsed(mime_type,
-                                 parsed_header), pos, mime_type))
+        weighted_matches.append((fitness_and_quality_parsed(mime_type, parsed_header), pos, mime_type))
         pos += 1
     weighted_matches.sort()
 
-    return weighted_matches[-1][0][1] and weighted_matches[-1][2] or ''
+    return weighted_matches[-1][0][1] and weighted_matches[-1][2] or ""
 
 
 def _filter_blank(i):

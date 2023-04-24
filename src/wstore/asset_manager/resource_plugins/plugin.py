@@ -21,14 +21,17 @@
 
 
 from copy import deepcopy
+from logging import getLogger
+
 from requests.exceptions import HTTPError
 
 from wstore.asset_manager.resource_plugins.plugin_error import PluginError
 from wstore.charging_engine.accounting.usage_client import UsageClient
 
+logger = getLogger("wstore.default_logger")
+
 
 class Plugin(object):
-
     def __init__(self, plugin_model):
         self._model = plugin_model
 
@@ -67,25 +70,23 @@ class Plugin(object):
 
     def _get_usage_characteristic(self, name, description, type_):
         return {
-            'name': name,
-            'description': description,
-            'configurable': False,
-            'usageSpecCharacteristicValue': [{
-                'valueType': type_,
-                'default': False,
-                'value': ''
-            }]
+            "name": name,
+            "description": description,
+            "configurable": False,
+            "usageSpecCharacteristicValue": [{"valueType": type_, "default": False, "value": ""}],
         }
 
     def configure_usage_spec(self):
+        logger.debug(f"Configuring usage specifications for {self._model}")
+
         # Build common usage spec
         specification_template = {
-            'usageSpecCharacteristic': [
-                self._get_usage_characteristic('orderId', 'Order identifier', 'string'),
-                self._get_usage_characteristic('productId', 'Product identifier', 'string'),
-                self._get_usage_characteristic('correlationNumber', 'Accounting correlation number', 'number'),
-                self._get_usage_characteristic('unit', 'Accounting unit', 'string'),
-                self._get_usage_characteristic('value', 'Accounting value', 'number')
+            "usageSpecCharacteristic": [
+                self._get_usage_characteristic("orderId", "Order identifier", "string"),
+                self._get_usage_characteristic("productId", "Product identifier", "string"),
+                self._get_usage_characteristic("correlationNumber", "Accounting correlation number", "number"),
+                self._get_usage_characteristic("unit", "Accounting unit", "string"),
+                self._get_usage_characteristic("value", "Accounting value", "number"),
             ]
         }
 
@@ -94,30 +95,36 @@ class Plugin(object):
 
         # Create usage specifications for supported units
         for spec in usage_specs:
-            if 'name' not in spec or 'description' not in spec:
-                raise PluginError('Invalid product specification configuration, must include name and description')
+            if "name" not in spec or "description" not in spec:
+                logger.error("`name` or `description` not in spec")
+                raise PluginError("Invalid product specification configuration, must include name and description")
+
+            logger.debug(f"Creating usage specifications for {spec['name']}")
 
             # Check if the usage spec is already registered
-            if 'usage' not in self._model.options or spec['name'].lower() not in self._model.options['usage']:
+            if "usage" not in self._model.options or spec["name"].lower() not in self._model.options["usage"]:
                 usage_spec = deepcopy(specification_template)
-                usage_spec['name'] = spec['name']
-                usage_spec['description'] = spec['description']
+                usage_spec["name"] = spec["name"]
+                usage_spec["description"] = spec["description"]
                 created_spec = usage_client.create_usage_spec(usage_spec)
 
-                if 'usage' not in self._model.options:
-                    self._model.options['usage'] = {}
+                if "usage" not in self._model.options:
+                    self._model.options["usage"] = {}
 
                 # Save the spec href to be used in usage documents
-                self._model.options['usage'][spec['name'].lower()] = created_spec['href']
+                self._model.options["usage"][spec["name"].lower()] = created_spec["href"]
                 self._model.save()
+                logger.debug(f"Usage specifications created")
 
     def remove_usage_specs(self):
-        if 'usage' in self._model.options:
+        logger.debug(f"Removing usage specifications for {self._model}")
+
+        if "usage" in self._model.options:
             try:
                 usage_client = UsageClient()
 
-                for unit, href in self._model.options['usage'].items():
-                    spec_id = href.split('/')[-1]
+                for unit, href in self._model.options["usage"].items():
+                    spec_id = href.split("/")[-1]
                     usage_client.delete_usage_spec(spec_id)
             except HTTPError as e:
                 if e.response.status_code != 404:
@@ -127,60 +134,52 @@ class Plugin(object):
         return []
 
     def on_usage_refresh(self, asset, contract, order):
+        logger.debug(f"Running usage refresh hook for {self._model}")
+
         if not self._model.pull_accounting:
             return
 
         pending_accounting, last_usage = self.get_pending_accounting(asset, contract, order)
         usage_template = {
-            'type': 'event',
-            'status': 'Received',
-            'usageCharacteristic': [{
-                'name': 'orderId',
-                'value': order.order_id
-            }, {
-                'name': 'productId',
-                'value': contract.product_id
-            }],
-            'relatedParty': [{
-                'role': 'customer',
-                'id': order.owner_organization.name,
-                'href': order.owner_organization.get_party_url()
-            }]
+            "type": "event",
+            "status": "Received",
+            "usageCharacteristic": [
+                {"name": "orderId", "value": order.order_id},
+                {"name": "productId", "value": contract.product_id},
+            ],
+            "relatedParty": [
+                {
+                    "role": "customer",
+                    "id": order.owner_organization.name,
+                    "href": order.owner_organization.get_party_url(),
+                }
+            ],
         }
 
         usage_client = UsageClient()
         for usage_record in pending_accounting:
-            if 'date' not in usage_record or 'unit' not in usage_record or 'value' not in usage_record:
-                raise PluginError('Invalid usage record, it must include date, unit and value')
+            if "date" not in usage_record or "unit" not in usage_record or "value" not in usage_record:
+                raise PluginError("Invalid usage record, it must include date, unit and value")
 
             # Generate a TMForum usage document for each usage record
             usage = deepcopy(usage_template)
 
-            usage['date'] = usage_record['date']
+            usage["date"] = usage_record["date"]
 
-            usage['usageSpecification'] = {
-                'href': self._model.options['usage'][usage_record['unit']],
-                'name': usage_record['unit']
+            usage["usageSpecification"] = {
+                "href": self._model.options["usage"][usage_record["unit"]],
+                "name": usage_record["unit"],
             }
 
-            usage['usageCharacteristic'].append({
-                'name': 'unit',
-                'value': usage_record['unit']
-            })
+            usage["usageCharacteristic"].append({"name": "unit", "value": usage_record["unit"]})
 
-            usage['usageCharacteristic'].append({
-                'name': 'correlationNumber',
-                'value': contract.correlation_number
-            })
+            usage["usageCharacteristic"].append({"name": "correlationNumber", "value": contract.correlation_number})
 
-            usage['usageCharacteristic'].append({
-                'name': 'value',
-                'value': usage_record['value']
-            })
+            usage["usageCharacteristic"].append({"name": "value", "value": usage_record["value"]})
 
             usage_doc = usage_client.create_usage(usage)
             # All the  information is known so the document is directly created in Guided state
-            usage_client.update_usage_state(usage_doc['id'], 'Guided')
+            usage_client.update_usage_state(usage_doc["id"], "Guided")
 
             contract.correlation_number += 1
             order.save()

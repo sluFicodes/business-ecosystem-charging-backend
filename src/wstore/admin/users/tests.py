@@ -19,14 +19,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from django.core.exceptions import ImproperlyConfigured
+from importlib import reload
 
 from bson import ObjectId
-from importlib import reload
-from mock import MagicMock, mock_open, call
-from parameterized import parameterized
-
+from django.core.exceptions import ImproperlyConfigured
 from django.test import TestCase
+from mock import MagicMock, call, mock_open
+from parameterized import parameterized
 
 from wstore.admin.users import notification_handler
 
@@ -34,47 +33,47 @@ __test__ = False
 
 
 class NotificationsTestCase(TestCase):
-    tags = ('notifications', )
+    tags = ("notifications",)
 
     def setUp(self):
         # Mock email configuration
-        notification_handler.settings.WSTOREMAIL = 'wstore@email.com'
-        notification_handler.settings.WSTOREMAILPASS = 'passwd'
-        notification_handler.settings.WSTOREMAILUSER = 'wstore'
-        notification_handler.settings.SMTPSERVER = 'smtp.gmail.com'
+        notification_handler.settings.WSTOREMAIL = "wstore@email.com"
+        notification_handler.settings.WSTOREMAILPASS = "passwd"
+        notification_handler.settings.WSTOREMAILUSER = "wstore"
+        notification_handler.settings.SMTPSERVER = "smtp.gmail.com"
         notification_handler.settings.SMTPPORT = 587
-        notification_handler.settings.SITE = 'http://localhost:8000'
+        notification_handler.settings.SITE = "http://localhost:8000"
 
-        notification_handler.settings.BASEDIR = '/home/test/wstore'
+        notification_handler.settings.BASEDIR = "/home/test/wstore"
 
         # Mock charges
         charge1 = MagicMock()
-        charge1.invoice = '/charging/media/bills/bill1.pdf'
+        charge1.invoice = "/charging/media/bills/bill1.pdf"
 
         # Mock contracts
         contract1 = MagicMock()
-        contract1.product_id = '11'
-        contract1.offering = '61004aba5e05acc115f022f0'
+        contract1.product_id = "11"
+        contract1.offering = "61004aba5e05acc115f022f0"
         contract1.charges = [charge1]
 
         offering1 = MagicMock()
-        offering1.name = 'Offering1'
-        offering1.off_id = '1'
-        offering1.owner_organization.managers = ['33333', '44444']
+        offering1.name = "Offering1"
+        offering1.off_id = "1"
+        offering1.owner_organization.managers = ["33333", "44444"]
 
         contract2 = MagicMock()
-        contract2.offering = '61004aba5e05acc115f022f1'
+        contract2.offering = "61004aba5e05acc115f022f1"
         contract2.charges = []
 
         offering2 = MagicMock()
-        offering2.name = 'Offering2'
-        offering2.off_id = '2'
+        offering2.name = "Offering2"
+        offering2.off_id = "2"
 
         def get_offering(pk):
-            if pk == ObjectId('61004aba5e05acc115f022f0'):
+            if pk == ObjectId("61004aba5e05acc115f022f0"):
                 return offering1
 
-            if pk == ObjectId('61004aba5e05acc115f022f1'):
+            if pk == ObjectId("61004aba5e05acc115f022f1"):
                 return offering2
 
         notification_handler.Offering = MagicMock()
@@ -82,10 +81,10 @@ class NotificationsTestCase(TestCase):
 
         # Mock order
         self._order = MagicMock()
-        self._order.pk = ObjectId('61004aba5e05acc115f022f0')
-        self._order.order_id = '67'
-        self._order.owner_organization.managers = ['11111', '22222']
-        self._order.owner_organization.name = 'customer'
+        self._order.pk = ObjectId("61004aba5e05acc115f022f0")
+        self._order.order_id = "67"
+        self._order.owner_organization.managers = ["11111", "22222"]
+        self._order.owner_organization.name = "customer"
         self._order.get_item_contract.return_value = contract1
 
         self._order.get_contracts.return_value = [contract1, contract2]
@@ -93,9 +92,9 @@ class NotificationsTestCase(TestCase):
         # Mock user
         notification_handler.User = MagicMock()
         self._user1 = MagicMock()
-        self._user1.email = 'user1@email.com'
+        self._user1.email = "user1@email.com"
         self._user2 = MagicMock()
-        self._user2.email = 'user2@email.com'
+        self._user2.email = "user2@email.com"
         notification_handler.User.objects.get.side_effect = [self._user1, self._user2]
 
         # Mock email libs
@@ -107,31 +106,26 @@ class NotificationsTestCase(TestCase):
 
         # Mock open method
         self._mock_open = mock_open()
-        self._old_open = notification_handler.__builtins__['open']
-        notification_handler.__builtins__['open'] = self._mock_open
+        self._old_open = notification_handler.__builtins__["open"]
+        notification_handler.__builtins__["open"] = self._mock_open
 
     def tearDown(self):
-        notification_handler.__builtins__['open'] = self._old_open
+        notification_handler.__builtins__["open"] = self._old_open
         reload(notification_handler)
 
     def _empty_email(self):
-        notification_handler.settings.WSTOREMAIL = ''
+        notification_handler.settings.WSTOREMAIL = ""
 
     def _empty_pass(self):
-        notification_handler.settings.WSTOREMAILPASS = ''
+        notification_handler.settings.WSTOREMAILPASS = ""
 
     def _empty_user(self):
-        notification_handler.settings.WSTOREMAILUSER = ''
+        notification_handler.settings.WSTOREMAILUSER = ""
 
     def _empty_server(self):
-        notification_handler.settings.SMTPSERVER = ''
+        notification_handler.settings.SMTPSERVER = ""
 
-    @parameterized.expand([
-        (_empty_email, ),
-        (_empty_pass, ),
-        (_empty_user, ),
-        (_empty_server, )
-    ])
+    @parameterized.expand([(_empty_email,), (_empty_pass,), (_empty_user,), (_empty_server,)])
     def test_improperly_configured(self, empty_param):
         empty_param(self)
 
@@ -142,56 +136,58 @@ class NotificationsTestCase(TestCase):
             error = e
 
         self.assertTrue(error is not None)
-        self.assertEquals('Missing email configuration', str(error))
+        self.assertEquals("Missing email configuration", str(error))
 
     def _validate_user_call(self):
-        self.assertEquals([
-            call(pk='11111'),
-            call(pk='22222')
-        ], notification_handler.User.objects.get.call_args_list)
+        self.assertEquals(
+            [call(pk="11111"), call(pk="22222")],
+            notification_handler.User.objects.get.call_args_list,
+        )
 
     def _validate_provider_call(self):
-        self.assertEquals([
-            call(pk='33333'),
-            call(pk='44444')
-        ], notification_handler.User.objects.get.call_args_list)
+        self.assertEquals(
+            [call(pk="33333"), call(pk="44444")],
+            notification_handler.User.objects.get.call_args_list,
+        )
 
     def _validate_mime_text_info(self, subject):
-        self.assertEquals([
-            call('Subject', subject),
-            call('From', 'wstore@email.com'),
-            call('To', 'user1@email.com,user2@email.com')
-        ], notification_handler.MIMEText().__setitem__.call_args_list)
+        self.assertEquals(
+            [
+                call("Subject", subject),
+                call("From", "wstore@email.com"),
+                call("To", "user1@email.com,user2@email.com"),
+            ],
+            notification_handler.MIMEText().__setitem__.call_args_list,
+        )
 
     def _validate_email_call(self, mime, emails=None):
         if emails is None:
-            emails = ['user1@email.com', 'user2@email.com']
-        notification_handler.smtplib.SMTP.assert_called_once_with('smtp.gmail.com', 587)
+            emails = ["user1@email.com", "user2@email.com"]
+        notification_handler.smtplib.SMTP.assert_called_once_with("smtp.gmail.com", 587)
         notification_handler.smtplib.SMTP().starttls.assert_called_once_with()
-        notification_handler.smtplib.SMTP().login.assert_called_once_with('wstore', 'passwd')
+        notification_handler.smtplib.SMTP().login.assert_called_once_with("wstore", "passwd")
         notification_handler.smtplib.SMTP().sendmail.assert_called_once_with(
-            'wstore@email.com',
-            emails,
-            mime().as_string()
+            "wstore@email.com", emails, mime().as_string()
         )
 
     def _validate_multipart_call(self):
-        self._mock_open.assert_called_once_with('/home/test/wstore/media/bills/bill1.pdf', 'rb')
+        self._mock_open.assert_called_once_with("/home/test/wstore/media/bills/bill1.pdf", "rb")
 
-        notification_handler.MIMEBase.assert_called_once_with('application', 'pdf')
+        notification_handler.MIMEBase.assert_called_once_with("application", "pdf")
         notification_handler.MIMEBase().set_payload.assert_called_once_with(self._mock_open().read())
 
         notification_handler.encoders.encode_base64.assert_called_once_with(notification_handler.MIMEBase())
         notification_handler.MIMEBase().add_header.assert_called_once_with(
-            'Content-Disposition',
-            'attachment',
-            filename='bill1.pdf'
+            "Content-Disposition", "attachment", filename="bill1.pdf"
         )
 
-        self.assertEquals([
-            call(notification_handler.MIMEText()),
-            call(notification_handler.MIMEBase())
-        ], notification_handler.MIMEMultipart().attach.call_args_list)
+        self.assertEquals(
+            [
+                call(notification_handler.MIMEText()),
+                call(notification_handler.MIMEBase()),
+            ],
+            notification_handler.MIMEMultipart().attach.call_args_list,
+        )
 
     def test_acquisition_notification(self):
         # Execute method
@@ -203,11 +199,14 @@ class NotificationsTestCase(TestCase):
 
         notification_handler.MIMEMultipart.assert_called_once_with()
 
-        self.assertEquals([
-            call('Subject', 'Product order accepted'),
-            call('From', 'wstore@email.com'),
-            call('To', 'user1@email.com,user2@email.com')
-        ], notification_handler.MIMEMultipart().__setitem__.call_args_list)
+        self.assertEquals(
+            [
+                call("Subject", "Product order accepted"),
+                call("From", "wstore@email.com"),
+                call("To", "user1@email.com,user2@email.com"),
+            ],
+            notification_handler.MIMEMultipart().__setitem__.call_args_list,
+        )
 
         text = "We have received the payment of your order with reference 61004aba5e05acc115f022f0\n"
         text += "containing the following product offerings: \n\n"
@@ -223,21 +222,19 @@ class NotificationsTestCase(TestCase):
 
     def test_renovation_notification(self):
         handler = notification_handler.NotificationsHandler()
-        transactions = [{
-            'item': '0'
-        }]
+        transactions = [{"item": "0"}]
 
         handler.send_renovation_notification(self._order, transactions)
 
         self._validate_user_call()
-        self._order.get_item_contract.assert_called_once_with('0')
+        self._order.get_item_contract.assert_called_once_with("0")
 
-        text = 'We have received your recurring payment for renovating products offerings\n'
-        text += 'acquired in the order with reference 61004aba5e05acc115f022f0\n'
-        text += 'The following product offerings have been renovated: \n\n'
-        text += 'Offering1 with id 1\n\n'
-        text += 'You can review your orders at: \nhttp://localhost:8000/#/inventory/order\n'
-        text += 'and your acquired products at: \nhttp://localhost:8000/#/inventory/product\n'
+        text = "We have received your recurring payment for renovating products offerings\n"
+        text += "acquired in the order with reference 61004aba5e05acc115f022f0\n"
+        text += "The following product offerings have been renovated: \n\n"
+        text += "Offering1 with id 1\n\n"
+        text += "You can review your orders at: \nhttp://localhost:8000/#/inventory/order\n"
+        text += "and your acquired products at: \nhttp://localhost:8000/#/inventory/product\n"
 
         notification_handler.MIMEText.assert_called_once_with(text)
 
@@ -261,13 +258,13 @@ class NotificationsTestCase(TestCase):
         # Validate calls
         self._validate_provider_call()
 
-        text = 'Your product offering with name Offering1 and id 1\n'
-        text += 'has been acquired by the user customer\n'
-        text += 'Please review you pending orders at: \n\nhttp://localhost:8000/#/inventory/order'
+        text = "Your product offering with name Offering1 and id 1\n"
+        text += "has been acquired by the user customer\n"
+        text += "Please review you pending orders at: \n\nhttp://localhost:8000/#/inventory/order"
 
         notification_handler.MIMEText.assert_called_once_with(text)
 
-        self._validate_mime_text_info('Product offering acquired')
+        self._validate_mime_text_info("Product offering acquired")
 
         self._validate_email_call(notification_handler.MIMEText)
 
@@ -275,14 +272,14 @@ class NotificationsTestCase(TestCase):
         handler = notification_handler.NotificationsHandler()
         handler.send_payment_required_notification(self._order, self._order.get_contracts()[0])
 
-        text = 'Your subscription belonging to the product offering Offering1 has expired.\n'
-        text += 'You can renovate all your pending subscriptions of the order with reference 61004aba5e05acc115f022f0\n'
-        text += 'in the web portal or accessing the following link: \n\n'
-        text += 'http://localhost:8000/#/inventory/order/67'
+        text = "Your subscription belonging to the product offering Offering1 has expired.\n"
+        text += "You can renovate all your pending subscriptions of the order with reference 61004aba5e05acc115f022f0\n"
+        text += "in the web portal or accessing the following link: \n\n"
+        text += "http://localhost:8000/#/inventory/order/67"
 
         notification_handler.MIMEText.assert_called_once_with(text)
 
-        self._validate_mime_text_info('Offering1 subscription expired')
+        self._validate_mime_text_info("Offering1 subscription expired")
 
         self._validate_email_call(notification_handler.MIMEText)
 
@@ -292,23 +289,23 @@ class NotificationsTestCase(TestCase):
 
         self._validate_user_call()
 
-        text = 'Your subscription belonging to the product offering Offering1\n'
-        text += 'is going to expire in 3 days. \n\n'
-        text += 'You can renovate all your pending subscriptions of the order with reference 61004aba5e05acc115f022f0\n'
-        text += 'in the web portal or accessing the following link: \n\n'
-        text += 'http://localhost:8000/#/inventory/order/67'
+        text = "Your subscription belonging to the product offering Offering1\n"
+        text += "is going to expire in 3 days. \n\n"
+        text += "You can renovate all your pending subscriptions of the order with reference 61004aba5e05acc115f022f0\n"
+        text += "in the web portal or accessing the following link: \n\n"
+        text += "http://localhost:8000/#/inventory/order/67"
 
         notification_handler.MIMEText.assert_called_once_with(text)
 
-        self._validate_mime_text_info('Offering1 subscription is about to expire')
+        self._validate_mime_text_info("Offering1 subscription is about to expire")
 
     def test_product_upgrade_notification(self):
         handler = notification_handler.NotificationsHandler()
-        handler.send_product_upgraded_notification(self._order, self._order.get_contracts()[0], 'product name')
+        handler.send_product_upgraded_notification(self._order, self._order.get_contracts()[0], "product name")
 
-        text = 'There is a new version available for your acquired product product name\n'
-        text += 'You can review your new product version at http://localhost:8000/#/inventory/product/11\n'
+        text = "There is a new version available for your acquired product product name\n"
+        text += "You can review your new product version at http://localhost:8000/#/inventory/product/11\n"
 
         notification_handler.MIMEText.assert_called_once_with(text)
 
-        self._validate_mime_text_info('Product upgraded')
+        self._validate_mime_text_info("Product upgraded")

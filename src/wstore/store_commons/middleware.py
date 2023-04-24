@@ -24,36 +24,35 @@ from django.utils.functional import SimpleLazyObject
 
 
 class AuthenticationMiddleware:
-
     def __init__(self, get_response):
         self.get_response = get_response
 
     def _get_api_user(self, request):
-        from django.contrib.auth.models import AnonymousUser
         from django.conf import settings
+        from django.contrib.auth.models import AnonymousUser
         from wstore.models import Organization, User
 
         # Get User information from the request
-        token_info = ['bearer', 'token']
+        token_info = ["bearer", "token"]
         try:
             if settings.PROPAGATE_TOKEN:
-                token_info = request.META['HTTP_AUTHORIZATION'].split(' ')
+                token_info = request.META["HTTP_AUTHORIZATION"].split(" ")
 
-            nick_name = request.META['HTTP_X_NICK_NAME']
-            display_name = request.META['HTTP_X_DISPLAY_NAME']
-            email = request.META['HTTP_X_EMAIL']
-            roles = request.META['HTTP_X_ROLES'].split(',')
-            user_name = request.META['HTTP_X_ACTOR']
-            external_username = request.META['HTTP_X_EXT_NAME']
-            idp = request.META['HTTP_X_IDP_ID']
-            if 'HTTP_X_ISSUER_DID' in request.META:
-                issuerDid = request.META['HTTP_X_ISSUER_DID']
+            nick_name = request.META["HTTP_X_NICK_NAME"]
+            display_name = request.META["HTTP_X_DISPLAY_NAME"]
+            email = request.META["HTTP_X_EMAIL"]
+            roles = request.META["HTTP_X_ROLES"].split(",")
+            user_name = request.META["HTTP_X_ACTOR"]
+            external_username = request.META["HTTP_X_EXT_NAME"]
+            idp = request.META["HTTP_X_IDP_ID"]
+            if "HTTP_X_ISSUER_DID" in request.META:
+                issuerDid = request.META["HTTP_X_ISSUER_DID"]
             else:
                 issuerDid = "none"
         except:
             return AnonymousUser()
 
-        if len(token_info) != 2 and token_info[0].lower() != 'bearer':
+        if len(token_info) != 2 and token_info[0].lower() != "bearer":
             return AnonymousUser()
 
         # Check if the user already exist
@@ -75,10 +74,10 @@ class AuthenticationMiddleware:
         user_roles = []
 
         if settings.PROVIDER_ROLE in roles:
-            user_roles.append('provider')
+            user_roles.append("provider")
 
         if settings.CUSTOMER_ROLE in roles:
-            user_roles.append('customer')
+            user_roles.append("customer")
 
         # Get or create current organization
         try:

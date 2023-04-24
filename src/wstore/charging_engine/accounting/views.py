@@ -23,26 +23,25 @@ import json
 
 from django.core.exceptions import PermissionDenied
 
+from wstore.asset_manager.resource_plugins.decorators import on_usage_refreshed
 from wstore.charging_engine.accounting.sdr_manager import SDRManager
 from wstore.charging_engine.accounting.usage_client import UsageClient
 from wstore.ordering.models import Order
-from wstore.asset_manager.resource_plugins.decorators import on_usage_refreshed
 from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import build_response, supported_request_mime_types
 
 
 class ServiceRecordCollection(Resource):
-
     # This method is used to load SDR documents and
     # start the charging process
-    @supported_request_mime_types(('application/json',))
+    @supported_request_mime_types(("application/json",))
     def create(self, request):
         try:
             # Extract SDR document from the HTTP request
             data = json.loads(request.body)
         except:
             # The usage document is not valid, so the state cannot be changed
-            return build_response(request, 400, 'The request does not contain a valid JSON object')
+            return build_response(request, 400, "The request does not contain a valid JSON object")
 
         # Validate usage information
         response = None
@@ -54,46 +53,53 @@ class ServiceRecordCollection(Resource):
         except ValueError as e:
             response = build_response(request, 422, str(e))
         except:
-            response = build_response(request, 500, 'The SDR document could not be processed due to an unexpected error')
+            response = build_response(
+                request,
+                500,
+                "The SDR document could not be processed due to an unexpected error",
+            )
 
         usage_client = UsageClient()
         if response is not None:
             # The usage document is not valid, change its state to Rejected
-            usage_client.update_usage_state(data['id'], 'Rejected')
+            usage_client.update_usage_state(data["id"], "Rejected")
         else:
             # The usage document is valid, change its state to Guided
-            usage_client.update_usage_state(data['id'], 'Guided')
+            usage_client.update_usage_state(data["id"], "Guided")
             sdr_manager.update_usage()
-            response = build_response(request, 200, 'OK')
+            response = build_response(request, 200, "OK")
 
         # Update usage document state
         return response
 
 
 class SDRRefreshCollection(Resource):
-
-    @supported_request_mime_types(('application/json',))
+    @supported_request_mime_types(("application/json",))
     def create(self, request):
         try:
             data = json.loads(request.body)
         except:
-            return build_response(request, 400, 'The request does not contain a valid JSON object')
+            return build_response(request, 400, "The request does not contain a valid JSON object")
 
-        if 'orderId' not in data or 'productId' not in data:
-            return build_response(request, 422, 'Missing required field, it must include orderId and productId')
+        if "orderId" not in data or "productId" not in data:
+            return build_response(
+                request,
+                422,
+                "Missing required field, it must include orderId and productId",
+            )
 
         # Get order and product info
         try:
-            order = Order.objects.get(order_id=data['orderId'])
+            order = Order.objects.get(order_id=data["orderId"])
         except:
-            return build_response(request, 404, 'The oid specified in the product name is not valid')
+            return build_response(request, 404, "The oid specified in the product name is not valid")
 
         try:
-            contract = order.get_product_contract(data['productId'])
+            contract = order.get_product_contract(data["productId"])
         except:
-            return build_response(request, 404, 'The specified product id is not valid')
+            return build_response(request, 404, "The specified product id is not valid")
 
         # Refresh accounting information
         on_usage_refreshed(order, contract)
 
-        return build_response(request, 200, 'Ok')
+        return build_response(request, 200, "Ok")

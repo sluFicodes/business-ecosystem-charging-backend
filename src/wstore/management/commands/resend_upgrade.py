@@ -29,17 +29,16 @@ from wstore.store_commons.database import DocumentLock
 
 class Command(BaseCommand):
     def handle(self, *args, **kargs):
-
         contexts = Context.objects.all()
 
         if len(contexts) < 1:
-            raise CommandError('Context object is not yet created')
+            raise CommandError("Context object is not yet created")
 
         context_id = contexts[0].pk
 
         # Context object is locked in order to avoid possible inconsistencies
         # in the list of pending upgrade notifications
-        lock = DocumentLock('wstore_context', context_id, 'ctx')
+        lock = DocumentLock("wstore_context", context_id, "ctx")
         lock.wait_document()
 
         context = Context.objects.get(pk=context_id)
@@ -49,25 +48,27 @@ class Command(BaseCommand):
 
         failed_upgrades = []
         for upgrade in pending_upgrades:
-            asset = Resource.objects.get(pk=upgrade['asset_id'])
+            asset = Resource.objects.get(pk=upgrade["asset_id"])
             upgrader = InventoryUpgrader(asset)
 
             # Check if there is a list of products or if it is needed to upgrade all
             missing_products = []
             missing_off = []
-            if len(upgrade['pending_products']) > 0:
-                missing_products.extend(upgrader.upgrade_products(upgrade['pending_products'], lambda p_id: p_id))
+            if len(upgrade["pending_products"]) > 0:
+                missing_products.extend(upgrader.upgrade_products(upgrade["pending_products"], lambda p_id: p_id))
 
-            if len(upgrade['pending_offerings']) > 0:
-                missing_off, partial_prods = upgrader.upgrade_asset_products(upgrade['pending_offerings'])
+            if len(upgrade["pending_offerings"]) > 0:
+                missing_off, partial_prods = upgrader.upgrade_asset_products(upgrade["pending_offerings"])
                 missing_products.extend(partial_prods)
 
             if len(missing_products) > 0 or len(missing_off) > 0:
-                failed_upgrades.append({
-                    'asset_id': asset.pk,
-                    'pending_offerings': missing_off,
-                    'pending_products': missing_products
-                })
+                failed_upgrades.append(
+                    {
+                        "asset_id": asset.pk,
+                        "pending_offerings": missing_off,
+                        "pending_products": missing_products,
+                    }
+                )
 
         context.failed_upgrades = failed_upgrades
         context.save()

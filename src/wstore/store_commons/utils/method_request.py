@@ -20,8 +20,8 @@
 
 import urllib2
 
-class MethodRequest(urllib2.Request):
 
+class MethodRequest(urllib2.Request):
     def __init__(self, method, *args, **kwargs):
         self._method = method
         urllib2.Request.__init__(self, *args, **kwargs)

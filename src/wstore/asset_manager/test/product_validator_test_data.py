@@ -21,11 +21,11 @@
 
 from copy import deepcopy
 
-PRODUCT_LOCATION = 'http://testlocation.org/media/resources/test_user/widget.wgt'
+PRODUCT_LOCATION = "http://testlocation.org/media/resources/test_user/widget.wgt"
 
 BASIC_PRODUCT = {
-    'action': 'create',
-    'product': {
+    "action": "create",
+    "product": {
         "id": "2",
         "productNumber": "I42-340-DX",
         "version": "2.0",
@@ -37,13 +37,13 @@ BASIC_PRODUCT = {
         "lifecycleStatus": "Active",
         "validFor": {
             "startDateTime": "2013-04-19T16:42:23-04:00",
-            "endDateTime": "2013-06-19T00:00:00-04:00"
+            "endDateTime": "2013-06-19T00:00:00-04:00",
         },
         "relatedParty": [
-           {
+            {
                 "role": "Owner",
                 "id": "test_user",
-                "href": "http ://serverLocation:port/partyManagement/partyRole/1234"
+                "href": "http ://serverLocation:port/partyManagement/partyRole/1234",
             }
         ],
         "attachment": [
@@ -51,7 +51,7 @@ BASIC_PRODUCT = {
                 "id": "22",
                 "href": "http://serverlocation:port/documentManagement/attachment/22",
                 "type": "Picture",
-                "url": "http://xxxxx"
+                "url": "http://xxxxx",
             }
         ],
         "bundledProductSpecification": [],
@@ -66,7 +66,7 @@ BASIC_PRODUCT = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -78,11 +78,12 @@ BASIC_PRODUCT = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "42",
                 "name": "media type",
                 "description": "Media type of the product",
@@ -90,7 +91,7 @@ BASIC_PRODUCT = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -102,11 +103,12 @@ BASIC_PRODUCT = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Asset type",
                 "description": "Type of digital asset being provided",
@@ -114,7 +116,7 @@ BASIC_PRODUCT = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -126,11 +128,12 @@ BASIC_PRODUCT = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Location",
                 "description": "URL pointing to the digital asset",
@@ -138,7 +141,7 @@ BASIC_PRODUCT = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -150,11 +153,12 @@ BASIC_PRODUCT = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Asset",
                 "description": "ID of the asset",
@@ -162,7 +166,7 @@ BASIC_PRODUCT = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -174,18 +178,18 @@ BASIC_PRODUCT = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }
-        ]
-    }
+                ],
+            },
+        ],
+    },
 }
 
 UPGRADE_PRODUCT = {
-    'action': 'upgrade',
-    'product': {
+    "action": "upgrade",
+    "product": {
         "id": "2",
         "version": "2.0",
         "productSpecCharacteristic": [
@@ -197,7 +201,7 @@ UPGRADE_PRODUCT = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -209,11 +213,12 @@ UPGRADE_PRODUCT = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "42",
                 "name": "media type",
                 "description": "Media type of the product",
@@ -221,7 +226,7 @@ UPGRADE_PRODUCT = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -233,11 +238,12 @@ UPGRADE_PRODUCT = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Asset type",
                 "description": "Type of digital asset being provided",
@@ -245,7 +251,7 @@ UPGRADE_PRODUCT = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -257,11 +263,12 @@ UPGRADE_PRODUCT = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Location",
                 "description": "URL pointing to the digital asset",
@@ -269,7 +276,7 @@ UPGRADE_PRODUCT = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -281,11 +288,12 @@ UPGRADE_PRODUCT = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Asset",
                 "description": "ID of the asset",
@@ -293,7 +301,7 @@ UPGRADE_PRODUCT = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -305,124 +313,117 @@ UPGRADE_PRODUCT = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }
-        ]
-    }
+                ],
+            },
+        ],
+    },
 }
 
 UPGRADE_PRODUCT_INV_VERSION = deepcopy(UPGRADE_PRODUCT)
-UPGRADE_PRODUCT_INV_VERSION['product']['version'] = 'inv'
+UPGRADE_PRODUCT_INV_VERSION["product"]["version"] = "inv"
 
 TERMS_PRODUCT = deepcopy(BASIC_PRODUCT)
-TERMS_PRODUCT['product']['productSpecCharacteristic'].append({
-    "id": "34",
-    "name": "License",
-    "description": "Text of the license",
-    "valueType": "string",
-    "configurable": False,
-    "validFor": {
-        "startDateTime": "2013-04-19T16:42:23-04:00",
-        "endDateTime": ""
-    },
-    "productSpecCharacteristicValue": [
-        {
-            "valueType": "string",
-            "default": True,
-            "value": "license title",
-            "unitOfMeasure": "",
-            "valueFrom": "",
-            "valueTo": "",
-            "validFor": {
-                "startDateTime": "2013-04-19T16:42:23-04:00",
-                "endDateTime": ""
+TERMS_PRODUCT["product"]["productSpecCharacteristic"].append(
+    {
+        "id": "34",
+        "name": "License",
+        "description": "Text of the license",
+        "valueType": "string",
+        "configurable": False,
+        "validFor": {"startDateTime": "2013-04-19T16:42:23-04:00", "endDateTime": ""},
+        "productSpecCharacteristicValue": [
+            {
+                "valueType": "string",
+                "default": True,
+                "value": "license title",
+                "unitOfMeasure": "",
+                "valueFrom": "",
+                "valueTo": "",
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                    "endDateTime": "",
+                },
             }
-        }
-    ]
-})
+        ],
+    }
+)
 
 INVALID_TERMS = deepcopy(BASIC_PRODUCT)
-INVALID_TERMS['product']['productSpecCharacteristic'].append({
-    "id": "34",
-    "name": "License",
-    "description": "Text of the license",
-    "valueType": "string",
-    "configurable": False,
-    "validFor": {
-        "startDateTime": "2013-04-19T16:42:23-04:00",
-        "endDateTime": ""
-    },
-    "productSpecCharacteristicValue": [
-        {
-            "valueType": "string",
-            "default": True,
-            "value": "license title",
-            "unitOfMeasure": "",
-            "valueFrom": "",
-            "valueTo": "",
-            "validFor": {
-                "startDateTime": "2013-04-19T16:42:23-04:00",
-                "endDateTime": ""
-            }
-        }, {
-            "valueType": "string",
-            "default": True,
-            "value": "license title",
-            "unitOfMeasure": "",
-            "valueFrom": "",
-            "valueTo": "",
-            "validFor": {
-                "startDateTime": "2013-04-19T16:42:23-04:00",
-                "endDateTime": ""
-            }
-        }
-    ]
-})
+INVALID_TERMS["product"]["productSpecCharacteristic"].append(
+    {
+        "id": "34",
+        "name": "License",
+        "description": "Text of the license",
+        "valueType": "string",
+        "configurable": False,
+        "validFor": {"startDateTime": "2013-04-19T16:42:23-04:00", "endDateTime": ""},
+        "productSpecCharacteristicValue": [
+            {
+                "valueType": "string",
+                "default": True,
+                "value": "license title",
+                "unitOfMeasure": "",
+                "valueFrom": "",
+                "valueTo": "",
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                    "endDateTime": "",
+                },
+            },
+            {
+                "valueType": "string",
+                "default": True,
+                "value": "license title",
+                "unitOfMeasure": "",
+                "valueFrom": "",
+                "valueTo": "",
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                    "endDateTime": "",
+                },
+            },
+        ],
+    }
+)
 
 MULTIPLE_TERMS = deepcopy(TERMS_PRODUCT)
-MULTIPLE_TERMS['product']['productSpecCharacteristic'].append({
-    "id": "34",
-    "name": "License",
-    "description": "Text of the license",
-    "valueType": "string",
-    "configurable": False,
-    "validFor": {
-        "startDateTime": "2013-04-19T16:42:23-04:00",
-        "endDateTime": ""
-    },
-    "productSpecCharacteristicValue": [
-        {
-            "valueType": "string",
-            "default": True,
-            "value": "license title",
-            "unitOfMeasure": "",
-            "valueFrom": "",
-            "valueTo": "",
-            "validFor": {
-                "startDateTime": "2013-04-19T16:42:23-04:00",
-                "endDateTime": ""
+MULTIPLE_TERMS["product"]["productSpecCharacteristic"].append(
+    {
+        "id": "34",
+        "name": "License",
+        "description": "Text of the license",
+        "valueType": "string",
+        "configurable": False,
+        "validFor": {"startDateTime": "2013-04-19T16:42:23-04:00", "endDateTime": ""},
+        "productSpecCharacteristicValue": [
+            {
+                "valueType": "string",
+                "default": True,
+                "value": "license title",
+                "unitOfMeasure": "",
+                "valueFrom": "",
+                "valueTo": "",
+                "validFor": {
+                    "startDateTime": "2013-04-19T16:42:23-04:00",
+                    "endDateTime": "",
+                },
             }
-        }
-    ]
-})
+        ],
+    }
+)
 
-INVALID_ACTION = {
-    'action': 'invalid',
-    'product': {}
-}
+INVALID_ACTION = {"action": "invalid", "product": {}}
 
-MISSING_CHAR = {
-    'action': 'create',
-    'product': {}
-}
+MISSING_CHAR = {"action": "create", "product": {}}
 
 MISSING_MEDIA = {
-    'action': 'create',
-    'product': {
-        "productSpecCharacteristic": [{
+    "action": "create",
+    "product": {
+        "productSpecCharacteristic": [
+            {
                 "id": "34",
                 "name": "Asset type",
                 "description": "Type of digital asset being provided",
@@ -430,7 +431,7 @@ MISSING_MEDIA = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -442,11 +443,12 @@ MISSING_MEDIA = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Location",
                 "description": "URL pointing to the digital asset",
@@ -454,7 +456,7 @@ MISSING_MEDIA = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -466,11 +468,12 @@ MISSING_MEDIA = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Asset",
                 "description": "ID of the asset",
@@ -478,7 +481,7 @@ MISSING_MEDIA = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -490,18 +493,18 @@ MISSING_MEDIA = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }
+                ],
+            },
         ]
-    }
+    },
 }
 
 MISSING_TYPE = {
-    'action': 'create',
-    'product': {
+    "action": "create",
+    "product": {
         "productSpecCharacteristic": [
             {
                 "id": "42",
@@ -511,7 +514,7 @@ MISSING_TYPE = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -523,11 +526,12 @@ MISSING_TYPE = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Location",
                 "description": "URL pointing to the digital asset",
@@ -535,7 +539,7 @@ MISSING_TYPE = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -547,11 +551,12 @@ MISSING_TYPE = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Asset",
                 "description": "ID of the asset",
@@ -559,7 +564,7 @@ MISSING_TYPE = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -571,18 +576,18 @@ MISSING_TYPE = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }
+                ],
+            },
         ]
-    }
+    },
 }
 
 MISSING_LOCATION = {
-    'action': 'create',
-    'product': {
+    "action": "create",
+    "product": {
         "productSpecCharacteristic": [
             {
                 "id": "42",
@@ -592,7 +597,7 @@ MISSING_LOCATION = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -604,11 +609,12 @@ MISSING_LOCATION = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Asset type",
                 "description": "Type of digital asset being provided",
@@ -616,7 +622,7 @@ MISSING_LOCATION = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -628,11 +634,12 @@ MISSING_LOCATION = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Asset",
                 "description": "ID of the asset",
@@ -640,7 +647,7 @@ MISSING_LOCATION = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -652,18 +659,18 @@ MISSING_LOCATION = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }
+                ],
+            },
         ]
-    }
+    },
 }
 
 MISSING_ASSET_ID = {
-    'action': 'create',
-    'product': {
+    "action": "create",
+    "product": {
         "productSpecCharacteristic": [
             {
                 "id": "42",
@@ -673,7 +680,7 @@ MISSING_ASSET_ID = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -685,11 +692,12 @@ MISSING_ASSET_ID = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Asset type",
                 "description": "Type of digital asset being provided",
@@ -697,7 +705,7 @@ MISSING_ASSET_ID = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -709,11 +717,12 @@ MISSING_ASSET_ID = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Location",
                 "description": "URL pointing to the digital asset",
@@ -721,7 +730,7 @@ MISSING_ASSET_ID = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -733,18 +742,18 @@ MISSING_ASSET_ID = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }
+                ],
+            },
         ]
-    }
+    },
 }
 
 MULTIPLE_LOCATION = {
-    'action': 'create',
-    'product': {
+    "action": "create",
+    "product": {
         "productSpecCharacteristic": [
             {
                 "id": "42",
@@ -754,7 +763,7 @@ MULTIPLE_LOCATION = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -766,11 +775,12 @@ MULTIPLE_LOCATION = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Asset type",
                 "description": "Type of digital asset being provided",
@@ -778,7 +788,7 @@ MULTIPLE_LOCATION = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -790,11 +800,12 @@ MULTIPLE_LOCATION = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Location",
                 "description": "URL pointing to the digital asset",
@@ -802,7 +813,7 @@ MULTIPLE_LOCATION = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -814,11 +825,12 @@ MULTIPLE_LOCATION = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Location",
                 "description": "URL pointing to the digital asset",
@@ -826,7 +838,7 @@ MULTIPLE_LOCATION = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -838,18 +850,18 @@ MULTIPLE_LOCATION = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }
+                ],
+            },
         ]
-    }
+    },
 }
 
 MULTIPLE_VALUES = {
-    'action': 'create',
-    'product': {
+    "action": "create",
+    "product": {
         "productSpecCharacteristic": [
             {
                 "id": "42",
@@ -859,7 +871,7 @@ MULTIPLE_VALUES = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -871,11 +883,12 @@ MULTIPLE_VALUES = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Asset type",
                 "description": "Type of digital asset being provided",
@@ -883,7 +896,7 @@ MULTIPLE_VALUES = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -895,11 +908,12 @@ MULTIPLE_VALUES = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Location",
                 "description": "URL pointing to the digital asset",
@@ -907,7 +921,7 @@ MULTIPLE_VALUES = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -919,9 +933,10 @@ MULTIPLE_VALUES = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
-                    }, {
+                            "endDateTime": "",
+                        },
+                    },
+                    {
                         "valueType": "string",
                         "default": False,
                         "value": PRODUCT_LOCATION,
@@ -930,18 +945,18 @@ MULTIPLE_VALUES = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
-                    }
-                ]
-            }
+                            "endDateTime": "",
+                        },
+                    },
+                ],
+            },
         ]
-    }
+    },
 }
 
 INVALID_LOCATION = {
-    'action': 'create',
-    'product': {
+    "action": "create",
+    "product": {
         "isBundle": False,
         "productSpecCharacteristic": [
             {
@@ -952,7 +967,7 @@ INVALID_LOCATION = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -964,11 +979,12 @@ INVALID_LOCATION = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Asset type",
                 "description": "Type of digital asset being provided",
@@ -976,7 +992,7 @@ INVALID_LOCATION = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -988,11 +1004,12 @@ INVALID_LOCATION = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Location",
                 "description": "URL pointing to the digital asset",
@@ -1000,7 +1017,7 @@ INVALID_LOCATION = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -1012,11 +1029,12 @@ INVALID_LOCATION = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }, {
+                ],
+            },
+            {
                 "id": "34",
                 "name": "Asset",
                 "description": "ID of the asset",
@@ -1024,7 +1042,7 @@ INVALID_LOCATION = {
                 "configurable": False,
                 "validFor": {
                     "startDateTime": "2013-04-19T16:42:23-04:00",
-                    "endDateTime": ""
+                    "endDateTime": "",
                 },
                 "productSpecCharacteristicValue": [
                     {
@@ -1036,28 +1054,24 @@ INVALID_LOCATION = {
                         "valueTo": "",
                         "validFor": {
                             "startDateTime": "2013-04-19T16:42:23-04:00",
-                            "endDateTime": ""
-                        }
+                            "endDateTime": "",
+                        },
                     }
-                ]
-            }
-        ]
-    }
+                ],
+            },
+        ],
+    },
 }
 
 BASIC_BUNDLE_CREATION = {
-    'action': 'create',
-    'product': {
+    "action": "create",
+    "product": {
         "id": "1",
         "isBundle": True,
         "version": "1.0",
         "lifecycleStatus": "Active",
-        "bundledProductSpecification": [{
-            'id': '1'
-        }, {
-            'id': '2'
-        }]
-    }
+        "bundledProductSpecification": [{"id": "1"}, {"id": "2"}],
+    },
 }
 
 
@@ -1072,13 +1086,13 @@ NO_CHARS_PRODUCT = {
     "lifecycleStatus": "Active",
     "validFor": {
         "startDateTime": "2013-04-19T16:42:23-04:00",
-        "endDateTime": "2013-06-19T00:00:00-04:00"
+        "endDateTime": "2013-06-19T00:00:00-04:00",
     },
     "relatedParty": [
         {
             "role": "Owner",
             "id": "test_user",
-            "href": "http ://serverLocation:port/partyManagement/partyRole/1234"
+            "href": "http ://serverLocation:port/partyManagement/partyRole/1234",
         }
     ],
     "attachment": [
@@ -1086,12 +1100,12 @@ NO_CHARS_PRODUCT = {
             "id": "22",
             "href": "http://serverlocation:port/documentManagement/attachment/22",
             "type": "Picture",
-            "url": "http://xxxxx"
+            "url": "http://xxxxx",
         }
     ],
     "bundledProductSpecification": [],
     "serviceSpecification": [],
-    "resourceSpecification": []
+    "resourceSpecification": [],
 }
 
 EMPTY_CHARS_PRODUCT = {
@@ -1105,13 +1119,13 @@ EMPTY_CHARS_PRODUCT = {
     "lifecycleStatus": "Active",
     "validFor": {
         "startDateTime": "2013-04-19T16:42:23-04:00",
-        "endDateTime": "2013-06-19T00:00:00-04:00"
+        "endDateTime": "2013-06-19T00:00:00-04:00",
     },
     "relatedParty": [
-       {
+        {
             "role": "Owner",
             "id": "test_user",
-            "href": "http ://serverLocation:port/partyManagement/partyRole/1234"
+            "href": "http ://serverLocation:port/partyManagement/partyRole/1234",
         }
     ],
     "attachment": [
@@ -1119,7 +1133,7 @@ EMPTY_CHARS_PRODUCT = {
             "id": "22",
             "href": "http://serverlocation:port/documentManagement/attachment/22",
             "type": "Picture",
-            "url": "http://xxxxx"
+            "url": "http://xxxxx",
         }
     ],
     "bundledProductSpecification": [],
@@ -1134,7 +1148,7 @@ EMPTY_CHARS_PRODUCT = {
             "configurable": False,
             "validFor": {
                 "startDateTime": "2013-04-19T16:42:23-04:00",
-                "endDateTime": ""
+                "endDateTime": "",
             },
             "productSpecCharacteristicValue": [
                 {
@@ -1145,13 +1159,13 @@ EMPTY_CHARS_PRODUCT = {
                     "valueFrom": "",
                     "valueTo": "",
                     "validFor": {
-                    "startDateTime": "2013-04-19T16:42:23-04:00",
-                        "endDateTime": ""
-                    }
+                        "startDateTime": "2013-04-19T16:42:23-04:00",
+                        "endDateTime": "",
+                    },
                 }
-            ]
+            ],
         }
-    ]
+    ],
 }
 
 BASIC_OFFERING = {
@@ -1160,18 +1174,14 @@ BASIC_OFFERING = {
     "isBundle": False,
     "name": "TestOffering",
     "version": "1.0",
-    "productSpecification": {
-        "id": "20",
-        "href": "http://catalog.com/products/20"
-    },
-    "productOfferingPrice": [{
-        "name": "plan",
-        "priceType": "one time",
-        "price": {
-            "currencyCode": "EUR",
-            'taxIncludedAmount': '1.0'
+    "productSpecification": {"id": "20", "href": "http://catalog.com/products/20"},
+    "productOfferingPrice": [
+        {
+            "name": "plan",
+            "priceType": "one time",
+            "price": {"currencyCode": "EUR", "taxIncludedAmount": "1.0"},
         }
-    }]
+    ],
 }
 
 OPEN_OFFERING = {
@@ -1180,226 +1190,141 @@ OPEN_OFFERING = {
     "isBundle": False,
     "name": "TestOffering",
     "version": "1.0",
-    "productSpecification": {
-        "id": "20",
-        "href": "http://catalog.com/products/20"
-    },
-    "productOfferingPrice": [{
-        "name": "open",
-        "description": "Open offering"
-    }]
+    "productSpecification": {"id": "20", "href": "http://catalog.com/products/20"},
+    "productOfferingPrice": [{"name": "open", "description": "Open offering"}],
 }
 
 ZERO_OFFERING = {
-    'id': '3',
+    "id": "3",
     "href": "http://catalog.com/offerin3",
     "isBundle": False,
     "name": "TestOffering",
     "version": "1.0",
-    "productSpecification": {
-        "id": "20",
-        "href": "http://catalog.com/products/20"
-    },
-    "productOfferingPrice": [{
-        "name": "plan",
-        "priceType": "one time",
-        "price": {
-            "currencyCode": "EUR",
-            'taxIncludedAmount': '0'
+    "productSpecification": {"id": "20", "href": "http://catalog.com/products/20"},
+    "productOfferingPrice": [
+        {
+            "name": "plan",
+            "priceType": "one time",
+            "price": {"currencyCode": "EUR", "taxIncludedAmount": "0"},
         }
-    }]
+    ],
 }
 
 FREE_OFFERING = {
     "isBundle": False,
     "name": "TestOffering",
     "version": "1.0",
-    "productSpecification": {
-        "id": "20",
-        "href": "http://catalog.com/products/20"
-    }
+    "productSpecification": {"id": "20", "href": "http://catalog.com/products/20"},
 }
 
 BUNDLE_OFFERING = {
     "isBundle": True,
     "name": "TestOffering",
     "version": "1.0",
-    "productSpecification": {
-    },
-    "bundledProductOffering": [{
-        'id': '6'
-    }, {
-        'id': '7'
-    }]
+    "productSpecification": {},
+    "bundledProductOffering": [{"id": "6"}, {"id": "7"}],
 }
 
 OPEN_BUNDLE = {
     "isBundle": True,
     "name": "TestOffering",
     "version": "1.0",
-    "productSpecification": {
-    },
-    "bundledProductOffering": [{
-        'id': '6'
-    }, {
-        'id': '7'
-    }],
-    "productOfferingPrice": [{
-        "name": "open",
-        "description": "Open offering"
-    }]
+    "productSpecification": {},
+    "bundledProductOffering": [{"id": "6"}, {"id": "7"}],
+    "productOfferingPrice": [{"name": "open", "description": "Open offering"}],
 }
 
 BUNDLE_MISSING_FIELD = {
     "isBundle": True,
     "name": "TestOffering",
     "version": "1.0",
-    "productSpecification": {
-    }
+    "productSpecification": {},
 }
 
 BUNDLE_MISSING_ELEMS = {
     "isBundle": True,
     "name": "TestOffering",
     "version": "1.0",
-    "productSpecification": {
-    },
-    "bundledProductOffering": [{
-        'id': '6'
-    }]
+    "productSpecification": {},
+    "bundledProductOffering": [{"id": "6"}],
 }
 
 
 MISSING_PRICETYPE = {
-    "productSpecification": {
-        "id": "20",
-        "href": "http://catalog.com/products/20"
-    },
-    "productOfferingPrice": [{
-        "name": "plan",
-        "price": {
-            "currencyCode": "EUR"
-        }
-    }]
+    "productSpecification": {"id": "20", "href": "http://catalog.com/products/20"},
+    "productOfferingPrice": [{"name": "plan", "price": {"currencyCode": "EUR"}}],
 }
 
 INVALID_PRICETYPE = {
-    "productSpecification": {
-        "id": "20",
-        "href": "http://catalog.com/products/20"
-    },
-    "productOfferingPrice": [{
-        "name": "plan",
-        "priceType": "invalid",
-        "price": {
-            "currencyCode": "EUR"
-        }
-    }]
+    "productSpecification": {"id": "20", "href": "http://catalog.com/products/20"},
+    "productOfferingPrice": [{"name": "plan", "priceType": "invalid", "price": {"currencyCode": "EUR"}}],
 }
 
 MISSING_PERIOD = {
-    "productSpecification": {
-        "id": "20",
-        "href": "http://catalog.com/products/20"
-    },
-    "productOfferingPrice": [{
-        "name": "plan",
-        "priceType": "recurring",
-        "price": {
-            "currencyCode": "EUR"
-        }
-    }]
+    "productSpecification": {"id": "20", "href": "http://catalog.com/products/20"},
+    "productOfferingPrice": [{"name": "plan", "priceType": "recurring", "price": {"currencyCode": "EUR"}}],
 }
 
 INVALID_PERIOD = {
-    "productSpecification": {
-        "id": "20",
-        "href": "http://catalog.com/products/20"
-    },
-    "productOfferingPrice": [{
-        "name": "plan",
-        "priceType": "recurring",
-        "recurringChargePeriod": "invalid",
-        "price": {
-            "currencyCode": "EUR"
+    "productSpecification": {"id": "20", "href": "http://catalog.com/products/20"},
+    "productOfferingPrice": [
+        {
+            "name": "plan",
+            "priceType": "recurring",
+            "recurringChargePeriod": "invalid",
+            "price": {"currencyCode": "EUR"},
         }
-    }]
+    ],
 }
 
 MISSING_PRICE = {
-    "productSpecification": {
-        "id": "20",
-        "href": "http://catalog.com/products/20"
-    },
-    "productOfferingPrice": [{
-        "name": "plan",
-        "priceType": "recurring",
-        "recurringChargePeriod": "monthly"
-    }]
+    "productSpecification": {"id": "20", "href": "http://catalog.com/products/20"},
+    "productOfferingPrice": [{"name": "plan", "priceType": "recurring", "recurringChargePeriod": "monthly"}],
 }
 
 MISSING_CURRENCY = {
-    "productSpecification": {
-        "id": "20",
-        "href": "http://catalog.com/products/20"
-    },
-    "productOfferingPrice": [{
-        "name": "plan",
-        "priceType": "recurring",
-        "recurringChargePeriod": "monthly",
-        "price": {
+    "productSpecification": {"id": "20", "href": "http://catalog.com/products/20"},
+    "productOfferingPrice": [
+        {
+            "name": "plan",
+            "priceType": "recurring",
+            "recurringChargePeriod": "monthly",
+            "price": {},
         }
-    }]
+    ],
 }
 
 INVALID_CURRENCY = {
-    "productSpecification": {
-        "id": "20",
-        "href": "http://catalog.com/products/20"
-    },
-    "productOfferingPrice": [{
-        "name": "plan",
-        "priceType": "recurring",
-        "recurringChargePeriod": "monthly",
-        "price": {
-            "currencyCode": "invalid"
+    "productSpecification": {"id": "20", "href": "http://catalog.com/products/20"},
+    "productOfferingPrice": [
+        {
+            "name": "plan",
+            "priceType": "recurring",
+            "recurringChargePeriod": "monthly",
+            "price": {"currencyCode": "invalid"},
         }
-    }]
+    ],
 }
 
 MISSING_NAME = {
-    "productSpecification": {
-        "id": "20",
-        "href": "http://catalog.com/products/20"
-    },
-    "productOfferingPrice": [{
-        "priceType": "recurring",
-        "recurringChargePeriod": "monthly",
-        "price": {
-        }
-    }]
+    "productSpecification": {"id": "20", "href": "http://catalog.com/products/20"},
+    "productOfferingPrice": [{"priceType": "recurring", "recurringChargePeriod": "monthly", "price": {}}],
 }
 
 MULTIPLE_NAMES = {
-    "productSpecification": {
-        "id": "20",
-        "href": "http://catalog.com/products/20"
-    },
-    "productOfferingPrice": [{
-        "name": "plan",
-        "priceType": "one time",
-        "price": {
-            "currencyCode": "EUR",
-            'taxIncludedAmount': '1.0'
-        }
-    }, {
-        "name": "Plan",
-        "priceType": "one time",
-        "price": {
-            "currencyCode": "EUR",
-            'taxIncludedAmount': '1.0'
-        }
-    }]
+    "productSpecification": {"id": "20", "href": "http://catalog.com/products/20"},
+    "productOfferingPrice": [
+        {
+            "name": "plan",
+            "priceType": "one time",
+            "price": {"currencyCode": "EUR", "taxIncludedAmount": "1.0"},
+        },
+        {
+            "name": "Plan",
+            "priceType": "one time",
+            "price": {"currencyCode": "EUR", "taxIncludedAmount": "1.0"},
+        },
+    ],
 }
 
 OPEN_MIXED = {
@@ -1408,19 +1333,13 @@ OPEN_MIXED = {
     "isBundle": False,
     "name": "TestOffering",
     "version": "1.0",
-    "productSpecification": {
-        "id": "20",
-        "href": "http://catalog.com/products/20"
-    },
-    "productOfferingPrice": [{
-        "name": "open",
-        "description": "Open offering"
-    }, {
-        "name": "single",
-        "priceType": "one time",
-        "price": {
-            "currencyCode": "EUR",
-            'taxIncludedAmount': '1.0'
-        }
-    }]
+    "productSpecification": {"id": "20", "href": "http://catalog.com/products/20"},
+    "productOfferingPrice": [
+        {"name": "open", "description": "Open offering"},
+        {
+            "name": "single",
+            "priceType": "one time",
+            "price": {"currencyCode": "EUR", "taxIncludedAmount": "1.0"},
+        },
+    ],
 }

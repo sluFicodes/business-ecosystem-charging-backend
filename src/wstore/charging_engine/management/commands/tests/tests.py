@@ -21,16 +21,14 @@
 
 from datetime import datetime
 
-from mock import MagicMock, call
-
 from django.test import TestCase
+from mock import MagicMock, call
 
 from wstore.charging_engine.management.commands import pending_charges_daemon
 
 
 class ChargesDaemonTestCase(TestCase):
-
-    tags = ('charges-daemon', )
+    tags = ("charges-daemon",)
 
     def setUp(self):
         # Mock datetime
@@ -56,22 +54,16 @@ class ChargesDaemonTestCase(TestCase):
         return contract
 
     def _build_subscription_contract(self, date, id_):
-        return self._build_contract({
-            'subscription': [{
-                'renovation_date': date
-            }]
-        }, id_)
+        return self._build_contract({"subscription": [{"renovation_date": date}]}, id_)
 
     def _build_usage_contract(self, date, id_):
-        contract = self._build_contract({
-            'pay_per_use': []
-        }, id_)
+        contract = self._build_contract({"pay_per_use": []}, id_)
 
         charge1 = MagicMock()
-        charge1.concept = 'initial'
+        charge1.concept = "initial"
 
         charge2 = MagicMock()
-        charge2.concept = 'usage'
+        charge2.concept = "usage"
         charge2.date = date
 
         contract.charges = [charge1, charge2, charge1]
@@ -80,9 +72,7 @@ class ChargesDaemonTestCase(TestCase):
     def _test_charging_daemon(self, contracts):
         # Not subscription
         contract1 = MagicMock()
-        contract1.pricing_model = {
-            'single_payment': []
-        }
+        contract1.pricing_model = {"single_payment": []}
 
         order = MagicMock()
         order.get_contracts.return_value = [contract1] + contracts
@@ -95,37 +85,38 @@ class ChargesDaemonTestCase(TestCase):
         # Validate calls
         self.assertEquals([call(), call()], pending_charges_daemon.NotificationsHandler.call_args_list)
 
-        pending_charges_daemon.NotificationsHandler().send_payment_required_notification.assert_called_once_with(order, contracts[2])
+        pending_charges_daemon.NotificationsHandler().send_payment_required_notification.assert_called_once_with(
+            order, contracts[2]
+        )
         pending_charges_daemon.InventoryClient.assert_called_once_with()
-        pending_charges_daemon.InventoryClient().suspend_product.assert_called_once_with('3')
+        pending_charges_daemon.InventoryClient().suspend_product.assert_called_once_with("3")
 
-        pending_charges_daemon.NotificationsHandler().send_near_expiration_notification.assert_called_once_with(order, contracts[1], 2)
+        pending_charges_daemon.NotificationsHandler().send_near_expiration_notification.assert_called_once_with(
+            order, contracts[1], 2
+        )
 
         pending_charges_daemon.on_product_suspended.assert_called_once_with(order, contracts[2])
 
     def test_subscription_renovation(self):
-
         # Not expired
-        contract1 = self._build_subscription_contract(datetime(2016, 3, 1), '1')
+        contract1 = self._build_subscription_contract(datetime(2016, 3, 1), "1")
 
         # About to expire
-        contract2 = self._build_subscription_contract(datetime(2016, 2, 10), '2')
+        contract2 = self._build_subscription_contract(datetime(2016, 2, 10), "2")
 
         # Expired
-        contract3 = self._build_subscription_contract(datetime(2016, 1, 31), '3')
+        contract3 = self._build_subscription_contract(datetime(2016, 1, 31), "3")
 
         self._test_charging_daemon([contract1, contract2, contract3])
 
     def test_usage_renovation(self):
-
         # Not expired
-        contract1 = self._build_usage_contract(datetime(2016, 3, 1), '1')
+        contract1 = self._build_usage_contract(datetime(2016, 3, 1), "1")
 
         # About to expire
-        contract2 = self._build_usage_contract(datetime(2016, 1, 11), '2')
+        contract2 = self._build_usage_contract(datetime(2016, 1, 11), "2")
 
         # Expired
-        contract3 = self._build_usage_contract(datetime(2015, 12, 31), '3')
+        contract3 = self._build_usage_contract(datetime(2015, 12, 31), "3")
 
         self._test_charging_daemon([contract1, contract2, contract3])
-

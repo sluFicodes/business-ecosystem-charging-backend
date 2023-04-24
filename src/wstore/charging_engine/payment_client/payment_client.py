@@ -19,8 +19,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-class PaymentClient():
-
+class PaymentClient:
     _purchase = None
 
     def __init__(self, purchase):

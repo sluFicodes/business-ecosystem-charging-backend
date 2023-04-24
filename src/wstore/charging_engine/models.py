@@ -25,7 +25,7 @@ from djongo import models
 
 class ReportsPayout(models.Model):
     _id = models.ObjectIdField()
-    reports = models.JSONField(default=[]) # List
+    reports = models.JSONField(default=[])  # List
     payout_id = models.CharField(max_length=15)
     status = models.CharField(max_length=15)
 
@@ -33,6 +33,6 @@ class ReportsPayout(models.Model):
 class ReportSemiPaid(models.Model):
     _id = models.ObjectIdField()
     report = models.IntegerField()
-    failed = models.JSONField(default=[]) # List
-    success = models.JSONField(default=[]) # List
-    errors = models.JSONField(default={}) # Dict
+    failed = models.JSONField(default=[])  # List
+    success = models.JSONField(default=[])  # List
+    errors = models.JSONField(default={})  # Dict

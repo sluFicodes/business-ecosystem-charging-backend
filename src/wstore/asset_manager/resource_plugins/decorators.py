@@ -19,14 +19,17 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from functools import wraps
+from logging import getLogger
+
 from bson.objectid import ObjectId
 
-from functools import wraps
-
+from wstore.asset_manager.errors import ProductError
+from wstore.asset_manager.models import Resource
 from wstore.models import ResourcePlugin
 from wstore.ordering.models import Offering
-from wstore.asset_manager.models import Resource
-from wstore.asset_manager.errors import ProductError
+
+logger = getLogger("wstore.default_logger")
 
 
 def _get_plugin_model(name):
@@ -34,7 +37,7 @@ def _get_plugin_model(name):
         plugin_model = ResourcePlugin.objects.get(name=name)
     except:
         # Validate resource type
-        raise ProductError('The given product specification contains a not supported asset type: ' + name)
+        raise ProductError("The given product specification contains a not supported asset type: " + name)
 
     return plugin_model
 
@@ -42,19 +45,21 @@ def _get_plugin_model(name):
 def load_plugin_module(asset_t):
     plugin_model = _get_plugin_model(asset_t)
     module = plugin_model.module
-    module_class_name = module.split('.')[-1]
-    module_package = module.partition('.' + module_class_name)[0]
+    module_class_name = module.split(".")[-1]
+    module_package = module.partition("." + module_class_name)[0]
 
-    module_class = getattr(__import__(module_package, globals(), locals(), [module_class_name], 0), module_class_name)
+    module_class = getattr(
+        __import__(module_package, globals(), locals(), [module_class_name], 0),
+        module_class_name,
+    )
 
+    logger.debug(f"Loaded plugin module for {asset_t}")
     return module_class(plugin_model)
 
 
 def on_product_spec_validation(func):
-
     @wraps(func)
     def wrapper(self, provider, asset_t, media_type, url, asset_id):
-
         plugin_module = load_plugin_module(asset_t)
 
         # On pre validation
@@ -72,10 +77,8 @@ def on_product_spec_validation(func):
 
 
 def on_product_spec_attachment(func):
-
     @wraps(func)
     def wrapper(self, asset, asset_t, product_spec):
-
         if not len(asset.bundled_assets):
             # Load plugin module
             plugin_module = load_plugin_module(asset_t)
@@ -94,10 +97,8 @@ def on_product_spec_attachment(func):
 
 
 def on_product_spec_upgrade(func):
-
     @wraps(func)
     def wrapper(self, asset, asset_t, product_spec):
-
         if not len(asset.bundled_assets):
             # Load plugin module
             plugin_module = load_plugin_module(asset_t)
@@ -128,17 +129,15 @@ def _expand_bundled_assets(offering_assets):
 
 
 def on_product_offering_validation(func):
-
     @wraps(func)
     def wrapper(self, provider, product_offering, bundled_offerings):
-
         offering_assets = []
         if len(bundled_offerings) > 0:
             # Get bundled offerings assets
             offering_assets = [offering.asset for offering in bundled_offerings if offering.is_digital]
         else:
             # Get offering asset
-            asset = Resource.objects.filter(product_id=product_offering['productSpecification']['id'])
+            asset = Resource.objects.filter(product_id=product_offering["productSpecification"]["id"])
             offering_assets.extend(asset)
 
         # Get the effective assets
@@ -163,9 +162,9 @@ def _execute_asset_event(asset, order, contract, type_):
     plugin_module = load_plugin_module(asset.resource_type)
 
     events = {
-        'activate': plugin_module.on_product_acquisition,
-        'suspend': plugin_module.on_product_suspension,
-        'usage': plugin_module.on_usage_refresh
+        "activate": plugin_module.on_product_acquisition,
+        "suspend": plugin_module.on_product_suspension,
+        "usage": plugin_module.on_usage_refresh,
     }
     # Execute event
     events[type_](asset, contract, order)
@@ -177,8 +176,11 @@ def process_product_notification(order, contract, type_):
     offering = Offering.objects.get(pk=ObjectId(contract.offering))
 
     if len(offering.bundled_offerings) > 0:
-        offering_assets = [Offering.objects.get(pk=ObjectId(key)).asset
-                           for key in offering.bundled_offerings if Offering.objects.get(pk=ObjectId(key)).is_digital]
+        offering_assets = [
+            Offering.objects.get(pk=ObjectId(key)).asset
+            for key in offering.bundled_offerings
+            if Offering.objects.get(pk=ObjectId(key)).is_digital
+        ]
 
     elif offering.is_digital:
         offering_assets = [offering.asset]
@@ -190,12 +192,12 @@ def process_product_notification(order, contract, type_):
 
 
 def on_product_acquired(order, contract):
-    process_product_notification(order, contract, 'activate')
+    process_product_notification(order, contract, "activate")
 
 
 def on_product_suspended(order, contract):
-    process_product_notification(order, contract, 'suspend')
+    process_product_notification(order, contract, "suspend")
 
 
 def on_usage_refreshed(order, contract):
-    process_product_notification(order, contract, 'usage')
+    process_product_notification(order, contract, "usage")

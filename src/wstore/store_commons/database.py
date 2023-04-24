@@ -19,87 +19,92 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+from logging import getLogger
+
 from bson import ObjectId
+from django.conf import settings
 from pymongo import MongoClient
 
-from django.conf import settings
+logger = getLogger("wstore.default_logger")
 
 
 def get_database_connection():
     """
     Gets a raw database connection to MongoDB
     """
+    logger.debug("Getting connection to MongoDB")
+
     # Get database info from settings
-    database_info = settings.DATABASES['default']
+    database_info = settings.DATABASES["default"]
 
     # Create database connection
     client = None
-    if 'CLIENT' in database_info:
-        client_info = database_info['CLIENT']
+    if "CLIENT" in database_info:
+        client_info = database_info["CLIENT"]
 
-        if 'host' in client_info and 'port' in client_info and 'username' in client_info:
+        if "host" in client_info and "port" in client_info and "username" in client_info:
             client = MongoClient(
-                client_info['host'],
-                int(client_info['port']),
-                user=client_info['username'],
-                password=client_info['password'])
+                client_info["host"],
+                int(client_info["port"]),
+                user=client_info["username"],
+                password=client_info["password"],
+            )
 
-        elif 'host' in client_info and 'port' in client_info and 'username' not in client_info:
-            client = MongoClient(client_info['host'], int(client_info['port']))
+        elif "host" in client_info and "port" in client_info and "username" not in client_info:
+            client = MongoClient(client_info["host"], int(client_info["port"]))
 
-        elif 'host' in client_info and 'port' not in client_info and 'username' in client_info:
+        elif "host" in client_info and "port" not in client_info and "username" in client_info:
             client = MongoClient(
-                client_info['host'],
-                user=client_info['username'],
-                password=client_info['password'])
+                client_info["host"],
+                user=client_info["username"],
+                password=client_info["password"],
+            )
 
-        elif 'host' in client_info and 'port' not in client_info and 'username' not in client_info:
-            client = MongoClient(client_info['host'])
+        elif "host" in client_info and "port" not in client_info and "username" not in client_info:
+            client = MongoClient(client_info["host"])
 
-        elif 'host' not in client_info and 'port' in client_info and 'username' in client_info:
+        elif "host" not in client_info and "port" in client_info and "username" in client_info:
             client = MongoClient(
-                'localhost',
-                int(client_info['port']),
-                user=client_info['username'],
-                password=client_info['password'])
+                "localhost",
+                int(client_info["port"]),
+                user=client_info["username"],
+                password=client_info["password"],
+            )
 
-        elif 'host' not in client_info and 'port' in client_info and 'username' not in client_info:
-            client = MongoClient('localhost', int(client_info['port']))
+        elif "host" not in client_info and "port" in client_info and "username" not in client_info:
+            client = MongoClient("localhost", int(client_info["port"]))
 
         else:
             client = MongoClient()
     else:
         client = MongoClient()
 
-    db_name = database_info['NAME']
+    db_name = database_info["NAME"]
     db = client[db_name]
 
+    logger.info(f"Connected to MongoDB: {db_name} OK")
     return db
 
 
 class DocumentLock:
-
     def __init__(self, collection, doc_id, lock_id):
         self._collection = collection
         self._doc_id = doc_id
-        self._lock_id = '_lock_{}'.format(lock_id)
+        self._lock_id = "_lock_{}".format(lock_id)
         self._db = get_database_connection()
 
     def lock_document(self):
-        prev = self._db[self._collection].find_one_and_update(
-            {'_id': self._doc_id},
-            {'$set': {self._lock_id: True}}
-        )
+        prev = self._db[self._collection].find_one_and_update({"_id": self._doc_id}, {"$set": {self._lock_id: True}})
+        logger.debug(f"Locked document {self._lock_id}")
         return self._lock_id in prev and prev[self._lock_id]
 
     def wait_document(self):
         locked = self.lock_document()
+        logger.debug(f"Waiting for document {self._lock_id}")
 
         while locked:
             locked = self.lock_document()
 
     def unlock_document(self):
-        self._db[self._collection].find_one_and_update(
-            {'_id': self._doc_id},
-            {'$set': {self._lock_id: False}}
-        )
+        logger.debug(f"Unlocked document {self._lock_id}")
+        self._db[self._collection].find_one_and_update({"_id": self._doc_id}, {"$set": {self._lock_id: False}})

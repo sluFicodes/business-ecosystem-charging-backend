@@ -20,30 +20,34 @@
 
 
 import requests
-
-from django.core.management.base import BaseCommand
 from django.conf import settings
+from django.core.management.base import BaseCommand
 
 
 class Command(BaseCommand):
     def handle(self, *args, **kargs):
         headers = {
-            'content-type': 'application/json',
-            'X-Nick-Name': settings.STORE_NAME,
-            'X-Roles': settings.ADMIN_ROLE,
-            'X-Email': settings.WSTOREMAIL
+            "content-type": "application/json",
+            "X-Nick-Name": settings.STORE_NAME,
+            "X-Roles": settings.ADMIN_ROLE,
+            "X-Email": settings.WSTOREMAIL,
         }
 
         local_site = settings.LOCAL_SITE
-        url = '{}/charging/api/reportManagement/created'.format(local_site)
-        data = {"aggregatorId": None, "providerId": None, "productClass": None, "callbackUrl": url}
+        url = "{}/charging/api/reportManagement/created".format(local_site)
+        data = {
+            "aggregatorId": None,
+            "providerId": None,
+            "productClass": None,
+            "callbackUrl": url,
+        }
 
         # Make request
         url = settings.RSS
-        if not url.endswith('/'):
-            url += '/'
+        if not url.endswith("/"):
+            url += "/"
 
-        url += 'rss/settlement'
+        url += "rss/settlement"
 
         response = requests.post(url, json=data, headers=headers)
 

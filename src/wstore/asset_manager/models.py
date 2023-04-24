@@ -21,8 +21,8 @@
 
 from urllib.parse import urljoin
 
-from djongo import models
 from django.conf import settings
+from djongo import models
 from djongo.models.fields import JSONField
 
 from wstore.models import Organization
@@ -53,16 +53,14 @@ class Resource(models.Model):
     content_type = models.CharField(max_length=100)
     download_link = models.URLField()
     resource_path = models.CharField(max_length=100)
-    old_versions = models.ArrayField(
-        model_container=ResourceVersion
-    )
+    old_versions = models.ArrayField(model_container=ResourceVersion)
     state = models.CharField(max_length=20)
     resource_type = models.CharField(max_length=100, blank=True, null=True)
     is_public = models.BooleanField(default=False)
     has_terms = models.BooleanField(default=False)
 
-    bundled_assets = models.JSONField(default=[]) # List
-    meta_info = models.JSONField(default={}) # Dict
+    bundled_assets = models.JSONField(default=[])  # List
+    meta_info = models.JSONField(default={})  # Dict
 
     def get_url(self):
         return self.download_link
@@ -70,10 +68,10 @@ class Resource(models.Model):
     def get_uri(self):
         base_uri = settings.SITE
 
-        return urljoin(base_uri, 'charging/api/assetManagement/assets/' + str(self.pk))
+        return urljoin(base_uri, "charging/api/assetManagement/assets/" + str(self.pk))
 
     class Meta:
-        app_label = 'wstore'
+        app_label = "wstore"
 
 
 class ResourcePlugin(models.Model):
@@ -88,8 +86,8 @@ class ResourcePlugin(models.Model):
     media_types = models.JSONField(default=[])  # String List
     formats = models.JSONField(default=[])  # String List
     overrides = models.JSONField(default=[])  # String List
-    options = models.JSONField(default={}) # Dict
-    form = models.JSONField(default={}) # Dict
+    options = models.JSONField(default={})  # Dict
+    form = models.JSONField(default={})  # Dict
 
     # Whether the plugin must ask for accounting info
     pull_accounting = models.BooleanField(default=False)
@@ -98,4 +96,4 @@ class ResourcePlugin(models.Model):
         return self.plugin_id
 
     class Meta:
-        app_label = 'wstore'
+        app_label = "wstore"

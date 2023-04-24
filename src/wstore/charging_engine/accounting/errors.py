@@ -24,4 +24,4 @@ class UsageError(Exception):
         self.value = msg
 
     def __str__(self):
-        return 'UsageError: ' + self.value
+        return "UsageError: " + self.value

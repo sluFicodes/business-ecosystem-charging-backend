@@ -21,33 +21,32 @@
 
 import json
 
+from wstore.charging_engine.payout_engine import PayoutEngine
 from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import build_response, supported_request_mime_types
-from wstore.charging_engine.payout_engine import PayoutEngine
 
 
 class ReportReceiver(Resource):
-
-    @supported_request_mime_types(('application/json',))
+    @supported_request_mime_types(("application/json",))
     def payout_reports(self, request):
         try:
             reports = json.loads(request.body)
         except:
-            return build_response(request, 400, 'The provided data is not a valid JSON object')
+            return build_response(request, 400, "The provided data is not a valid JSON object")
         # Check reports?
         payouteng = PayoutEngine()
         payouteng.process_reports(reports)
         return build_response(request, 201)
 
-    @supported_request_mime_types(('application/json',))
+    @supported_request_mime_types(("application/json",))
     def create(self, request):
         try:
             order = json.loads(request.body)
         except:
-            return build_response(request, 400, 'The provided data is not a valid JSON object')
+            return build_response(request, 400, "The provided data is not a valid JSON object")
 
-        if order.get('status') != 'COMPLETED':
-            print("Order status: {}".format(order.get('status')))
+        if order.get("status") != "COMPLETED":
+            print("Order status: {}".format(order.get("status")))
             return build_response(request, 200)
         payouteng = PayoutEngine()
         payouteng.process_unpaid()

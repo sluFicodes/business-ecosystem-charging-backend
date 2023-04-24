@@ -18,12 +18,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from os import path, environ
+from os import environ, path
 
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ["*"]
 
 ADMINS = (
     # ('Your Name', 'your_email@example.com'),
@@ -32,162 +32,179 @@ ADMINS = (
 MANAGERS = ADMINS
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'djongo',
-        'NAME': 'wstore_db',
-        'ENFORCE_SCHEMA': False,
-        'CLIENT': {
-            'host': 'localhost',
+    "default": {
+        "ENGINE": "djongo",
+        "NAME": "wstore_db",
+        "ENFORCE_SCHEMA": False,
+        "CLIENT": {
+            "host": "localhost",
             #'username': 'mongoadmin',
             #'password': 'mongopass'
-        }
+        },
     }
 }
 
 BASEDIR = path.dirname(path.abspath(__file__))
 
-DATA_UPLOAD_MAX_MEMORY_SIZE=52428800
+DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800
 
-STORE_NAME = 'WStore'
-AUTH_PROFILE_MODULE = 'wstore.models.UserProfile'
+STORE_NAME = "WStore"
+AUTH_PROFILE_MODULE = "wstore.models.UserProfile"
 
-ADMIN_ROLE = 'admin'
-PROVIDER_ROLE = 'seller'
-CUSTOMER_ROLE = 'customer'
+ADMIN_ROLE = "admin"
+PROVIDER_ROLE = "seller"
+CUSTOMER_ROLE = "customer"
 
 LOGGING = {
-    'version': 1,
-    'handlers': {
-        'console':{
-            'level':'DEBUG',
-            'class':'logging.StreamHandler',
-        },
-    },
-    'loggers': {
-        'django.request': {
-            'handlers':['console'],
-            'propagate': True,
-            'level':'DEBUG',
+    "version": 1,
+    "disable_existing-loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname: <8} [{asctime}]: ({module}) {message}",
+            "style": "{",
         }
+    },
+    "handlers": {
+        "console": {
+            "level": "DEBUG" if DEBUG else "INFO",
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+        # "file": {
+        #     "level": "DEBUG" if DEBUG else "INFO",
+        #     "class": "logging.FileHandler",
+        #     "filename": "logging/debug.log",
+        #     "formatter": "verbose",
+        # },
+    },
+    "loggers": {
+        "django.request": {
+            "handlers": ["console"],
+            "propagate": True,
+            "level": "DEBUG",
+        },
+        "wstore.default_logger": {
+            "handlers": ["console"],
+            "propagate": True,
+            "level": "DEBUG",
+        },
     },
 }
 
 CHARGE_PERIODS = {
-    'daily': 1,  # One day
-    'weekly': 7,  # One week
-    'monthly': 30,  # One month
-    'quarterly': 90,  # Three months
-    'yearly': 365,  # One year
-    'quinquennial': 1825,  # Five years
+    "daily": 1,  # One day
+    "weekly": 7,  # One week
+    "monthly": 30,  # One month
+    "quarterly": 90,  # Three months
+    "yearly": 365,  # One year
+    "quinquennial": 1825,  # Five years
 }
 
 CURRENCY_CODES = [
-    ('AUD', 'Australia Dollar'),
-    ('BRL', 'Brazil Real'),
-    ('CAD', 'Canada Dollar'),
-    ('CHF', 'Switzerland Franc'),
-    ('CZK', 'Czech Republic Koruna'),
-    ('DKK', 'Denmark Krone'),
-    ('EUR', 'Euro'),
-    ('GBP', 'United Kingdom Pound'),
-    ('HKD', 'Hong Kong Dollar'),
-    ('HUF', 'Hungary Forint'),
-    ('ILS', 'Israel Shekel'),
-    ('JPY', 'Japan Yen'),
-    ('MXN', 'Mexico Peso'),
-    ('MYR', 'Malaysia Ringgit'),
-    ('NOK', 'Norway Krone'),
-    ('NZD', 'New Zealand Dollar'),
-    ('PHP', 'Philippines Peso'),
-    ('PLN', 'Poland Zloty'),
-    ('RUB', 'Russia Ruble'),
-    ('SEK', 'Sweden Krona'),
-    ('SGD', 'Singapore Dollar'),
-    ('THB', 'Thailand Baht'),
-    ('TRY', 'Turkey Lira'),
-    ('TWD', 'Taiwan New Dollar'),
-    ('USD', 'US Dollar'),
+    ("AUD", "Australia Dollar"),
+    ("BRL", "Brazil Real"),
+    ("CAD", "Canada Dollar"),
+    ("CHF", "Switzerland Franc"),
+    ("CZK", "Czech Republic Koruna"),
+    ("DKK", "Denmark Krone"),
+    ("EUR", "Euro"),
+    ("GBP", "United Kingdom Pound"),
+    ("HKD", "Hong Kong Dollar"),
+    ("HUF", "Hungary Forint"),
+    ("ILS", "Israel Shekel"),
+    ("JPY", "Japan Yen"),
+    ("MXN", "Mexico Peso"),
+    ("MYR", "Malaysia Ringgit"),
+    ("NOK", "Norway Krone"),
+    ("NZD", "New Zealand Dollar"),
+    ("PHP", "Philippines Peso"),
+    ("PLN", "Poland Zloty"),
+    ("RUB", "Russia Ruble"),
+    ("SEK", "Sweden Krona"),
+    ("SGD", "Singapore Dollar"),
+    ("THB", "Thailand Baht"),
+    ("TRY", "Turkey Lira"),
+    ("TWD", "Taiwan New Dollar"),
+    ("USD", "US Dollar"),
 ]
 
 # Absolute filesystem path to the directory that will hold user-uploaded files.
-MEDIA_DIR = 'media/'
+MEDIA_DIR = "media/"
 MEDIA_ROOT = path.join(BASEDIR, MEDIA_DIR)
-BILL_ROOT = path.join(MEDIA_ROOT, 'bills')
+BILL_ROOT = path.join(MEDIA_ROOT, "bills")
 
 # URL that handles the media served from MEDIA_ROOT.
-MEDIA_URL = '/charging/media/'
+MEDIA_URL = "/charging/media/"
 
 INSTALLED_APPS = [
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
     #'django.contrib.messages',
     #'django.contrib.admin',
     #'wstore.store_commons',
-    'wstore',
+    "wstore",
     #'wstore.charging_engine',
     #'django_crontab',
     #'django_nose'
 ]
 
 # Make this unique, and don't share it with anybody.
-SECRET_KEY = '8p509oqr^68+z)y48_*pv!ceun)gu7)yw6%y9j2^0=o14)jetr'
+SECRET_KEY = "8p509oqr^68+z)y48_*pv!ceun)gu7)yw6%y9j2^0=o14)jetr"
 
 TEMPLATE_CONTEXT_PROCESSORS = (
-    'django.contrib.auth.context_processors.auth',
-    'django.core.context_processors.debug',
-    'django.core.context_processors.i18n',
-    'django.core.context_processors.media',
-    'django.core.context_processors.request',
-    'django.core.context_processors.static',
+    "django.contrib.auth.context_processors.auth",
+    "django.core.context_processors.debug",
+    "django.core.context_processors.i18n",
+    "django.core.context_processors.media",
+    "django.core.context_processors.request",
+    "django.core.context_processors.static",
 )
 
 # List of callables that know how to import templates from various sources.
 TEMPLATE_LOADERS = (
-    'django.template.loaders.filesystem.Loader',
-    'django.template.loaders.app_directories.Loader',
+    "django.template.loaders.filesystem.Loader",
+    "django.template.loaders.app_directories.Loader",
 )
 
-WSTOREMAILUSER = 'email_user'
-WSTOREMAIL = 'wstore@email.com'
-WSTOREMAILPASS = 'wstore_email_passwd'
-SMTPSERVER = 'wstore_smtp_server'
+WSTOREMAILUSER = "email_user"
+WSTOREMAIL = "wstore@email.com"
+WSTOREMAILPASS = "wstore_email_passwd"
+SMTPSERVER = "wstore_smtp_server"
 SMTPPORT = 587
 
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'wstore.store_commons.middleware.AuthenticationMiddleware'
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "wstore.store_commons.middleware.AuthenticationMiddleware",
 ]
 
-ROOT_URLCONF = 'urls'
+ROOT_URLCONF = "urls"
 
 # Python dotted path to the WSGI application used by Django's runserver.
-WSGI_APPLICATION = 'wsgi.application'
+WSGI_APPLICATION = "wsgi.application"
 
 # Payment method determines the payment gateway to be used
 # Allowed values: paypal (default), fipay, None
-PAYMENT_METHOD = 'paypal'
+PAYMENT_METHOD = "paypal"
 
-AUTHENTICATION_BACKENDS = (
-    'django.contrib.auth.backends.ModelBackend',
-)
+AUTHENTICATION_BACKENDS = ("django.contrib.auth.backends.ModelBackend",)
 
-TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
+TEST_RUNNER = "django_nose.NoseTestSuiteRunner"
 
 # Daily job that checks pending pay-per-use charges
 CRONJOBS = [
-    ('0 5 * * *', 'django.core.management.call_command', ['pending_charges_daemon']),
-    ('0 6 * * *', 'django.core.management.call_command', ['resend_cdrs']),
-    ('0 4 * * *', 'django.core.management.call_command', ['resend_upgrade'])
+    ("0 5 * * *", "django.core.management.call_command", ["pending_charges_daemon"]),
+    ("0 6 * * *", "django.core.management.call_command", ["resend_cdrs"]),
+    ("0 4 * * *", "django.core.management.call_command", ["resend_upgrade"]),
 ]
 
 CLIENTS = {
-    'paypal': 'wstore.charging_engine.payment_client.paypal_client.PayPalClient',
-    'fipay': 'wstore.charging_engine.payment_client.fipay_client.FiPayClient',
-    None: 'wstore.charging_engine.payment_client.payment_client.PaymentClient'
+    "paypal": "wstore.charging_engine.payment_client.paypal_client.PayPalClient",
+    "fipay": "wstore.charging_engine.payment_client.fipay_client.FiPayClient",
+    None: "wstore.charging_engine.payment_client.payment_client.PaymentClient",
 }
 
 NOTIF_CERT_FILE = None
@@ -195,7 +212,7 @@ NOTIF_CERT_KEY_FILE = None
 
 PROPAGATE_TOKEN = True
 
-DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
+DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 
 from services_settings import *
 
@@ -203,60 +220,60 @@ from services_settings import *
 # ENVIRONMENT SETTINGS
 # =====================================
 
-DATABASES['default']['NAME'] = environ.get('BAE_CB_MONGO_DB', DATABASES['default']['NAME'])
+DATABASES["default"]["NAME"] = environ.get("BAE_CB_MONGO_DB", DATABASES["default"]["NAME"])
 
-env_user = environ.get('BAE_CB_MONGO_USER', None)
+env_user = environ.get("BAE_CB_MONGO_USER", None)
 if env_user is not None:
-    DATABASES['default']['CLIENT']['username'] = env_user
-    DATABASES['default']['CLIENT']['authSource'] = DATABASES['default']['NAME']
+    DATABASES["default"]["CLIENT"]["username"] = env_user
+    DATABASES["default"]["CLIENT"]["authSource"] = DATABASES["default"]["NAME"]
 
-env_pass = environ.get('BAE_CB_MONGO_PASS', None)
+env_pass = environ.get("BAE_CB_MONGO_PASS", None)
 if env_pass is not None:
-    DATABASES['default']['CLIENT']['password'] = env_pass
+    DATABASES["default"]["CLIENT"]["password"] = env_pass
 
-env_host = environ.get('BAE_CB_MONGO_SERVER', None)
+env_host = environ.get("BAE_CB_MONGO_SERVER", None)
 if env_host is not None:
-    DATABASES['default']['CLIENT']['host'] = env_host
+    DATABASES["default"]["CLIENT"]["host"] = env_host
 
-env_port = environ.get('BAE_CB_MONGO_PORT', None)
+env_port = environ.get("BAE_CB_MONGO_PORT", None)
 if env_port is not None:
-    DATABASES['default']['CLIENT']['port'] = int(env_port)
+    DATABASES["default"]["CLIENT"]["port"] = int(env_port)
 
 
-DATA_UPLOAD_MAX_MEMORY_SIZE=int(environ.get('BAE_CB_MAX_UPLOAD_SIZE', DATA_UPLOAD_MAX_MEMORY_SIZE))
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(environ.get("BAE_CB_MAX_UPLOAD_SIZE", DATA_UPLOAD_MAX_MEMORY_SIZE))
 
-ADMIN_ROLE = environ.get('BAE_LP_OAUTH2_ADMIN_ROLE', ADMIN_ROLE)
-PROVIDER_ROLE = environ.get('BAE_LP_OAUTH2_SELLER_ROLE', PROVIDER_ROLE)
-CUSTOMER_ROLE = environ.get('BAE_LP_OAUTH2_CUSTOMER_ROLE', CUSTOMER_ROLE)
+ADMIN_ROLE = environ.get("BAE_LP_OAUTH2_ADMIN_ROLE", ADMIN_ROLE)
+PROVIDER_ROLE = environ.get("BAE_LP_OAUTH2_SELLER_ROLE", PROVIDER_ROLE)
+CUSTOMER_ROLE = environ.get("BAE_LP_OAUTH2_CUSTOMER_ROLE", CUSTOMER_ROLE)
 
-WSTOREMAILUSER = environ.get('BAE_CB_EMAIL_USER', WSTOREMAILUSER)
-WSTOREMAIL = environ.get('BAE_CB_EMAIL', WSTOREMAIL)
-WSTOREMAILPASS = environ.get('BAE_CB_EMAIL_PASS', WSTOREMAILPASS)
-SMTPSERVER = environ.get('BAE_CB_EMAIL_SMTP_SERVER', SMTPSERVER)
-SMTPPORT = environ.get('BAE_CB_EMAIL_SMTP_PORT', SMTPPORT)
+WSTOREMAILUSER = environ.get("BAE_CB_EMAIL_USER", WSTOREMAILUSER)
+WSTOREMAIL = environ.get("BAE_CB_EMAIL", WSTOREMAIL)
+WSTOREMAILPASS = environ.get("BAE_CB_EMAIL_PASS", WSTOREMAILPASS)
+SMTPSERVER = environ.get("BAE_CB_EMAIL_SMTP_SERVER", SMTPSERVER)
+SMTPPORT = environ.get("BAE_CB_EMAIL_SMTP_PORT", SMTPPORT)
 
-PAYMENT_METHOD = environ.get('BAE_CB_PAYMENT_METHOD', PAYMENT_METHOD)
+PAYMENT_METHOD = environ.get("BAE_CB_PAYMENT_METHOD", PAYMENT_METHOD)
 
-if PAYMENT_METHOD == 'None':
+if PAYMENT_METHOD == "None":
     PAYMENT_METHOD = None
 
-VERIFY_REQUESTS = environ.get('BAE_CB_VERIFY_REQUESTS', VERIFY_REQUESTS)
+VERIFY_REQUESTS = environ.get("BAE_CB_VERIFY_REQUESTS", VERIFY_REQUESTS)
 if isinstance(VERIFY_REQUESTS, str):
-    VERIFY_REQUESTS = VERIFY_REQUESTS == 'True'
+    VERIFY_REQUESTS = VERIFY_REQUESTS == "True"
 
-SITE = environ.get('BAE_SERVICE_HOST', SITE)
-LOCAL_SITE = environ.get('BAE_CB_LOCAL_SITE', LOCAL_SITE)
+SITE = environ.get("BAE_SERVICE_HOST", SITE)
+LOCAL_SITE = environ.get("BAE_CB_LOCAL_SITE", LOCAL_SITE)
 
-CATALOG = environ.get('BAE_CB_CATALOG', CATALOG)
-INVENTORY = environ.get('BAE_CB_INVENTORY', INVENTORY)
-ORDERING = environ.get('BAE_CB_ORDERING', ORDERING)
-BILLING = environ.get('BAE_CB_BILLING', BILLING)
-RSS = environ.get('BAE_CB_RSS', RSS)
-USAGE = environ.get('BAE_CB_USAGE', USAGE)
-AUTHORIZE_SERVICE = environ.get('BAE_CB_AUTHORIZE_SERVICE', AUTHORIZE_SERVICE)
+CATALOG = environ.get("BAE_CB_CATALOG", CATALOG)
+INVENTORY = environ.get("BAE_CB_INVENTORY", INVENTORY)
+ORDERING = environ.get("BAE_CB_ORDERING", ORDERING)
+BILLING = environ.get("BAE_CB_BILLING", BILLING)
+RSS = environ.get("BAE_CB_RSS", RSS)
+USAGE = environ.get("BAE_CB_USAGE", USAGE)
+AUTHORIZE_SERVICE = environ.get("BAE_CB_AUTHORIZE_SERVICE", AUTHORIZE_SERVICE)
 
 PAYMENT_CLIENT = CLIENTS[PAYMENT_METHOD]
 
-PROPAGATE_TOKEN = environ.get('BAE_CB_PROPAGATE_TOKEN', PROPAGATE_TOKEN)
+PROPAGATE_TOKEN = environ.get("BAE_CB_PROPAGATE_TOKEN", PROPAGATE_TOKEN)
 if isinstance(PROPAGATE_TOKEN, str):
-    PROPAGATE_TOKEN = PROPAGATE_TOKEN == 'True'
+    PROPAGATE_TOKEN = PROPAGATE_TOKEN == "True"

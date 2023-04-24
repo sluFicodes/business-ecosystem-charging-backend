@@ -20,12 +20,10 @@
 
 
 import requests
-
 from django.conf import settings
 
 
 class RSSManager(object):
-
     _rss = None
     _credentials = None
 
@@ -34,25 +32,22 @@ class RSSManager(object):
 
     def _make_request(self, method, url, data={}):
         """
-           Makes requests to the RSS
+        Makes requests to the RSS
         """
 
-        roles = ''
+        roles = ""
 
-        for role in self._credentials['roles']:
-            roles += role + ','
+        for role in self._credentials["roles"]:
+            roles += role + ","
 
         headers = {
-            'content-type': 'application/json',
-            'X-Nick-Name': self._credentials['user'],
-            'X-Roles': roles[:-1],
-            'X-Email': self._credentials['email']
+            "content-type": "application/json",
+            "X-Nick-Name": self._credentials["user"],
+            "X-Roles": roles[:-1],
+            "X-Email": self._credentials["email"],
         }
 
-        methods = {
-            'POST': requests.post,
-            'PUT': requests.put
-        }
+        methods = {"POST": requests.post, "PUT": requests.put}
 
         response = methods[method](url, json=data, headers=headers)
         response.raise_for_status()
@@ -64,18 +59,17 @@ class RSSManager(object):
 
 
 class ProviderManager(RSSManager):
-
     def register_aggregator(self, aggregator_info):
         """
         register a new aggregator in the RSS
         """
-        endpoint = settings.RSS + '/rss/aggregators'
-        self._make_request('POST', endpoint, aggregator_info)
+        endpoint = settings.RSS + "/rss/aggregators"
+        self._make_request("POST", endpoint, aggregator_info)
 
     def register_provider(self, provider_info):
         """
         Register a new provider in the RSS v2
         """
 
-        endpoint = settings.RSS + '/rss/providers'
-        self._make_request('POST', endpoint, provider_info)
+        endpoint = settings.RSS + "/rss/providers"
+        self._make_request("POST", endpoint, provider_info)

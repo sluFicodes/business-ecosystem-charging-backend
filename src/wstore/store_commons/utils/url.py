@@ -19,10 +19,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from urllib.parse import urlsplit, urlunsplit, quote, quote_plus
+from urllib.parse import quote, quote_plus, urlsplit, urlunsplit
 
-from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
 
 
 def is_valid_url(url):
@@ -39,14 +39,14 @@ def is_valid_url(url):
 def url_fix(s):
     scheme, netloc, path, qs, anchor = urlsplit(s)
 
-    path = quote(path, '/%')
-    qs = quote_plus(qs, ':&=')
+    path = quote(path, "/%")
+    qs = quote_plus(qs, ":&=")
 
     return urlunsplit((scheme, netloc, path, qs, anchor))
 
 
 def add_slash(url):
-    if url[-1] != '/':
-        url += '/'
+    if url[-1] != "/":
+        url += "/"
 
     return url

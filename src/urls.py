@@ -25,7 +25,10 @@ import wstore.urls
 from wstore.views import ServeMedia
 
 urlpatterns = [
-   url(r'^charging/media/(?P<path>.+)/(?P<name>[\w -.]+)/?$', ServeMedia(permitted_methods=('GET',)))
+    url(
+        r"^charging/media/(?P<path>.+)/(?P<name>[\w -.]+)/?$",
+        ServeMedia(permitted_methods=("GET",)),
+    )
 ]
 
 urlpatterns += wstore.urls.urlpatterns

@@ -19,65 +19,76 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-import os
 import codecs
+import os
 import subprocess
-from bson.objectid import ObjectId
 from copy import deepcopy
 from datetime import datetime
 from decimal import Decimal
+from logging import getLogger
 
-from django.template import loader, Context
+from bson.objectid import ObjectId
 from django.conf import settings
+from django.template import Context, loader
 
 from wstore.ordering.models import Offering
 
+logger = getLogger("wstore.default_logger")
+
 
 class InvoiceBuilder(object):
-
     def __init__(self, order):
         self._order = order
         self._template_processors = {
-            'initial': self._get_initial_parts,
-            'recurring': self._get_renovation_parts,
-            'usage': self._get_use_parts
+            "initial": self._get_initial_parts,
+            "recurring": self._get_renovation_parts,
+            "usage": self._get_use_parts,
         }
         self._context_processors = {
-            'initial': self._fill_initial_context,
-            'recurring': self._fill_renovation_context,
-            'usage': self._fill_use_context
+            "initial": self._fill_initial_context,
+            "recurring": self._fill_renovation_context,
+            "usage": self._fill_use_context,
         }
 
     def _process_subscription_parts(self, applied_parts, parts):
-        if 'subscription' in applied_parts:
-            for part in applied_parts['subscription']:
-                parts['subs_parts'].append(
-                    (part['duty_free'], part['tax_rate'], part['value'], part['unit'], str(part['renovation_date'])))
+        if "subscription" in applied_parts:
+            for part in applied_parts["subscription"]:
+                parts["subs_parts"].append(
+                    (
+                        part["duty_free"],
+                        part["tax_rate"],
+                        part["value"],
+                        part["unit"],
+                        str(part["renovation_date"]),
+                    )
+                )
 
     def _process_alteration_parts(self, applied_parts, parts):
-        if 'alteration' in applied_parts:
-            part = applied_parts['alteration']
-            parts['alt_parts'].append(
-                (part['type'], deepcopy(part['value']), part.get('period'), deepcopy(part.get('condition'))))
+        if "alteration" in applied_parts:
+            part = applied_parts["alteration"]
+            parts["alt_parts"].append(
+                (
+                    part["type"],
+                    deepcopy(part["value"]),
+                    part.get("period"),
+                    deepcopy(part.get("condition")),
+                )
+            )
 
     def _get_initial_parts(self, transaction):
-        applied_parts = transaction['related_model']
+        applied_parts = transaction["related_model"]
 
         # If initial can only contain single payments and subscriptions
-        parts = {
-            'single_parts': [],
-            'subs_parts': [],
-            'alt_parts': []
-        }
-        if 'single_payment' in applied_parts:
-            for part in applied_parts['single_payment']:
-                parts['single_parts'].append((part['duty_free'], part['tax_rate'], part['value']))
+        parts = {"single_parts": [], "subs_parts": [], "alt_parts": []}
+        if "single_payment" in applied_parts:
+            for part in applied_parts["single_payment"]:
+                parts["single_parts"].append((part["duty_free"], part["tax_rate"], part["value"]))
 
         self._process_subscription_parts(applied_parts, parts)
         self._process_alteration_parts(applied_parts, parts)
 
         # Get the bill template
-        bill_template = loader.get_template('contracting/bill_template_initial.html')
+        bill_template = loader.get_template("contracting/bill_template_initial.html")
         return parts, bill_template
 
     def _process_usage_component(self, applied_parts, parts, comp_name, part_name, part_sub):
@@ -87,112 +98,107 @@ class InvoiceBuilder(object):
 
         # Fill use tuples for the invoice
         for part in applied_parts:
-            model = part['model']
-            unit = model['unit']
-            value_unit = model['value']
+            model = part["model"]
+            unit = model["unit"]
+            value_unit = model["value"]
 
             # Aggregate use made
             use = Decimal(0)
-            for sdr in part['accounting']:
-                use += Decimal(sdr['value'])
+            for sdr in part["accounting"]:
+                use += Decimal(sdr["value"])
 
-            parts[part_name].append((unit, value_unit, str(use), part['price']))
-            parts[part_sub] += Decimal(part['price'])
+            parts[part_name].append((unit, value_unit, str(use), part["price"]))
+            parts[part_sub] += Decimal(part["price"])
 
     def _process_usage_parts(self, applied_parts, parts):
-        self._process_usage_component(applied_parts, parts, 'charges', 'use_parts', 'use_subtotal')
+        self._process_usage_component(applied_parts, parts, "charges", "use_parts", "use_subtotal")
         # self._process_usage_component(applied_parts, parts, 'deductions', 'deduct_parts', 'deduct_subtotal')
 
     def _get_renovation_parts(self, transaction):
-        applied_parts = transaction['related_model']
+        applied_parts = transaction["related_model"]
 
-        parts = {
-            'subs_parts': [],
-            'alt_parts': []
-        }
+        parts = {"subs_parts": [], "alt_parts": []}
         # If renovation, It contains subscriptions
         self._process_subscription_parts(applied_parts, parts)
         self._process_alteration_parts(applied_parts, parts)
 
         # Get the bill template
-        bill_template = loader.get_template('contracting/bill_template_renovation.html')
+        bill_template = loader.get_template("contracting/bill_template_renovation.html")
         return parts, bill_template
 
     def _get_use_parts(self, transaction):
-        applied_parts = transaction['applied_accounting']
+        applied_parts = transaction["applied_accounting"]
 
         # If use, can only contain pay per use parts or deductions
-        parts = {
-            'use_parts': [],
-            'alt_parts': [],
-            'use_subtotal': 0
-        }
+        parts = {"use_parts": [], "alt_parts": [], "use_subtotal": 0}
         self._process_usage_parts(applied_parts, parts)
         self._process_alteration_parts(applied_parts, parts)
 
         # Get the bill template
-        bill_template = loader.get_template('contracting/bill_template_use.html')
+        bill_template = loader.get_template("contracting/bill_template_use.html")
         return parts, bill_template
 
     def _fill_alts_context(self, context, parts):
-        compare_table = {'eq': '=', 'lt': '<', 'gt': '>', 'le': '<=', 'ge': '>='}
+        compare_table = {"eq": "=", "lt": "<", "gt": ">", "le": "<=", "ge": ">="}
 
         def cond_to_str(cond):
             if cond is not None:
-                cond['operation'] = compare_table.get(cond['operation'])
-                return "{op} {val}".format(op=cond['operation'], val=cond['value'])
+                cond["operation"] = compare_table.get(cond["operation"])
+                return "{op} {val}".format(op=cond["operation"], val=cond["value"])
             else:
                 return ""
 
         def value_to_str(val):
             if isinstance(val, dict):
-                val = 'Value: {v} {cur}. Duty free: {d} {cur}'.format(v=val['value'], d=val['duty_free'], cur=context['cur'])
+                val = "Value: {v} {cur}. Duty free: {d} {cur}".format(
+                    v=val["value"], d=val["duty_free"], cur=context["cur"]
+                )
             else:
-                val = '{} %'.format(val)
+                val = "{} %".format(val)
             return val
 
-        alts = parts.get('alt_parts', [])
+        alts = parts.get("alt_parts", [])
         alts = [(x[0], value_to_str(x[1]), x[2], cond_to_str(x[3])) for x in alts]
 
-        context['fees'] = [x for x in alts if x[0] == 'fee']
-        context['discounts'] = [x for x in alts if x[0] == 'discount']
+        context["fees"] = [x for x in alts if x[0] == "fee"]
+        context["discounts"] = [x for x in alts if x[0] == "discount"]
 
-        context['exists_fees'] = len(context['fees']) > 0
-        context['exists_discounts'] = len(context['discounts']) > 0
+        context["exists_fees"] = len(context["fees"]) > 0
+        context["exists_discounts"] = len(context["discounts"]) > 0
 
     def _fill_initial_context(self, context, parts):
-        context['exists_single'] = False
-        context['exists_subs'] = False
+        context["exists_single"] = False
+        context["exists_subs"] = False
 
         def assign_if_exists(name):
-            partsname = '{}_parts'.format(name)
+            partsname = "{}_parts".format(name)
             if len(parts[partsname]) > 0:
                 context[partsname] = parts[partsname]
-                context['exists_{}'.format(name)] = True
+                context["exists_{}".format(name)] = True
 
-        assign_if_exists('single')
-        assign_if_exists('subs')
+        assign_if_exists("single")
+        assign_if_exists("subs")
         self._fill_alts_context(context, parts)
 
     def _fill_renovation_context(self, context, parts):
-        context['subs_parts'] = parts['subs_parts']
+        context["subs_parts"] = parts["subs_parts"]
         self._fill_alts_context(context, parts)
 
     def _fill_use_context(self, context, parts):
-        context['use_parts'] = parts['use_parts']
+        context["use_parts"] = parts["use_parts"]
         self._fill_alts_context(context, parts)
 
-        context['use_subtotal'] = str(parts['use_subtotal'])
+        context["use_subtotal"] = str(parts["use_subtotal"])
 
-        if 'deduct_parts' in parts:
-            context['deduction'] = True
-            context['deduct_parts'] = parts['deduct_parts']
-            context['deduct_subtotal'] = parts['deduct_subtotal']
+        if "deduct_parts" in parts:
+            context["deduction"] = True
+            context["deduct_parts"] = parts["deduct_parts"]
+            context["deduct_subtotal"] = parts["deduct_subtotal"]
         else:
-            context['deduction'] = False
+            context["deduction"] = False
 
     def _avoid_existing_name(self, name, ix):
-        new_name = name + '_' + str(ix) + '.pdf'
+        new_name = name + "_" + str(ix) + ".pdf"
         path = os.path.join(settings.BILL_ROOT, new_name)
 
         if os.path.exists(path):
@@ -206,6 +212,7 @@ class InvoiceBuilder(object):
         :param transaction: Total amount charged to the customer
         :param type_: Type of the charge, initial, renovation, pay-per-use
         """
+        logger.info(f"Generating invoice for transaction {transaction}")
 
         # Get invoice context parts and invoice template
         parts, bill_template = self._template_processors[type_](transaction)
@@ -216,59 +223,61 @@ class InvoiceBuilder(object):
         if contract.last_charge is None:
             # If last charge is None means that it is the invoice generation
             # associated with a free offering
-            date = str(datetime.utcnow()).split(' ')[0]
+            date = str(datetime.utcnow()).split(" ")[0]
         else:
-            date = str(contract.last_charge).split(' ')[0]
+            date = str(contract.last_charge).split(" ")[0]
 
         # Calculate total taxes applied
-        tax_value = Decimal(transaction['price']) - Decimal(transaction['duty_free'])
+        tax_value = Decimal(transaction["price"]) - Decimal(transaction["duty_free"])
 
         # Load pricing info into the context
         offering = Offering.objects.get(pk=ObjectId(contract.offering))
         context = {
-            'basedir': settings.BASEDIR,
-            'offering_name': offering.name,
-            'off_organization': offering.owner_organization.name,
-            'off_version': offering.version,
-            'ref': self._order.pk,
-            'date': date,
-            'organization': customer_profile.current_organization.name,
-            'customer': customer_profile.complete_name,
-            'address': tax.get('street'),
-            'postal': tax.get('postal'),
-            'city': tax.get('city'),
-            'province': tax.get('province'),
-            'country': tax.get('country'),
-            'subtotal': transaction['duty_free'],
-            'tax': str(tax_value),
-            'total': transaction['price'],
-            'cur': transaction['currency']  # General currency of the invoice
+            "basedir": settings.BASEDIR,
+            "offering_name": offering.name,
+            "off_organization": offering.owner_organization.name,
+            "off_version": offering.version,
+            "ref": self._order.pk,
+            "date": date,
+            "organization": customer_profile.current_organization.name,
+            "customer": customer_profile.complete_name,
+            "address": tax.get("street"),
+            "postal": tax.get("postal"),
+            "city": tax.get("city"),
+            "province": tax.get("province"),
+            "country": tax.get("country"),
+            "subtotal": transaction["duty_free"],
+            "tax": str(tax_value),
+            "total": transaction["price"],
+            "cur": transaction["currency"],  # General currency of the invoice
         }
 
         # Include the corresponding parts in the context
         # depending on the type of applied parts
+        logger.debug("Processing context for invoice")
         self._context_processors[type_](context, parts)
 
         # Render the invoice template
         bill_code = bill_template.render(Context(context))
 
         # Create the bill code file
-        invoice_id = str(self._order.pk) + '_' + contract.item_id + '_' + date
-        raw_invoice_path = os.path.join(settings.BILL_ROOT, invoice_id + '.html')
+        invoice_id = str(self._order.pk) + "_" + contract.item_id + "_" + date
+        raw_invoice_path = os.path.join(settings.BILL_ROOT, invoice_id + ".html")
 
-        f = codecs.open(raw_invoice_path, 'wb', 'utf-8')
+        f = codecs.open(raw_invoice_path, "wb", "utf-8")
         f.write(bill_code)
         f.close()
 
         invoice_path, invoice_name = self._avoid_existing_name(invoice_id, 0)
 
         # Compile the bill file
-        subprocess.call([settings.BASEDIR + '/create_invoice.sh', raw_invoice_path, invoice_path])
+        subprocess.call([settings.BASEDIR + "/create_invoice.sh", raw_invoice_path, invoice_path])
 
         # Remove temporal files
         for file_ in os.listdir(settings.BILL_ROOT):
-
-            if not file_.endswith('.pdf'):
+            if not file_.endswith(".pdf"):
                 os.remove(os.path.join(settings.BILL_ROOT, file_))
 
-        return os.path.join(settings.MEDIA_URL, 'bills/' + invoice_name)
+        logger.info(f"Invoice {invoice_id} created at {invoice_path}")
+
+        return os.path.join(settings.MEDIA_URL, "bills/" + invoice_name)

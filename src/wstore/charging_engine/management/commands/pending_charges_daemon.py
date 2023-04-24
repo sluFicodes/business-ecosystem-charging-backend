@@ -23,14 +23,13 @@ from datetime import datetime, timedelta
 
 from django.core.management.base import BaseCommand
 
-from wstore.ordering.models import Order
 from wstore.admin.users.notification_handler import NotificationsHandler
-from wstore.ordering.inventory_client import InventoryClient
 from wstore.asset_manager.resource_plugins.decorators import on_product_suspended
+from wstore.ordering.inventory_client import InventoryClient
+from wstore.ordering.models import Order
 
 
 class Command(BaseCommand):
-
     def _check_renovation_date(self, renovation_date, order, contract):
         now = datetime.utcnow()
 
@@ -56,7 +55,7 @@ class Command(BaseCommand):
 
     def _process_subscription_item(self, order, contract, item):
         try:
-            self._check_renovation_date(item['renovation_date'], order, contract)
+            self._check_renovation_date(item["renovation_date"], order, contract)
         except:
             pass
 
@@ -65,7 +64,7 @@ class Command(BaseCommand):
             # Search last usage charge
             last_charge = None
             for charge in reversed(contract.charges):
-                if charge.concept == 'usage':
+                if charge.concept == "usage":
                     last_charge = charge.date
                     break
 
@@ -88,10 +87,10 @@ class Command(BaseCommand):
         # Check contracts
         for order in Order.objects.all():
             for contract in order.get_contracts():
-                if 'pay_per_use' in contract.pricing_model and not contract.terminated:
-                        self._process_usage_item(order, contract)
+                if "pay_per_use" in contract.pricing_model and not contract.terminated:
+                    self._process_usage_item(order, contract)
 
-                if 'subscription' in contract.pricing_model and not contract.terminated:
+                if "subscription" in contract.pricing_model and not contract.terminated:
                     # Validate renovation date
-                    for item in contract.pricing_model['subscription']:
+                    for item in contract.pricing_model["subscription"]:
                         self._process_subscription_item(order, contract, item)

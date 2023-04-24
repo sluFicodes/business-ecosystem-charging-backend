@@ -20,42 +20,39 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from urllib.parse import quote
-
 from copy import deepcopy
 from importlib import reload
+from urllib.parse import quote
+
+from django.core.exceptions import ObjectDoesNotExist
+from django.test import TestCase
+from django.test.utils import override_settings
 from mock import MagicMock, mock_open
 from parameterized import parameterized
 
-from django.test import TestCase
-from django.core.exceptions import ObjectDoesNotExist
-from django.test.utils import override_settings
-
-from wstore.asset_manager import asset_manager
+from wstore.asset_manager import asset_manager, models
 from wstore.asset_manager.test.resource_test_data import *
-from wstore.asset_manager import models
 from wstore.store_commons.errors import ConflictError
 from wstore.store_commons.utils.testing import decorator_mock
 
 
 class ResourceRetrievingTestCase(TestCase):
-
-    tags = ('asset-manager', )
+    tags = ("asset-manager",)
 
     def _mock_resource(self, info, provider):
         # Mock resource model
         resource = MagicMock()
-        resource.pk = info['pk']
+        resource.pk = info["pk"]
         resource.provider = provider
-        resource.version = info['version']
-        resource.content_type = info['content_type']
-        resource.state = info['state']
-        resource.download_link = info['download_link']
-        resource.resource_type = info['type']
+        resource.version = info["version"]
+        resource.content_type = info["content_type"]
+        resource.state = info["state"]
+        resource.download_link = info["download_link"]
+        resource.resource_type = info["type"]
         resource.meta_info = {}
 
-        resource.get_url.return_value = info['download_link']
-        resource.get_uri.return_value = info['uri']
+        resource.get_url.return_value = info["download_link"]
+        resource.get_uri.return_value = info["uri"]
 
         return resource
 
@@ -68,7 +65,6 @@ class ResourceRetrievingTestCase(TestCase):
 
         asset_manager.Resource.objects.filter.return_value = [self._mock_resource(r, self.org) for r in EXISTING_INFO]
         asset_manager.Resource.objects.get.return_value = self._mock_resource(EXISTING_INFO[0], self.org)
-
 
     @classmethod
     def tearDownClass(cls):
@@ -86,20 +82,21 @@ class ResourceRetrievingTestCase(TestCase):
             self.assertTrue(isinstance(error, err_type))
             self.assertEquals(str(error), err_msg)
 
-    @parameterized.expand([
-        ([RESOURCE_DATA1, RESOURCE_DATA2, RESOURCE_DATA3, RESOURCE_DATA4],),
-        ([RESOURCE_DATA1], {"offset": 0, "size": 1}),
-        ([RESOURCE_DATA2, RESOURCE_DATA3], {"offset": 1, "size": 2}),
-        ([], {"offset": 5}, ValueError, "Missing required parameter in pagination"),
-        ([], {"size": 8}, ValueError, "Missing required parameter in pagination"),
-        ([], {"offset": -1, "size": 8}, ValueError, "Invalid pagination limits"),
-        ([], {"offset": 1, "size": 0}, ValueError, "Invalid pagination limits"),
-        ([], {"offset": 5, "size": -1}, ValueError, "Invalid pagination limits"),
-        ([], {"offset": -6, "size": 2}, ValueError, "Invalid pagination limits"),
-        ([], {"offset": -1, "size": 0}, ValueError, "Invalid pagination limits")
-    ])
+    @parameterized.expand(
+        [
+            ([RESOURCE_DATA1, RESOURCE_DATA2, RESOURCE_DATA3, RESOURCE_DATA4],),
+            ([RESOURCE_DATA1], {"offset": 0, "size": 1}),
+            ([RESOURCE_DATA2, RESOURCE_DATA3], {"offset": 1, "size": 2}),
+            ([], {"offset": 5}, ValueError, "Missing required parameter in pagination"),
+            ([], {"size": 8}, ValueError, "Missing required parameter in pagination"),
+            ([], {"offset": -1, "size": 8}, ValueError, "Invalid pagination limits"),
+            ([], {"offset": 1, "size": 0}, ValueError, "Invalid pagination limits"),
+            ([], {"offset": 5, "size": -1}, ValueError, "Invalid pagination limits"),
+            ([], {"offset": -6, "size": 2}, ValueError, "Invalid pagination limits"),
+            ([], {"offset": -1, "size": 0}, ValueError, "Invalid pagination limits"),
+        ]
+    )
     def test_resource_retrieving(self, expected_result, pagination=None, err_type=None, err_msg=None):
-
         # Call the method
         error = None
         result = None
@@ -112,14 +109,24 @@ class ResourceRetrievingTestCase(TestCase):
         self.validate_response(result, expected_result, error, err_type, err_msg)
 
     def _not_found(self):
-        asset_manager.Resource.objects.get.side_effect = Exception('Not found')
+        asset_manager.Resource.objects.get.side_effect = Exception("Not found")
 
-    @parameterized.expand([
-        ('basic', RESOURCE_DATA1, ),
-        ('not_found', [], _not_found, ObjectDoesNotExist, 'The specified digital asset does not exists')
-    ])
+    @parameterized.expand(
+        [
+            (
+                "basic",
+                RESOURCE_DATA1,
+            ),
+            (
+                "not_found",
+                [],
+                _not_found,
+                ObjectDoesNotExist,
+                "The specified digital asset does not exist",
+            ),
+        ]
+    )
     def test_single_asset_retrieving(self, name, expected_result, side_effect=None, err_type=None, err_msg=None):
-
         if side_effect is not None:
             side_effect(self)
 
@@ -127,15 +134,13 @@ class ResourceRetrievingTestCase(TestCase):
         result = None
         try:
             am = asset_manager.AssetManager()
-            result = am.get_asset_info('111')
+            result = am.get_asset_info("111")
         except Exception as e:
             error = e
 
         self.validate_response(result, expected_result, error, err_type, err_msg)
 
-    @parameterized.expand([
-        ('basic', [RESOURCE_DATA1, RESOURCE_DATA2, RESOURCE_DATA3, RESOURCE_DATA4])
-    ])
+    @parameterized.expand([("basic", [RESOURCE_DATA1, RESOURCE_DATA2, RESOURCE_DATA3, RESOURCE_DATA4])])
     def test_assets_from_product(self, name, expected_result, side_effect=None, err_type=None, err_msg=None):
         if side_effect is not None:
             side_effect(self)
@@ -144,27 +149,27 @@ class ResourceRetrievingTestCase(TestCase):
         result = None
         try:
             am = asset_manager.AssetManager()
-            result = am.get_product_assets('123')
+            result = am.get_product_assets("123")
         except Exception as e:
             error = e
 
-        asset_manager.Resource.objects.filter.assert_called_once_with(product_id='123')
+        asset_manager.Resource.objects.filter.assert_called_once_with(product_id="123")
         self.validate_response(result, expected_result, error, err_type, err_msg)
 
 
 class UploadAssetTestCase(TestCase):
-
-    tags = ('asset-manager', )
+    tags = ("asset-manager",)
     _file = None
 
     def setUp(self):
         import wstore.store_commons.rollback
+
         wstore.store_commons.rollback.rollback = decorator_mock
 
         self._user = MagicMock()
-        self._user.userprofile.current_organization.name = 'test_user'
+        self._user.userprofile.current_organization.name = "test_user"
 
-        asset_manager.settings.SITE = 'http://testdomain.com/'
+        asset_manager.settings.SITE = "http://testdomain.com/"
 
         asset_manager.Resource = MagicMock()
         self.res_mock = MagicMock()
@@ -181,18 +186,19 @@ class UploadAssetTestCase(TestCase):
         asset_manager.os.path.exists.return_value = False
 
         self.open_mock = mock_open()
-        self._old_open = asset_manager.__builtins__['open']
-        asset_manager.__builtins__['open'] = self.open_mock
+        self._old_open = asset_manager.__builtins__["open"]
+        asset_manager.__builtins__["open"] = self.open_mock
 
     def tearDown(self):
         asset_manager.os.path.isdir = self._old_is_dir
         asset_manager.os.path.exists = self._old_exists
 
         import wstore.store_commons.rollback
+
         reload(wstore.store_commons.rollback)
 
         self._file = None
-        asset_manager.__builtins__['open'] = self._old_open
+        asset_manager.__builtins__["open"] = self._old_open
         reload(asset_manager)
 
     def _use_file(self):
@@ -201,7 +207,7 @@ class UploadAssetTestCase(TestCase):
         self._file.name = "example.wgt"
         self._file.read.return_value = "Test data content".encode()
         asset_manager.os.path.isdir.return_value = False
-        #asset_manager.os.mkdir = MagicMock()
+        # asset_manager.os.mkdir = MagicMock()
         asset_manager.os.makedirs = MagicMock()
 
     def _file_conflict(self):
@@ -210,39 +216,89 @@ class UploadAssetTestCase(TestCase):
 
     def _file_conflict_err(self):
         asset_manager.os.path.exists.return_value = True
-        self.res_mock.product_id = '1'
+        self.res_mock.product_id = "1"
 
-    def _check_file_calls(self, file_name='example.wgt'):
+    def _check_file_calls(self, file_name="example.wgt"):
         asset_manager.os.path.isdir.assert_called_once_with("/home/test/media/assets/test_user")
         asset_manager.os.path.exists.assert_called_once_with("/home/test/media/assets/test_user/{}".format(file_name))
         self.open_mock.assert_called_once_with("/home/test/media/assets/test_user/{}".format(file_name), "wb")
         self.open_mock().write.assert_called_once_with("Test data content".encode())
 
-    @parameterized.expand([
-        ('basic', UPLOAD_CONTENT),
-        ('whitespce_name', UPLOAD_CONTENT_WHITESPACE, None, None, None, None, 'example file.wgt'),
-        ('file', {'contentType': 'application/x-widget'}, _use_file),
-        ('existing_override', UPLOAD_CONTENT, _file_conflict, True),
-        ('missing_type', MISSING_TYPE, None, False, ValueError, 'Missing required field: contentType'),
-        ('inv_file_name', UPLOAD_INV_FILENAME, None, False, ValueError, 'Invalid file name format: Unsupported character'),
-        ('existing', UPLOAD_CONTENT, _file_conflict_err, True, ConflictError, 'The provided digital asset file (example.wgt) already exists'),
-        ('not_provided', {'contentType': 'application/x-widget'}, None, False, ValueError, 'The digital asset has not been provided'),
-        ('inv_content_field', {
-            'contentType': 'application/x-widget',
-            'content': ['http://content.com']
-        }, None, False, TypeError, 'content field has an unsupported type, expected string or object')
-    ])
-    @override_settings(MEDIA_ROOT='/home/test/media')
-    def test_upload_asset(self, name, data, side_effect=None, override=False, err_type=None, err_msg=None, file_name='example.wgt'):
-
+    @parameterized.expand(
+        [
+            ("basic", UPLOAD_CONTENT),
+            (
+                "whitespce_name",
+                UPLOAD_CONTENT_WHITESPACE,
+                None,
+                None,
+                None,
+                None,
+                "example file.wgt",
+            ),
+            ("file", {"contentType": "application/x-widget"}, _use_file),
+            ("existing_override", UPLOAD_CONTENT, _file_conflict, True),
+            (
+                "missing_type",
+                MISSING_TYPE,
+                None,
+                False,
+                ValueError,
+                "Missing required field: contentType",
+            ),
+            (
+                "inv_file_name",
+                UPLOAD_INV_FILENAME,
+                None,
+                False,
+                ValueError,
+                "Invalid file name format: Unsupported character",
+            ),
+            (
+                "existing",
+                UPLOAD_CONTENT,
+                _file_conflict_err,
+                True,
+                ConflictError,
+                "The provided digital asset file (example.wgt) already exists",
+            ),
+            (
+                "not_provided",
+                {"contentType": "application/x-widget"},
+                None,
+                False,
+                ValueError,
+                "The digital asset has not been provided",
+            ),
+            (
+                "inv_content_field",
+                {
+                    "contentType": "application/x-widget",
+                    "content": ["http://content.com"],
+                },
+                None,
+                False,
+                TypeError,
+                "`content` field has an unsupported type, expected string or object",
+            ),
+        ]
+    )
+    @override_settings(MEDIA_ROOT="/home/test/media")
+    def test_upload_asset(
+        self,
+        name,
+        data,
+        side_effect=None,
+        override=False,
+        err_type=None,
+        err_msg=None,
+        file_name="example.wgt",
+    ):
         if side_effect is not None:
             side_effect(self)
 
         am = asset_manager.AssetManager()
-        am.rollback_logger = {
-            'files': [],
-            'models': []
-        }
+        am.rollback_logger = {"files": [], "models": []}
 
         error = None
         try:
@@ -261,10 +317,13 @@ class UploadAssetTestCase(TestCase):
             self._check_file_calls(file_name)
 
             # Check rollback logger
-            self.assertEquals({
-                'files': ["/home/test/media/assets/test_user/{}".format(file_name)],
-                'models': [self.res_mock]
-            }, am.rollback_logger)
+            self.assertEquals(
+                {
+                    "files": ["/home/test/media/assets/test_user/{}".format(file_name)],
+                    "models": [self.res_mock],
+                },
+                am.rollback_logger,
+            )
 
             # Check file calls
             if self._file is not None:
@@ -273,20 +332,22 @@ class UploadAssetTestCase(TestCase):
 
             # Check override calls
             if override:
-                asset_manager.Resource.objects.get.assert_called_once_with(resource_path='media/assets/test_user/{}'.format(file_name))
+                asset_manager.Resource.objects.get.assert_called_once_with(
+                    resource_path="media/assets/test_user/{}".format(file_name)
+                )
                 self.res_mock.delete.assert_called_once_with()
 
             # Check resource creation
             asset_manager.Resource.objects.create.assert_called_once_with(
                 provider=self._user.userprofile.current_organization,
-                version='',
-                download_link='http://testdomain.com/charging/media/assets/test_user/{}'.format(quote(file_name)),
-                resource_path='media/assets/test_user/{}'.format(file_name),
-                content_type='application/x-widget',
-                resource_type='',
-                state='',
+                version="",
+                download_link="http://testdomain.com/charging/media/assets/test_user/{}".format(quote(file_name)),
+                resource_path="media/assets/test_user/{}".format(file_name),
+                content_type="application/x-widget",
+                resource_type="",
+                state="",
                 is_public=False,
-                meta_info={}
+                meta_info={},
             )
         else:
             self.assertTrue(isinstance(error, err_type))
@@ -295,164 +356,202 @@ class UploadAssetTestCase(TestCase):
     def _mock_resource_type(self, form):
         asset_manager.ResourcePlugin = MagicMock()
         asset_manager.Resource.objects.filter.return_value = []
-        asset_manager.ResourcePlugin.objects.filter.return_value = [MagicMock(
-            media_types=[],
-            name='service',
-            formats=['URL'],
-            form=form
-        )]
+        asset_manager.ResourcePlugin.objects.filter.return_value = [
+            MagicMock(media_types=[], name="service", formats=["URL"], form=form)
+        ]
 
-    BASIC_META = {
-        'field1': 'value',
-        'field2': True,
-        'field3': 'value2'
-    }
+    BASIC_META = {"field1": "value", "field2": True, "field3": "value2"}
 
     BASIC_FORM = {
-        'field1': {
-            'type': 'text'
-        },
-        'field2': {
-            'type': 'checkbox'
-        },
-        'field3': {
-            'type': 'select',
-            'options': [{
-                'value': 'value2'
-            }]
-        }
+        "field1": {"type": "text"},
+        "field2": {"type": "checkbox"},
+        "field3": {"type": "select", "options": [{"value": "value2"}]},
     }
-    LINK = 'http://myservices.com'
+    LINK = "http://myservices.com"
     LINK_CONTENT = {
-        'contentType': 'application/json',
-        'resourceType': 'service',
-        'content': LINK
+        "contentType": "application/json",
+        "resourceType": "service",
+        "content": LINK,
     }
 
-    @parameterized.expand([
-        ('no_metainfo', None, {}, {}),
-        ('metainfo', BASIC_META, BASIC_META, BASIC_FORM),
-        ('default_metainfo', {
-            'field1': 'value1'
-        }, {
-            'field1': 'value1',
-            'field2': 'value2'
-        }, {
-            'field1': {
-                'type': 'text'
-            },
-            'field2': {
-                'type': 'text',
-                'default': 'value2'
-            },
-        })
-    ])
+    @parameterized.expand(
+        [
+            ("no_metainfo", None, {}, {}),
+            ("metainfo", BASIC_META, BASIC_META, BASIC_FORM),
+            (
+                "default_metainfo",
+                {"field1": "value1"},
+                {"field1": "value1", "field2": "value2"},
+                {
+                    "field1": {"type": "text"},
+                    "field2": {"type": "text", "default": "value2"},
+                },
+            ),
+        ]
+    )
     def test_upload_asset_url_type(self, name, meta, exp_meta, form):
         content = deepcopy(self.LINK_CONTENT)
 
         if meta is not None:
-            content['metadata'] = meta
+            content["metadata"] = meta
 
         self._mock_resource_type(form)
 
         am = asset_manager.AssetManager()
-        am.rollback_logger = {
-            'files': [],
-            'models': []
-        }
+        am.rollback_logger = {"files": [], "models": []}
 
         am.upload_asset(self._user, content)
 
-        self.assertEquals({
-            'files': [],
-            'models': [self.res_mock]
-        }, am.rollback_logger)
+        self.assertEquals({"files": [], "models": [self.res_mock]}, am.rollback_logger)
 
         # Check calls
-        asset_manager.ResourcePlugin.objects.filter.assert_called_once_with(name='service')
+        asset_manager.ResourcePlugin.objects.filter.assert_called_once_with(name="service")
 
         # Check resource creation
         asset_manager.Resource.objects.create.assert_called_once_with(
             provider=self._user.userprofile.current_organization,
-            version='',
+            version="",
             download_link=self.LINK,
-            resource_path='',
-            content_type='application/json',
-            resource_type='service',
-            state='',
+            resource_path="",
+            content_type="application/json",
+            resource_type="service",
+            state="",
             is_public=False,
-            meta_info=exp_meta
+            meta_info=exp_meta,
         )
 
     def _existing_asset(self):
-        asset_manager.Resource.objects.filter.return_value = [MagicMock(product_id='1')]
+        asset_manager.Resource.objects.filter.return_value = [MagicMock(product_id="1")]
 
     def _type_not_found(self):
         asset_manager.ResourcePlugin.objects.filter.return_value = []
 
     def _inv_content(self):
-        asset_manager.ResourcePlugin.objects.filter.return_value = [MagicMock(
-            media_types=['text'],
-            name='service',
-            formats=['URL'],
-        )]
+        asset_manager.ResourcePlugin.objects.filter.return_value = [
+            MagicMock(
+                media_types=["text"],
+                name="service",
+                formats=["URL"],
+            )
+        ]
 
     def _inv_format(self):
-        asset_manager.ResourcePlugin.objects.filter.return_value = [MagicMock(
-            media_types=[],
-            name='service',
-            formats=['FILE'],
-        )]
+        asset_manager.ResourcePlugin.objects.filter.return_value = [
+            MagicMock(
+                media_types=[],
+                name="service",
+                formats=["FILE"],
+            )
+        ]
 
-    @parameterized.expand([
-        ('invalid_url', {
-            'contentType': 'application/json',
-            'resourceType': 'service',
-            'content': 'invalid url'
-        }, None, None, {}, ValueError, 'The provided content is not a valid URL'),
-        ('no_type_metadata', {
-            'contentType': 'application/json',
-            'content': LINK
-        }, None, BASIC_META, {}, ValueError, 'You have to specify a valid asset type for providing meta data'),
-        ('type_not_found', deepcopy(LINK_CONTENT), _type_not_found, None, {}, ObjectDoesNotExist, 'The asset type service does not exists'),
-        ('inv_content', deepcopy(LINK_CONTENT), _inv_content, None, {}, ValueError, 'The content type application/json is not valid for the specified asset type'),
-        ('inv_format', deepcopy(LINK_CONTENT), _inv_format, None, {},  ValueError, 'The format used for providing the digital asset (URL) is not valid for the given asset type'),
-        ('meta_not_allowed', deepcopy(LINK_CONTENT), None, BASIC_META, {}, ValueError, 'The specified asset type does not allow meta data'),
-        ('missing_mandatory_meta', deepcopy(LINK_CONTENT), None, BASIC_META, {
-            'field1': {
-                'type': 'text'
-            },
-            'field2': {
-                'type': 'checkbox'
-            },
-            'field3': {
-                'type': 'text',
-            },
-            'field4': {
-                'type': 'text',
-                'mandatory': True
-            }
-        }, ValueError, 'Missing mandatory field field4 in metadata'),
-        ('inv_meta_text_type', deepcopy(LINK_CONTENT), None, {
-            'field1': True,
-            'field2': True,
-            'field3': 'value2'
-        }, BASIC_FORM, TypeError, 'Metadata field field1 must be a string'),
-        ('inv_meta_bool_type', deepcopy(LINK_CONTENT), None, {
-            'field1': 'value',
-            'field2': 'true',
-            'field3': 'value2'
-        }, BASIC_FORM, TypeError, 'Metadata field field2 must be a boolean'),
-        ('unkown_option', deepcopy(LINK_CONTENT), None, {
-            'field1': 'value',
-            'field2': True,
-            'field3': 'value5'
-        }, BASIC_FORM, ValueError, 'Metadata field field3 value is not one of the available options')
-    ])
+    @parameterized.expand(
+        [
+            (
+                "invalid_url",
+                {
+                    "contentType": "application/json",
+                    "resourceType": "service",
+                    "content": "invalid url",
+                },
+                None,
+                None,
+                {},
+                ValueError,
+                "The provided content is not a valid URL",
+            ),
+            (
+                "no_type_metadata",
+                {"contentType": "application/json", "content": LINK},
+                None,
+                BASIC_META,
+                {},
+                ValueError,
+                "You have to specify a valid asset type for providing meta data",
+            ),
+            (
+                "type_not_found",
+                deepcopy(LINK_CONTENT),
+                _type_not_found,
+                None,
+                {},
+                ObjectDoesNotExist,
+                "The asset type service does not exist",
+            ),
+            (
+                "inv_content",
+                deepcopy(LINK_CONTENT),
+                _inv_content,
+                None,
+                {},
+                ValueError,
+                "The content type application/json is not valid for the specified asset type",
+            ),
+            (
+                "inv_format",
+                deepcopy(LINK_CONTENT),
+                _inv_format,
+                None,
+                {},
+                ValueError,
+                "The format used for providing the digital asset (URL) is not valid for the given asset type",
+            ),
+            (
+                "meta_not_allowed",
+                deepcopy(LINK_CONTENT),
+                None,
+                BASIC_META,
+                {},
+                ValueError,
+                "The specified asset type does not allow meta data",
+            ),
+            (
+                "missing_mandatory_meta",
+                deepcopy(LINK_CONTENT),
+                None,
+                BASIC_META,
+                {
+                    "field1": {"type": "text"},
+                    "field2": {"type": "checkbox"},
+                    "field3": {
+                        "type": "text",
+                    },
+                    "field4": {"type": "text", "mandatory": True},
+                },
+                ValueError,
+                "Missing mandatory field field4 in metadata",
+            ),
+            (
+                "inv_meta_text_type",
+                deepcopy(LINK_CONTENT),
+                None,
+                {"field1": True, "field2": True, "field3": "value2"},
+                BASIC_FORM,
+                TypeError,
+                "Metadata field field1 must be a string",
+            ),
+            (
+                "inv_meta_bool_type",
+                deepcopy(LINK_CONTENT),
+                None,
+                {"field1": "value", "field2": "true", "field3": "value2"},
+                BASIC_FORM,
+                TypeError,
+                "Metadata field field2 must be a boolean",
+            ),
+            (
+                "unkown_option",
+                deepcopy(LINK_CONTENT),
+                None,
+                {"field1": "value", "field2": True, "field3": "value5"},
+                BASIC_FORM,
+                ValueError,
+                "Metadata field field3 value is not one of the available options",
+            ),
+        ]
+    )
     def test_upload_asset_url_type_error(self, name, content, side_effect, meta, form, err_type, err_msg):
-
         if meta is not None:
-            content['metadata'] = meta
+            content["metadata"] = meta
 
         self._mock_resource_type(form)
 
@@ -477,24 +576,23 @@ class UploadAssetTestCase(TestCase):
 
         return timer
 
-    @override_settings(MEDIA_ROOT='/home/test/media')
+    @override_settings(MEDIA_ROOT="/home/test/media")
     def test_upgrade_asset(self):
-
-        asset_id = '1'
-        prev_path = 'media/assets/test_user/example1.wgt'
-        prev_link = 'http://testdomain.com/charging/media/assets/test_user/example1.wgt'
-        prev_type = 'application/x-widget-old'
-        prev_version = '1.0'
+        asset_id = "1"
+        prev_path = "media/assets/test_user/example1.wgt"
+        prev_link = "http://testdomain.com/charging/media/assets/test_user/example1.wgt"
+        prev_type = "application/x-widget-old"
+        prev_version = "1.0"
 
         asset = MagicMock(
-            product_id='2',
+            product_id="2",
             is_public=False,
             resource_path=prev_path,
             download_link=prev_link,
             content_type=prev_type,
             version=prev_version,
-            state='attached',
-            old_versions=[]
+            state="attached",
+            old_versions=[],
         )
 
         asset_manager.Resource.objects.filter.return_value = [asset]
@@ -502,10 +600,7 @@ class UploadAssetTestCase(TestCase):
         timer = self._mock_timer()
 
         am = asset_manager.AssetManager()
-        am.rollback_logger = {
-            'files': [],
-            'models': []
-        }
+        am.rollback_logger = {"files": [], "models": []}
 
         resource = am.upgrade_asset(asset_id, self._user, UPLOAD_CONTENT, file_=None)
 
@@ -515,28 +610,31 @@ class UploadAssetTestCase(TestCase):
         self._check_file_calls()
 
         # Check rollback logger
-        self.assertEquals({
-            'files': ["/home/test/media/assets/test_user/example.wgt"],
-            'models': []
-        }, am.rollback_logger)
+        self.assertEquals(
+            {"files": ["/home/test/media/assets/test_user/example.wgt"], "models": []},
+            am.rollback_logger,
+        )
 
         self.assertEquals(asset, am._to_downgrade)
 
         # Check resource creation
-        self.assertEquals('media/assets/test_user/example.wgt', asset.resource_path)
-        self.assertEquals('http://testdomain.com/charging/media/assets/test_user/example.wgt', asset.download_link)
-        self.assertEquals('application/x-widget', asset.content_type)
-        self.assertEquals('upgrading', asset.state)
-        self.assertEquals('', asset.version)
+        self.assertEquals("media/assets/test_user/example.wgt", asset.resource_path)
+        self.assertEquals(
+            "http://testdomain.com/charging/media/assets/test_user/example.wgt",
+            asset.download_link,
+        )
+        self.assertEquals("application/x-widget", asset.content_type)
+        self.assertEquals("upgrading", asset.state)
+        self.assertEquals("", asset.version)
 
         self.assertEquals(1, len(asset.old_versions))
 
         old_version = asset.old_versions[0]
 
-        self.assertEquals(prev_path, old_version['resource_path'])
-        self.assertEquals(prev_link, old_version['download_link'])
-        self.assertEquals(prev_type, old_version['content_type'])
-        self.assertEquals(prev_version, old_version['version'])
+        self.assertEquals(prev_path, old_version["resource_path"])
+        self.assertEquals(prev_link, old_version["download_link"])
+        self.assertEquals(prev_type, old_version["content_type"])
+        self.assertEquals(prev_version, old_version["version"])
 
         asset_manager.threading.Timer.assert_called_once_with(15, am._upgrade_timer)
         timer.start.assert_called_once_with()
@@ -545,32 +643,43 @@ class UploadAssetTestCase(TestCase):
         return []
 
     def _public_asset(self):
-        return [MagicMock(
-            product_id='2',
-            is_public=True
-        )]
+        return [MagicMock(product_id="2", is_public=True)]
 
     def _not_attached_asset(self):
-        return [MagicMock(
-            product_id=None,
-            is_public=False
-        )]
+        return [MagicMock(product_id=None, is_public=False)]
 
     def _upgrading_asset(self):
-        return [MagicMock(
-            product_id='2',
-            state='upgrading',
-            is_public=False
-        )]
+        return [MagicMock(product_id="2", state="upgrading", is_public=False)]
 
-    @parameterized.expand([
-        ('not_found', _asset_empty, ObjectDoesNotExist, 'The specified asset does not exists'),
-        ('public_asset', _public_asset, ValueError, 'It is not allowed to upgrade public assets, create a new one instead'),
-        ('not_attached', _not_attached_asset, ValueError, 'It is not possible to upgrade an asset not included in a product specification'),
-        ('upgrading', _upgrading_asset, ValueError, 'The provided asset is already in upgrading state')
-    ])
+    @parameterized.expand(
+        [
+            (
+                "not_found",
+                _asset_empty,
+                ObjectDoesNotExist,
+                "The specified asset does not exist",
+            ),
+            (
+                "public_asset",
+                _public_asset,
+                ValueError,
+                "It is not allowed to upgrade public assets, create a new one instead",
+            ),
+            (
+                "not_attached",
+                _not_attached_asset,
+                ValueError,
+                "It is not possible to upgrade an asset not included in a product specification",
+            ),
+            (
+                "upgrading",
+                _upgrading_asset,
+                ValueError,
+                "The provided asset is already in upgrading state",
+            ),
+        ]
+    )
     def test_upgrade_asset_error(self, name, asset_mock, err_type, err_msg):
-
         self._mock_timer()
         asset_resp = asset_mock(self)
         asset_manager.Resource.objects.filter.return_value = asset_resp
@@ -578,7 +687,7 @@ class UploadAssetTestCase(TestCase):
         error = None
         try:
             am = asset_manager.AssetManager()
-            am.upgrade_asset('1', self._user, UPLOAD_CONTENT, file_=None)
+            am.upgrade_asset("1", self._user, UPLOAD_CONTENT, file_=None)
         except Exception as e:
             error = e
 
@@ -586,7 +695,7 @@ class UploadAssetTestCase(TestCase):
         self.assertEquals(err_msg, str(error))
 
     def _test_timer(self, state, check_calls):
-        asset_pk = '1234'
+        asset_pk = "1234"
 
         lock = MagicMock()
         asset_manager.DocumentLock = MagicMock(return_value=lock)
@@ -600,7 +709,7 @@ class UploadAssetTestCase(TestCase):
 
         am._upgrade_timer()
 
-        asset_manager.DocumentLock.assert_called_once_with('wstore_resource', asset_pk, 'asset')
+        asset_manager.DocumentLock.assert_called_once_with("wstore_resource", asset_pk, "asset")
         lock.wait_document.assert_called_once_with()
         lock.unlock_document.assert_called_once_with()
 
@@ -609,42 +718,41 @@ class UploadAssetTestCase(TestCase):
         check_calls(asset)
 
     def test_upgrade_timer(self):
-
         def check_calls(asset):
             asset_manager.downgrade_asset.assert_called_once_with(asset)
 
-        self._test_timer('upgrading', check_calls)
+        self._test_timer("upgrading", check_calls)
 
     def test_upgrade_timer_attached(self):
-
         def check_calls(asset):
             self.assertEquals(0, asset_manager.downgrade_asset.call_count)
 
-        self._test_timer('attached', check_calls)
+        self._test_timer("attached", check_calls)
 
 
 class ResourceModelTestCase(TestCase):
-    tags = ('resource-model', )
+    tags = ("resource-model",)
 
     def test_resource_model(self):
-        models.settings.SITE = 'http://testserver.com/'
+        models.settings.SITE = "http://testserver.com/"
 
-        url = 'http://example.com/media/resource'
+        url = "http://example.com/media/resource"
 
         from wstore.models import Organization
-        org = Organization.objects.create(name='Test')
+
+        org = Organization.objects.create(name="Test")
 
         res = models.Resource.objects.create(
             provider=org,
-            version='1.0',
+            version="1.0",
             download_link=url,
-            resource_path='',
-            content_type='',
-            resource_type='',
-            state=''
+            resource_path="",
+            content_type="",
+            resource_type="",
+            state="",
         )
 
-        uri = 'http://testserver.com/charging/api/assetManagement/assets/' + str(res.pk)
+        uri = "http://testserver.com/charging/api/assetManagement/assets/" + str(res.pk)
         self.assertEquals(url, res.get_url())
         self.assertEquals(uri, res.get_uri())
 

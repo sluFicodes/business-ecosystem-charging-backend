@@ -21,7 +21,8 @@
 import re
 from distutils.version import StrictVersion
 
-VERSION_REGEXP = re.compile(r'^(?:[1-9]\d*\.|0\.)*(?:[1-9]\d*|0)$')
+VERSION_REGEXP = re.compile(r"^(?:[1-9]\d*\.|0\.)*(?:[1-9]\d*|0)$")
+
 
 def _fix_digit_version(version):
     # Adds minor release to version numbers that are just integers.
@@ -50,7 +51,6 @@ def version_cmp(version1, version2):
 
 
 def key_fun_version(comparator, object_instance=False):
-
     class key(object):
         def __init__(self, obj, *args):
             self.obj = obj

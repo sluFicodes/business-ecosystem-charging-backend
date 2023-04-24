@@ -30,8 +30,8 @@ from wstore.charging_engine.models import *
 
 class Context(models.Model):
     _id = models.ObjectIdField()
-    failed_cdrs = models.JSONField(default=[]) # List
-    failed_upgrades = models.JSONField(default=[]) # List
+    failed_cdrs = models.JSONField(default=[])  # List
+    failed_upgrades = models.JSONField(default=[])  # List
     payouts_n = models.IntegerField(default=0)
 
 
@@ -39,21 +39,21 @@ class Organization(models.Model):
     _id = models.ObjectIdField()
     name = models.CharField(max_length=50, unique=True)
     notification_url = models.CharField(max_length=300, null=True, blank=True)
-    acquired_offerings = models.JSONField(default=[]) # List
+    acquired_offerings = models.JSONField(default=[])  # List
     private = models.BooleanField(default=True)
     correlation_number = models.IntegerField(default=0)
-    managers = models.JSONField(default=[]) # List
+    managers = models.JSONField(default=[])  # List
     actor_id = models.CharField(null=True, blank=True, max_length=100)
     idp = models.CharField(null=True, blank=True, max_length=100)
     issuerDid = models.CharField(null=True, blank=True, max_length=100)
 
     def get_party_url(self):
-        party_type = 'individual' if self.private else 'organization'
+        party_type = "individual" if self.private else "organization"
         parsed_site = urlparse(settings.SITE)
-        return '{}://{}/partyManagement/{}/{}'.format(parsed_site.scheme, parsed_site.netloc, party_type, self.name)
+        return "{}://{}/partyManagement/{}/{}".format(parsed_site.scheme, parsed_site.netloc, party_type, self.name)
 
 
-from wstore.asset_manager.models import Resource, ResourceVersion, ResourcePlugin
+from wstore.asset_manager.models import Resource, ResourcePlugin, ResourceVersion
 
 
 class UserProfile(models.Model):
@@ -62,7 +62,7 @@ class UserProfile(models.Model):
     current_organization = models.ForeignKey(Organization, on_delete=models.DO_NOTHING)
     complete_name = models.CharField(max_length=100)
     actor_id = models.CharField(null=True, blank=True, max_length=100)
-    current_roles = models.JSONField(default=[]) #List
+    current_roles = models.JSONField(default=[])  # List
     access_token = models.CharField(max_length=16384, null=True, blank=True)
 
     def get_current_roles(self):

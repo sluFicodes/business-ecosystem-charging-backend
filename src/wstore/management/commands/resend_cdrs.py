@@ -18,15 +18,14 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from bson import ObjectId
 from datetime import datetime
 
+from bson import ObjectId
 from django.core.management.base import BaseCommand, CommandError
 
-
+from wstore.models import Context, Organization
 from wstore.rss_adaptor.rss_adaptor import RSSAdaptor
 from wstore.store_commons.database import get_database_connection
-from wstore.models import Context, Organization
 
 
 class Command(BaseCommand):
@@ -48,21 +47,20 @@ class Command(BaseCommand):
             exit(0)
 
         db = get_database_connection()
-        time_stamp = datetime.utcnow().isoformat() + 'Z'
+        time_stamp = datetime.utcnow().isoformat() + "Z"
 
         for cdr in cdrs:
             # Modify time_stamp
-            cdr['time_stamp'] = time_stamp
+            cdr["time_stamp"] = time_stamp
 
             # Modify correlation number
-            org = Organization.objects.get(name=cdr['provider'])
+            org = Organization.objects.get(name=cdr["provider"])
 
             new_org = db.wstore_organization.find_and_modify(
-                query={'_id': org.pk},
-                update={'$inc': {'correlation_number': 1}}
+                query={"_id": org.pk}, update={"$inc": {"correlation_number": 1}}
             )
 
-            cdr['correlation'] = new_org['correlation_number']
+            cdr["correlation"] = new_org["correlation_number"]
 
         r = RSSAdaptor()
         r.send_cdr(cdrs)

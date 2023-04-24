@@ -19,13 +19,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+from functools import wraps
+from logging import getLogger
 from shutil import rmtree
 
-from functools import wraps
+logger = getLogger("wstore.default_logger")
 
 
 def installPluginRollback(func):
-
     class Logger(object):
         _state = {}
 
@@ -36,20 +37,22 @@ def installPluginRollback(func):
             self._state[action] = value
 
     @wraps(func)
-    def wrapper(self, path, logger=None):
+    def wrapper(self, path, rb_log=None):
         try:
-            logger = Logger()
-            result = func(self, path, logger=logger)
+            rb_log = Logger()
+            result = func(self, path, rb_log=rb_log)
         except Exception as e:
             # Remove directory if existing
-            if 'PATH' in logger.get_state():
-                rmtree(logger.get_state()['PATH'], True)
+            if "PATH" in rb_log.get_state():
+                logger.debug("Removing path")
+                rmtree(rb_log.get_state()["PATH"], True)
 
-            if 'MODEL' in logger.get_state():
-                logger.get_state()['MODEL'].delete()
+            if "MODEL" in rb_log.get_state():
+                logger.debug("Deleting model")
+                rb_log.get_state()["MODEL"].delete()
 
             # Raise the exception
-            raise(e)
+            raise (e)
         return result
 
     return wrapper

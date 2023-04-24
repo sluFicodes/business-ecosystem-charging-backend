@@ -20,24 +20,27 @@
 
 import json
 
-from django.http import HttpResponse
-from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
 from django.contrib.auth.models import User
-from wstore.asset_manager.resource_plugins.plugin_error import PluginError
+from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
+from django.http import HttpResponse
 
-from wstore.models import UserProfile
-from wstore.store_commons.resource import Resource
-from wstore.store_commons.utils.http import build_response, get_content_type, supported_request_mime_types, \
-    authentication_required
 from wstore.asset_manager.asset_manager import AssetManager
-from wstore.asset_manager.product_validator import ProductValidator
-from wstore.asset_manager.offering_validator import OfferingValidator
-from wstore.store_commons.errors import ConflictError
 from wstore.asset_manager.errors import ProductError
+from wstore.asset_manager.offering_validator import OfferingValidator
+from wstore.asset_manager.product_validator import ProductValidator
+from wstore.asset_manager.resource_plugins.plugin_error import PluginError
+from wstore.models import UserProfile
+from wstore.store_commons.errors import ConflictError
+from wstore.store_commons.resource import Resource
+from wstore.store_commons.utils.http import (
+    authentication_required,
+    build_response,
+    get_content_type,
+    supported_request_mime_types,
+)
 
 
 class AssetCollection(Resource):
-
     def read(self, request):
         """
         Retrieves the existing digital assets associated with a given seller
@@ -45,25 +48,29 @@ class AssetCollection(Resource):
         :return: JSON List containing the existing assets
         """
 
-        user = request.GET.get('user', None)
+        user = request.GET.get("user", None)
 
         pagination = {
-            'offset': request.GET.get('offset', None),
-            'size': request.GET.get('size', None)
+            "offset": request.GET.get("offset", None),
+            "size": request.GET.get("size", None),
         }
-        if pagination['offset'] is None or pagination['size'] is None:
+        if pagination["offset"] is None or pagination["size"] is None:
             pagination = None
 
         if user is None:
             if request.user.is_anonymous:
-                return build_response(request, 401, 'Authentication required')
+                return build_response(request, 401, "Authentication required")
             user = request.user.userprofile
         else:
             try:
                 user_search = User.objects.get(username=user)
                 user = UserProfile.objects.get(user=user_search)
             except Exception as e:
-                return build_response(request, 404, "User {} does not exist, error: {}".format(user, str(e)))
+                return build_response(
+                    request,
+                    404,
+                    "User {} does not exist, error: {}".format(user, str(e)),
+                )
 
         try:
             asset_manager = AssetManager()
@@ -71,11 +78,14 @@ class AssetCollection(Resource):
         except Exception as e:
             return build_response(request, 400, str(e))
 
-        return HttpResponse(json.dumps(response), status=200, content_type='application/json; charset=utf-8')
+        return HttpResponse(
+            json.dumps(response),
+            status=200,
+            content_type="application/json; charset=utf-8",
+        )
 
 
 class AssetEntry(Resource):
-
     def read(self, request, asset_id):
         """
         Retrieves the information associated to a given digital asset
@@ -92,9 +102,13 @@ class AssetEntry(Resource):
         except PermissionDenied as e:
             return build_response(request, 403, str(e))
         except:
-            return build_response(request, 500, 'An unexpected error occurred')
+            return build_response(request, 500, "An unexpected error occurred")
 
-        return HttpResponse(json.dumps(response), status=200, content_type='application/json; charset=utf-8')
+        return HttpResponse(
+            json.dumps(response),
+            status=200,
+            content_type="application/json; charset=utf-8",
+        )
 
 
 class AssetEntryFromProduct(Resource):
@@ -112,9 +126,13 @@ class AssetEntryFromProduct(Resource):
         except PermissionDenied as e:
             return build_response(request, 403, str(e))
         except:
-            return build_response(request, 500, 'An unexpected error occurred')
+            return build_response(request, 500, "An unexpected error occurred")
 
-        return HttpResponse(json.dumps(response), status=200, content_type='application/json; charset=utf-8')
+        return HttpResponse(
+            json.dumps(response),
+            status=200,
+            content_type="application/json; charset=utf-8",
+        )
 
 
 def _manage_digital_asset(request, manager):
@@ -122,7 +140,7 @@ def _manage_digital_asset(request, manager):
     profile = user.userprofile
     content_type = get_content_type(request)[0]
 
-    if 'provider' not in profile.get_current_roles() and not user.is_staff:
+    if "provider" not in profile.get_current_roles() and not user.is_staff:
         return build_response(request, 403, "You don't have the seller role")
 
     try:
@@ -141,20 +159,25 @@ def _manage_digital_asset(request, manager):
     location = resource.get_url()
 
     # Fill location header with the URL of the uploaded digital asset
-    response = HttpResponse(json.dumps({
-        'content': location,
-        'contentType': data['contentType'],
-        'id': str(resource.pk),
-        'href': resource.get_uri()
-    }), status=200, content_type='application/json; charset=utf-8')
+    response = HttpResponse(
+        json.dumps(
+            {
+                "content": location,
+                "contentType": data["contentType"],
+                "id": str(resource.pk),
+                "href": resource.get_uri(),
+            }
+        ),
+        status=200,
+        content_type="application/json; charset=utf-8",
+    )
 
-    response['Location'] = location
+    response["Location"] = location
     return response
 
 
 class UploadCollection(Resource):
-
-    @supported_request_mime_types(('application/json', 'multipart/form-data'))
+    @supported_request_mime_types(("application/json", "multipart/form-data"))
     @authentication_required
     def create(self, request):
         """
@@ -166,12 +189,12 @@ class UploadCollection(Resource):
         def upload_asset(req, user, content_type):
             asset_manager = AssetManager()
 
-            if content_type == 'application/json':
+            if content_type == "application/json":
                 data = json.loads(req.body)
                 resource = asset_manager.upload_asset(user, data)
             else:
-                data = json.loads(req.POST['json'])
-                f = req.FILES['file']
+                data = json.loads(req.POST["json"])
+                f = req.FILES["file"]
                 resource = asset_manager.upload_asset(user, data, file_=f)
 
             return resource, data
@@ -180,8 +203,7 @@ class UploadCollection(Resource):
 
 
 class UpgradeCollection(Resource):
-
-    @supported_request_mime_types(('application/json', 'multipart/form-data'))
+    @supported_request_mime_types(("application/json", "multipart/form-data"))
     @authentication_required
     def create(self, request, asset_id):
         """
@@ -194,12 +216,12 @@ class UpgradeCollection(Resource):
         def upgrade_asset(req, user, content_type):
             asset_manager = AssetManager()
 
-            if content_type == 'application/json':
+            if content_type == "application/json":
                 data = json.loads(req.body)
                 resource = asset_manager.upgrade_asset(asset_id, user, data)
             else:
-                data = json.loads(req.POST['json'])
-                f = req.FILES['file']
+                data = json.loads(req.POST["json"])
+                f = req.FILES["file"]
                 resource = asset_manager.upgrade_asset(asset_id, user, data, file_=f)
 
             return resource, data
@@ -210,23 +232,23 @@ class UpgradeCollection(Resource):
 def _validate_catalog_element(request, element, validator):
     # Validate user permissions
     user = request.user
-    if 'provider' not in user.userprofile.get_current_roles() and not user.is_staff:
+    if "provider" not in user.userprofile.get_current_roles() and not user.is_staff:
         return build_response(request, 403, "You don't have the seller role")
 
     # Parse content
     try:
         data = json.loads(request.body)
     except:
-        return build_response(request, 400, 'The content is not a valid JSON document')
+        return build_response(request, 400, "The content is not a valid JSON document")
 
-    if 'action' not in data:
-        return build_response(request, 400, 'Missing required field: action')
+    if "action" not in data:
+        return build_response(request, 400, "Missing required field: action")
 
     if element not in data:
-        return build_response(request, 400, 'Missing required field: product')
+        return build_response(request, 400, "Missing required field: product")
 
     try:
-        validator.validate(data['action'], user.userprofile.current_organization, data[element])
+        validator.validate(data["action"], user.userprofile.current_organization, data[element])
     except ValueError as e:
         return build_response(request, 400, str(e))
     except ProductError as e:
@@ -238,14 +260,13 @@ def _validate_catalog_element(request, element, validator):
     except PermissionDenied as e:
         return build_response(request, 403, str(e))
     except:
-        return build_response(request, 500, 'An unexpected error has occurred')
+        return build_response(request, 500, "An unexpected error has occurred")
 
-    return build_response(request, 200, 'OK')
+    return build_response(request, 200, "OK")
 
 
 class ValidateCollection(Resource):
-
-    @supported_request_mime_types(('application/json',))
+    @supported_request_mime_types(("application/json",))
     @authentication_required
     def create(self, request):
         """
@@ -254,12 +275,11 @@ class ValidateCollection(Resource):
         :return:
         """
         product_validator = ProductValidator()
-        return _validate_catalog_element(request, 'product', product_validator)
+        return _validate_catalog_element(request, "product", product_validator)
 
 
 class ValidateOfferingCollection(Resource):
-
-    @supported_request_mime_types(('application/json',))
+    @supported_request_mime_types(("application/json",))
     @authentication_required
     def create(self, request):
         """
@@ -268,4 +288,4 @@ class ValidateOfferingCollection(Resource):
         :return:
         """
         offering_validator = OfferingValidator()
-        return _validate_catalog_element(request, 'offering', offering_validator)
+        return _validate_catalog_element(request, "offering", offering_validator)
