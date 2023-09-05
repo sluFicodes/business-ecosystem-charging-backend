@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2023 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -21,7 +22,6 @@
 
 from logging import getLogger
 
-from bson import ObjectId
 from django.conf import settings
 from pymongo import MongoClient
 
@@ -39,37 +39,38 @@ def get_database_connection():
 
     # Create database connection
     client = None
-    if "CLIENT" in database_info:
-        client_info = database_info["CLIENT"]
+    if 'CLIENT' in database_info:
+        client_info = database_info['CLIENT']
+        db_name = database_info['NAME']
 
         if "host" in client_info and "port" in client_info and "username" in client_info:
             client = MongoClient(
-                client_info["host"],
-                int(client_info["port"]),
-                user=client_info["username"],
-                password=client_info["password"],
-            )
+                client_info['host'],
+                int(client_info['port']),
+                username=client_info['username'],
+                password=client_info['password'],
+                authSource=db_name)
 
         elif "host" in client_info and "port" in client_info and "username" not in client_info:
             client = MongoClient(client_info["host"], int(client_info["port"]))
 
         elif "host" in client_info and "port" not in client_info and "username" in client_info:
             client = MongoClient(
-                client_info["host"],
-                user=client_info["username"],
-                password=client_info["password"],
-            )
+                client_info['host'],
+                username=client_info['username'],
+                password=client_info['password'],
+                authSource=db_name)
 
         elif "host" in client_info and "port" not in client_info and "username" not in client_info:
             client = MongoClient(client_info["host"])
 
         elif "host" not in client_info and "port" in client_info and "username" in client_info:
             client = MongoClient(
-                "localhost",
-                int(client_info["port"]),
-                user=client_info["username"],
-                password=client_info["password"],
-            )
+                'localhost',
+                int(client_info['port']),
+                username=client_info['username'],
+                password=client_info['password'],
+                authSource=db_name)
 
         elif "host" not in client_info and "port" in client_info and "username" not in client_info:
             client = MongoClient("localhost", int(client_info["port"]))
@@ -79,7 +80,6 @@ def get_database_connection():
     else:
         client = MongoClient()
 
-    db_name = database_info["NAME"]
     db = client[db_name]
 
     logger.info(f"Connected to MongoDB: {db_name} OK")

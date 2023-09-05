@@ -455,7 +455,7 @@ class SDRCollectionTestCase(TestCase):
         views.UsageClient.return_value = usage_inst
 
         self.request = MagicMock()
-        self.request.user.is_anonymous.return_value = False
+        self.request.user.is_anonymous = False
         self.request.META.get.return_value = "application/json"
         self.request.GET.get.return_value = None
 

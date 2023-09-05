@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2023 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -73,7 +74,7 @@ class ServeMedia(API_Resource):
 
         # Check if the user has permissions to download the asset
         if err_code is None and not asset.is_public:
-            if user.is_anonymous():
+            if user.is_anonymous:
                 err_code, err_msg = (
                     401,
                     "You must be authenticated to download the specified asset",
@@ -118,7 +119,7 @@ class ServeMedia(API_Resource):
     def _validate_invoice_permissions(self, user, name):
         err_code, err_msg = None, None
 
-        if user.is_anonymous():
+        if user.is_anonymous:
             err_code, err_msg = (
                 401,
                 "You must provide credentials for downloading invoices",

@@ -37,7 +37,7 @@ class ServeMediaTestCase(TestCase):
     def setUp(self):
         # Mock user
         self._user = MagicMock()
-        self._user.is_anonymous.return_value = False
+        self._user.is_anonymous = False
         self._org = MagicMock()
         self._user.userprofile.current_organization = self._org
 
@@ -174,7 +174,7 @@ class ServeMediaTestCase(TestCase):
         ]
 
     def _not_loged(self):
-        self._user.is_anonymous.return_value = True
+        self._user.is_anonymous = True
 
     def _not_found(self):
         views.os.path.isfile.return_value = False
