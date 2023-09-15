@@ -22,13 +22,11 @@ The Business API Ecosystem is a joint component made up of the FIWARE Business F
 
 In this context, the Business Ecosystem Charging Backend is the component in charge of processing the different pricing models, the accounting information, and the revenue sharing reports. With this information, the  Business Ecosystem Charging Backend is able to calculate amounts to be charged, charge customers, and pay sellers.
 
-
 # Installation
 
-The Business Ecosystem Charging Backend is installed as part of the Business API Ecosystem, so the instructions to install it can be found at [the Business API Ecosystem Installation Guide](http://business-api-ecosystem.readthedocs.io/en/latest/installation-administration-guide.html). You can install the software in three different ways:
+The Business Ecosystem Charging Backend is installed as part of the Business API Ecosystem, so the instructions to install it can be found at [the Business API Ecosystem Installation Guide](http://business-api-ecosystem.readthedocs.io/en/latest/installation-administration-guide.html). You can install the software in two different ways:
 
-* Using the provided script
-* Using a [Docker Container](https://hub.docker.com/r/conwetlab/biz-ecosystem-charging-backend/)
+* Using a [Docker Container](https://hub.docker.com/r/fiware/biz-ecosystem-charging-backend/)
 * Manually
 
 # API Reference

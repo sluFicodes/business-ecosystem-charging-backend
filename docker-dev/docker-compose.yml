@@ -10,7 +10,7 @@ services:
             - ./charging-data:/data/db
 
     charging:
-        image: charging-dev2
+        image: charging-dev
         links:
             - charging_mongo
         depends_on:

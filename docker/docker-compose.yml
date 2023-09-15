@@ -10,7 +10,7 @@ services:
             main:
 
     charging:
-        image: fiware/biz-ecosystem-charging-backend:v8.1.0-rc1
+        image: fiware/biz-ecosystem-charging-backend:master
         links:
             - charging_mongo
         depends_on:
