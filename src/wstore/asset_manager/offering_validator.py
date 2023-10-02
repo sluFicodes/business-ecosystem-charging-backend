@@ -99,15 +99,11 @@ class OfferingValidator(CatalogValidator):
 
             # Check if the pricing is included or it is needed to download it
             for price in product_offering["productOfferingPrice"]:
-<<<<<<< HEAD
                 recurringKey = "recurringChargePeriod"
                 if "id" in price and "href" in price and "priceType" not in price:
 
                     # This field is different depending on whether the model is embedded
                     recurringKey = "recurringChargePeriodType"
-=======
-                if "id" in price and "href" in price and "priceType" not in price:
->>>>>>> 0c890894 (Validate new pricing model (#74))
                     price_model = self._get_price(price["id"])
                 else:
                     price_model = price
@@ -139,7 +135,6 @@ class OfferingValidator(CatalogValidator):
                 ):
                     raise ValueError("Invalid priceType, it must be one time, recurring, usage, or custom")
 
-<<<<<<< HEAD
                 # If the model is custom no extra validation is required
                 if price_model["priceType"] == "custom":
                     is_custom = True
@@ -154,15 +149,6 @@ class OfferingValidator(CatalogValidator):
                     raise ValueError(
                         "Unrecognized " + recurringKey + ": " + price_model[recurringKey]
                     )
-=======
-                if price_model["priceType"] == "recurring" and "recurringChargePeriodType" not in price_model:
-                    raise ValueError("Missing required field recurringChargePeriodType for recurring priceType")
-
-                if price_model["priceType"] == "recurring" and not ChargePeriod.contains(
-                    price_model["recurringChargePeriodType"]
-                ):
-                    raise ValueError("Unrecognized recurringChargePeriodType: " + price_model["recurringChargePeriodType"])
->>>>>>> 0c890894 (Validate new pricing model (#74))
 
                 # Validate currency
                 if "price" not in price_model:
