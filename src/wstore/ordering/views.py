@@ -60,11 +60,7 @@ class OrderingCollection(Resource):
             return build_response(request, 400, "The provided data is not a valid JSON object")
 
         client = OrderingClient()
-<<<<<<< HEAD
         client.update_items_state(order, "inProgress")
-=======
-        client.update_state(order, "InProgress")
->>>>>>> c3379cf5 (Integration with new Usage API (#77))
 
         terms_accepted = request.META.get("HTTP_X_TERMS_ACCEPTED", "").lower() == "true"
 
