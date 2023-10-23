@@ -51,7 +51,7 @@ class OrderingClient:
             raise ImproperlyConfigured(msg)
 
     def get_order(self, order_id):
-        path = "/DSProductOrdering/api/productOrdering/v2/productOrder/" + str(order_id)
+        path = "/productOrder/" + str(order_id)
         url = urljoin(self._ordering_api, path)
 
         r = requests.get(url)
@@ -73,7 +73,7 @@ class OrderingClient:
         }
 
         # Make PATCH request
-        path = "/DSProductOrdering/api/productOrdering/v2/productOrder/" + str(order["id"])
+        path = "/productOrder/" + str(order["id"])
         url = urljoin(self._ordering_api, path)
 
         r = requests.patch(url, json=patch)
@@ -106,7 +106,7 @@ class OrderingClient:
             patch["productOrderItem"].append(orderItem)
 
         # Make PATCH request
-        path = "/DSProductOrdering/api/productOrdering/v2/productOrder/" + str(order["id"])
+        path = "/productOrder/" + str(order["id"])
         url = urljoin(self._ordering_api, path)
 
         r = requests.patch(url, json=patch)
