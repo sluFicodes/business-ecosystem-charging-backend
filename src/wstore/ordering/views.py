@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2015 CoNWeT Lab., Universidad Politécnica de Madrid
 # Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
@@ -24,6 +24,7 @@ import json
 
 from bson.objectid import ObjectId
 from django.http import HttpResponse
+from logging import getLogger
 
 from wstore.asset_manager.resource_plugins.decorators import (
     on_product_acquired,
@@ -39,6 +40,8 @@ from wstore.ordering.ordering_client import OrderingClient
 from wstore.ordering.ordering_management import OrderingManager
 from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import authentication_required, build_response, supported_request_mime_types
+
+logger = getLogger("wstore.default_logger")
 
 
 class OrderingCollection(Resource):
@@ -57,19 +60,17 @@ class OrderingCollection(Resource):
             return build_response(request, 400, "The provided data is not a valid JSON object")
 
         client = OrderingClient()
-        client.update_state(order, "InProgress")
+        client.update_items_state(order, "inProgress")
 
         terms_accepted = request.META.get("HTTP_X_TERMS_ACCEPTED", "").lower() == "true"
 
         try:
-            # Check that the user has a billing address
             response = None
-
             om = OrderingManager()
             redirect_url = om.process_order(user, order, terms_accepted=terms_accepted)
 
             if redirect_url is not None:
-                client.update_state(order, "Pending")
+                client.update_items_state(order, "pending")
 
                 response = HttpResponse(
                     json.dumps({"redirectUrl": redirect_url}),
@@ -82,23 +83,31 @@ class OrderingCollection(Resource):
                 digital_items = []
                 order_model = Order.objects.get(order_id=order["id"])
 
-                for item in order["orderItem"]:
+                for item in order["productOrderItem"]:
                     contract = order_model.get_item_contract(item["id"])
                     offering = Offering.objects.get(pk=ObjectId(contract.offering))
 
-                    if offering.is_digital:
-                        digital_items.append(item)
+                    # if offering.is_digital:
+                    #    digital_items.append(item)
+                    digital_items.append(item)
+                    ### Asumming all the offers in the system are digital
 
-                client.update_items_state(order, "Completed", digital_items)
+                client.update_items_state(order, "completed", digital_items)
+
+                try:
+                    om.notify_completed(order)
+                except:
+                    # The order is correct so we cannot set is as failed
+                    logger.error("The products for order {} could not be created".format(order["id"]))
 
                 response = build_response(request, 200, "OK")
 
         except OrderingError as e:
             response = build_response(request, 400, str(e.value))
-            client.update_items_state(order, "Failed")
+            client.update_items_state(order, "failed")
         except Exception as e:
             response = build_response(request, 500, "Your order could not be processed")
-            client.update_items_state(order, "Failed")
+            client.update_items_state(order, "failed")
 
         return response
 
@@ -119,53 +128,11 @@ class InventoryCollection(Resource):
         # Extract order id
         order_id = product["name"].split("=")[1]
 
-        # Get order
-        order = Order.objects.get(order_id=order_id)
-        contract = None
+        om = OrderingManager()
+        code, error = om.activate_product(order_id, product)
 
-        # Search contract
-        new_contracts = []
-        for cont in order.get_contracts():
-            off = Offering.objects.get(pk=ObjectId(cont.offering))
-            if product["productOffering"]["id"] == off.off_id:
-                contract = cont
-
-            new_contracts.append(cont)
-
-        if contract is None:
-            return build_response(request, 404, "There is not a contract for the specified product")
-
-        # Save contract id
-        contract.product_id = product["id"]
-
-        # Needed to update the contract info with new model
-        order.contracts = new_contracts
-        order.save()
-
-        # Activate asset
-        try:
-            on_product_acquired(order, contract)
-        except:
-            return build_response(request, 400, "The asset has failed to be activated")
-
-        # Change product state to active
-        inventory_client = InventoryClient()
-        inventory_client.activate_product(product["id"])
-
-        # Create the initial charge in the billing API
-        if contract.charges is not None and len(contract.charges) == 1:
-            billing_client = BillingClient()
-            valid_to = None
-            # If the initial charge was a subscription is needed to determine the expiration date
-            if "subscription" in contract.pricing_model:
-                valid_to = contract.pricing_model["subscription"][0]["renovation_date"]
-
-            billing_client.create_charge(
-                contract.charges[0],
-                contract.product_id,
-                start_date=None,
-                end_date=valid_to,
-            )
+        if error is not None:
+            return build_response(request, code, error)
 
         return build_response(request, 200, "OK")
 

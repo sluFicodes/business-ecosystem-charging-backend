@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2018 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2023 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -187,8 +188,8 @@ ROOT_URLCONF = "urls"
 WSGI_APPLICATION = "wsgi.application"
 
 # Payment method determines the payment gateway to be used
-# Allowed values: paypal (default), fipay, None
-PAYMENT_METHOD = "paypal"
+# Allowed values: paypal (default), stripe, None
+PAYMENT_METHOD = "stripe"
 
 AUTHENTICATION_BACKENDS = ("django.contrib.auth.backends.ModelBackend",)
 
@@ -203,7 +204,7 @@ CRONJOBS = [
 
 CLIENTS = {
     "paypal": "wstore.charging_engine.payment_client.paypal_client.PayPalClient",
-    "fipay": "wstore.charging_engine.payment_client.fipay_client.FiPayClient",
+    "stripe": "wstore.charging_engine.payment_client.stripe_client.StripeClient",
     None: "wstore.charging_engine.payment_client.payment_client.PaymentClient",
 }
 
@@ -265,10 +266,15 @@ SITE = environ.get("BAE_SERVICE_HOST", SITE)
 LOCAL_SITE = environ.get("BAE_CB_LOCAL_SITE", LOCAL_SITE)
 
 CATALOG = environ.get("BAE_CB_CATALOG", CATALOG)
+RESOURCE_CATALOG = environ.get("BAE_CB_RESOURCE_CATALOG", RESOURCE_CATALOG)
+SERVICE_CATALOG = environ.get("BAE_CB_SERVICE_CATALOG", SERVICE_CATALOG)
+
 INVENTORY = environ.get("BAE_CB_INVENTORY", INVENTORY)
+RESOURCE_INVENTORY = environ.get("BAE_CB_RESOURCE_INVENTORY", RESOURCE_INVENTORY)
+SERVICE_INVENTORY = environ.get("BAE_CB_SERVICE_INVENTORY", SERVICE_INVENTORY)
+
 ORDERING = environ.get("BAE_CB_ORDERING", ORDERING)
 BILLING = environ.get("BAE_CB_BILLING", BILLING)
-RSS = environ.get("BAE_CB_RSS", RSS)
 USAGE = environ.get("BAE_CB_USAGE", USAGE)
 AUTHORIZE_SERVICE = environ.get("BAE_CB_AUTHORIZE_SERVICE", AUTHORIZE_SERVICE)
 

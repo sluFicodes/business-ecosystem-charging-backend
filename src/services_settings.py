@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2016 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+
+# Copyright (c) 2023 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -23,10 +25,21 @@ VERIFY_REQUESTS = True
 SITE = "http://proxy.docker:8004/"
 LOCAL_SITE = "http://charging.docker:8006/"
 
-CATALOG = "http://apis.docker:8080/DSProductCatalog"
-INVENTORY = "http://apis.docker:8080/DSProductInventory"
-ORDERING = "http://apis.docker:8080/DSProductOrdering"
-BILLING = "http://apis.docker:8080/DSBillingManagement"
-RSS = "http://rss.docker:8080/DSRevenueSharing"
-USAGE = "http://apis.docker:8080/DSUsageManagement"
+CATALOG = "http://host.docker.internal:8632"
+
+RESOURCE_CATALOG = "http://tmforum-tm-forum-api-resource-catalog:8080"
+#RESOURCE_CATALOG = "http://host.docker.internal:8636"
+
+SERVICE_CATALOG = "http://tmforum-tm-forum-api-service-catalog:8080"
+#SERVICE_CATALOG = "http://host.docker.internal:8637"
+
+INVENTORY = "http://host.docker.internal:8635"
+RESOURCE_INVENTORY = "http://tmforum-tm-forum-api-resource-inventory:8080"
+#RESOURCE_INVENTORY = "http://host.docker.internal:8641"
+
+SERVICE_INVENTORY = "http://host.docker.internal:8640"
+
+ORDERING = "http://host.docker.internal:8634"
+BILLING = "http://host.docker.internal:8639"
+USAGE = "http://host.docker.internal:8637"
 AUTHORIZE_SERVICE = "http://proxy.docker:8004/authorizeService/apiKeys"

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2016 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2016 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2023 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -20,7 +21,8 @@
 
 
 from datetime import datetime
-from urllib.parse import urljoin
+from uuid import uuid4
+from urllib.parse import urljoin, urlparse
 
 import requests
 from django.conf import settings
@@ -38,7 +40,7 @@ class InventoryClient:
         return urljoin(site, "charging/api/orderManagement/products")
 
     def get_hubs(self):
-        r = requests.get(self._inventory_api + "/api/productInventory/v2/hub")
+        r = requests.get(self._inventory_api + "/hub")
         r.raise_for_status()
         return r.json()
 
@@ -55,7 +57,7 @@ class InventoryClient:
         else:
             callback = {"callback": callback_url}
 
-            r = requests.post(self._inventory_api + "/api/productInventory/v2/hub", json=callback)
+            r = requests.post(self._inventory_api + "/hub", json=callback)
 
             if r.status_code != 201 and r.status_code != 409:
                 msg = "It hasn't been possible to create inventory subscription, "
@@ -64,7 +66,7 @@ class InventoryClient:
                 raise ImproperlyConfigured(msg)
 
     def get_product(self, product_id):
-        url = self._inventory_api + "/api/productInventory/v2/product/" + str(product_id)
+        url = self._inventory_api + "/product/" + str(product_id)
 
         r = requests.get(url)
         r.raise_for_status()
@@ -82,7 +84,7 @@ class InventoryClient:
         for k, v in query.items():
             qs += "{}={}&".format(k, v)
 
-        url = self._inventory_api + "/api/productInventory/v2/product" + qs[:-1]
+        url = self._inventory_api + "/product" + qs[:-1]
 
         r = requests.get(url)
         r.raise_for_status()
@@ -96,12 +98,12 @@ class InventoryClient:
         :param patch_body: New values for the product fields to be patched
         """
         # Build product url
-        url = self._inventory_api + "/api/productInventory/v2/product/" + str(product_id)
+        url = self._inventory_api + "/product/" + str(product_id)
 
-        r = requests.patch(url, json=patch_body)
-        r.raise_for_status()
+        response = requests.patch(url, json=patch_body)
+        response.raise_for_status()
 
-        return r.json()
+        return response.json()
 
     def activate_product(self, product_id):
         """
@@ -109,7 +111,7 @@ class InventoryClient:
         :param product_id: Id of the product to be activated
         """
         patch_body = {
-            "status": "Active",
+            "status": "active",
             "startDate": datetime.utcnow().isoformat() + "Z",
         }
         self.patch_product(product_id, patch_body)
@@ -119,7 +121,7 @@ class InventoryClient:
         Suspends a given product by changing its state to Suspended
         :param product_id: Id of the product to be suspended
         """
-        patch_body = {"status": "Suspended"}
+        patch_body = {"status": "suspended"}
         self.patch_product(product_id, patch_body)
 
     def terminate_product(self, product_id):
@@ -135,7 +137,92 @@ class InventoryClient:
             pass
 
         patch_body = {
-            "status": "Terminated",
+            "status": "terminated",
             "terminationDate": datetime.utcnow().isoformat() + "Z",
         }
         self.patch_product(product_id, patch_body)
+
+    def create_product(self, product):
+        url = self._inventory_api + "/product/"
+
+        response = requests.post(url, json=product)
+        response.raise_for_status()
+
+        return response.json()
+
+    ####
+    def download_spec(self, catalog_endpoint, spec_path, spec_id):
+        catalog = urlparse(catalog_endpoint)
+        resource_spec_url = "{}://{}{}/{}".format(catalog.scheme, catalog.netloc, catalog.path + spec_path, spec_id)
+
+        resp = requests.get(resource_spec_url, verify=settings.VERIFY_REQUESTS)
+        return resp.json()
+
+    def build_inventory_char(self, spec_char, value_field):
+        value = None
+        for val in spec_char[value_field]:
+            if val["isDefault"]:
+                if "valueFrom" in val:
+                    value = str(val["valueFrom"]) + " - " + str(val["valueTo"])
+                else:
+                    value = str(val["value"])
+
+                if "unitOfMeasure" in val:
+                    value += " " + val["unitOfMeasure"]
+
+        return {
+            "id": "urn:ngsi-ld:characteristic:{}".format(str(uuid4())),
+            "name": spec_char["name"],
+            "valueType": "string",
+            "value": value
+        }
+
+    def create_resource(self, resource_id, customer_party):
+        # Get resource specification        
+        resource_spec = self.download_spec(settings.RESOURCE_CATALOG, '/resourceSpecification', resource_id)
+
+        resource = {
+            "resourceCharacteristic": [self.build_inventory_char(char, "resourceSpecCharacteristicValue") for char in resource_spec["resourceSpecCharacteristic"]],
+            "relatedParty": [customer_party],
+            "resourceStatus": "reserved",
+            "startOperatingDate": datetime.now().isoformat() + "Z"
+        }
+
+        if "name" in resource_spec:
+            resource["name"] = resource_spec["name"]
+
+        if "description" in resource_spec:
+            resource["description"] = resource_spec["description"]
+
+        inventory = urlparse(settings.RESOURCE_INVENTORY)
+        resource_url = "{}://{}{}".format(inventory.scheme, inventory.netloc, inventory.path + '/resource')
+
+        inv_response = requests.post(resource_url, json=resource, verify=settings.VERIFY_REQUESTS)
+        inv_resource = inv_response.json()
+
+        return inv_resource["id"]
+
+    def create_service(self, service_id, customer_party):
+        # Get service specification
+        service_spec = self.download_spec(settings.SERVICE_CATALOG, '/serviceSpecification', service_id)
+
+        # TODO: Replace this code when the service inventory is available
+        from wstore.service.models import Service
+
+        inv_service_id = 'urn:ngsi-ld:Service:{}'.format(str(uuid4()))
+        service = Service(
+            uuid = inv_service_id,
+            startDate = datetime.now(),
+            party_id = customer_party["id"],
+            state = "reserved",
+            characteristics = [self.build_inventory_char(char, "characteristicValueSpecification") for char in service_spec["specCharacteristic"]]
+        )
+
+        if "name" in service_spec:
+            service.name = service_spec["name"]
+
+        if "description" in service_spec:
+            service.description = service_spec["description"]
+
+        service.save()
+        return inv_service_id

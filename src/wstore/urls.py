@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2013 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
+# Copyright (c) 2013 CoNWeT Lab., Universidad Politécnica de Madrid
 # Copyright (c) 2021 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
@@ -27,9 +27,19 @@ from wstore.asset_manager.resource_plugins import views as plugins_views
 from wstore.charging_engine import views as charging_views
 from wstore.charging_engine.accounting import views as accounting_views
 from wstore.ordering import views as ordering_views
-from wstore.reports import views as reports_views
+from wstore.rss import views as rss_views
+from wstore.service import views as service_views
 
 urlpatterns = [
+    # FIXME: Workaround for saving services while the service inventory API is implemented
+    url(
+        r"^service/?$",
+        service_views.ServiceCollection(permitted_methods=("GET",)),
+    ),
+    url(
+        r"^service/(?P<service_id>.+)/?$",
+        service_views.ServiceEntry(permitted_methods=("GET",)),
+    ),
     # API
     url(
         r"^charging/api/assetManagement/assets/?$",
@@ -80,16 +90,12 @@ urlpatterns = [
         ordering_views.OrderingCollection(permitted_methods=("POST",)),
     ),
     url(
-        r"^charging/api/orderManagement/orders/accept/?$",
-        charging_views.PayPalConfirmation(permitted_methods=("POST",)),
-    ),
-    url(
-        r"^charging/api/orderManagement/orders/cancel/?$",
-        charging_views.PayPalCancellation(permitted_methods=("POST",)),
+        r"^charging/api/orderManagement/orders/confirm/?$",
+        charging_views.PaymentConfirmation(permitted_methods=("POST",)),
     ),
     url(
         r"^charging/api/orderManagement/orders/refund/?$",
-        charging_views.PayPalRefund(permitted_methods=("POST",)),
+        charging_views.PaymentRefund(permitted_methods=("POST",)),
     ),
     url(
         r"^charging/api/orderManagement/products/?$",
@@ -111,8 +117,28 @@ urlpatterns = [
         r"^charging/api/orderManagement/accounting/refresh/?$",
         accounting_views.SDRRefreshCollection(permitted_methods=("POST",)),
     ),
+    # url(
+    #     r"^charging/api/reportManagement/created/?$",
+    #     reports_views.ReportReceiver(permitted_methods=("POST",)),
+    # ),
     url(
-        r"^charging/api/reportManagement/created/?$",
-        reports_views.ReportReceiver(permitted_methods=("POST",)),
+        r"^charging/api/revenueSharing/models/?$",
+        rss_views.RevenueSharingModels(permitted_methods=("GET", "POST", "PUT")),
+    ),
+    url(
+        r"^charging/api/revenueSharing/algorithms/?$",
+        rss_views.RevenueSharingAlgorithms(permitted_methods=("GET",)),
+    ),
+    url(
+        r"^charging/api/revenueSharing/settlement/?$",
+        rss_views.Settlements(permitted_methods=("POST",)),
+    ),
+    url(
+        r"^charging/api/revenueSharing/settlement/reports/?$",
+        rss_views.SettlementReports(permitted_methods=("GET",)),
+    ),
+    url(
+        r"^charging/api/revenueSharing/cdrs/?$",
+        rss_views.CDRs(permitted_methods=("GET",)),
     ),
 ]
