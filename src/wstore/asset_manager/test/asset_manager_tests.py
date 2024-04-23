@@ -165,11 +165,16 @@ class UploadAssetTestCase(TestCase):
         import wstore.store_commons.rollback
 
         wstore.store_commons.rollback.rollback = decorator_mock
-
         self._user = MagicMock()
         self._user.userprofile.current_organization.name = "test_user"
 
+        asset_manager.boto3.client = MagicMock()
+        asset_manager.boto3.client.return_value.get_bucket_location.return_value = {'LocationConstraint':'eu-north-1'}
         asset_manager.settings.SITE = "http://testdomain.com/"
+        asset_manager.settings.AWS_ACCESS_KEY_ID = "testKey/"
+        asset_manager.settings.AWS_SECRET_ACCESS_KEY = "testSecretKey/"
+        asset_manager.settings.BUCKET_NAME= "test"
+        asset_manager.settings.ACL_ENABLED= False
 
         asset_manager.Resource = MagicMock()
         self.res_mock = MagicMock()
@@ -180,6 +185,9 @@ class UploadAssetTestCase(TestCase):
 
         self._old_is_dir = asset_manager.os.path.isdir
         asset_manager.os.path.isdir = MagicMock()
+
+        self._old_remove = asset_manager.os.remove
+        asset_manager.os.remove = MagicMock()
 
         self._old_exists = asset_manager.os.path.exists
         asset_manager.os.path.exists = MagicMock()
@@ -192,7 +200,7 @@ class UploadAssetTestCase(TestCase):
     def tearDown(self):
         asset_manager.os.path.isdir = self._old_is_dir
         asset_manager.os.path.exists = self._old_exists
-
+        asset_manager.os.remove= self._old_remove
         import wstore.store_commons.rollback
 
         reload(wstore.store_commons.rollback)
@@ -218,11 +226,18 @@ class UploadAssetTestCase(TestCase):
         asset_manager.os.path.exists.return_value = True
         self.res_mock.product_id = "1"
 
-    def _check_file_calls(self, file_name="example.wgt"):
-        asset_manager.os.path.isdir.assert_called_once_with("/home/test/media/assets/test_user")
-        asset_manager.os.path.exists.assert_called_once_with("/home/test/media/assets/test_user/{}".format(file_name))
-        self.open_mock.assert_called_once_with("/home/test/media/assets/test_user/{}".format(file_name), "wb")
+    def _check_file_calls(self, file_name="example.wgt", aws= False):
+        final_dir = "test_user" if not aws else "temp"
+        asset_manager.os.path.isdir.assert_called_once_with("/home/test/media/assets/{}".format(final_dir))
+        asset_manager.os.path.exists.assert_called_once_with("/home/test/media/assets/{}/{}".format(final_dir, file_name))
+        self.open_mock.assert_called_once_with("/home/test/media/assets/{}/{}".format(final_dir, file_name), "wb")
         self.open_mock().write.assert_called_once_with("Test data content".encode())
+
+    def _aws_mocks(self, side_effect, err):
+        if side_effect is not None:
+            asset_manager.boto3.client.return_value.upload_file.side_effect =  Exception({'Error': {'Code': side_effect, 'Message': err}}, 'upload_file')
+        else:
+            asset_manager.boto3.client.return_value.upload_file.return_value = None
 
     @parameterized.expand(
         [
@@ -236,7 +251,7 @@ class UploadAssetTestCase(TestCase):
                 None,
                 "example file.wgt",
             ),
-            ("file", {"contentType": "application/x-widget"}, _use_file),
+            ("file", {"contentType": "application/x-widget", "isPublic":False}, _use_file),
             ("existing_override", UPLOAD_CONTENT, _file_conflict, True),
             (
                 "missing_type",
@@ -352,6 +367,46 @@ class UploadAssetTestCase(TestCase):
         else:
             self.assertTrue(isinstance(error, err_type))
             self.assertEquals(err_msg, str(error))
+    
+    @parameterized.expand([("basic", UPLOAD_CONTENT_AWS, True), ("basic", UPLOAD_CONTENT_AWS, True, "AccessDenied", "Access Denied") ])
+    @override_settings(MEDIA_ROOT="/home/test/media")
+    def test_upload_asset_aws(
+        self,
+        name,
+        data,
+        awsEnabled,
+        side_effect=None,
+        err_msg=None,
+        file_name="example.wgt",
+    ):
+        asset_manager.settings.AWS_ENABLED= awsEnabled
+        am = asset_manager.AssetManager()
+        am.rollback_logger = {"files": [], "models": []}
+        self._aws_mocks(side_effect, err_msg)
+        error = None
+        try:
+            resource = am.upload_asset(self._user, data, file_=self._file)
+        except Exception as e:
+            error = e
+        # Check not error
+        if side_effect is None:
+            # Check calls
+            self.assertEquals("http://locationurl.com/", resource.get_url())
+            self.assertEqual("http://uri.com/", resource.get_uri())
+            self._check_file_calls(file_name, True)
+            # Check rollback logger
+            self.assertEquals(["/home/test/media/assets/temp/{}".format(file_name)],
+                am.rollback_logger["files"])
+            # Check file calls
+            if self._file is not None:
+                self._file.seek.assert_called_once_with(0)
+                asset_manager.os.makedirs.assert_called_once_with("/home/test/media/assets/temp", exist_ok=True)
+            if self._file is not None:
+                self._file.seek.assert_called_once_with(0)
+                asset_manager.os.makedirs.assert_called_once_with("/home/test/media/assets/temp", exist_ok=True)
+                # Check resource creation
+        else:
+            self.assertEquals("({'Error': {'Code': 'AccessDenied', 'Message': 'Access Denied'}}, 'upload_file')", str(error))
 
     def _mock_resource_type(self, form):
         asset_manager.ResourcePlugin = MagicMock()

@@ -105,16 +105,25 @@ RESOURCE_DATA4 = {
 UPLOAD_CONTENT = {
     "contentType": "application/x-widget",
     "content": {"name": "example.wgt", "data": "VGVzdCBkYXRhIGNvbnRlbnQ="},
+    "isPublic":False
+}
+
+UPLOAD_CONTENT_AWS = {
+    "contentType": "application/x-widget",
+    "content": {"name": "example.wgt", "data": "VGVzdCBkYXRhIGNvbnRlbnQ="},
+    "isPublic":True
 }
 
 UPLOAD_CONTENT_WHITESPACE = {
     "contentType": "application/x-widget",
     "content": {"name": "example file.wgt", "data": "VGVzdCBkYXRhIGNvbnRlbnQ="},
+    "isPublic":False
 }
 
 UPLOAD_INV_FILENAME = {
     "contentType": "application/x-widget",
     "content": {"name": "example/.wgt", "data": "VGVzdCBkYXRhIGNvbnRlbnQ="},
+    "isPublic":False
 }
 
 MISSING_TYPE = {"content": {"name": "exampleÑ.wgt", "data": "VGVzdCBkYXRhIGNvbnRlbnQ="}}
