@@ -117,7 +117,7 @@ class AssetManager:
         logger.debug(location)
         url = "https://s3-%s.amazonaws.com/%s/%s" % (location, settings.BUCKET_NAME, resource_path)
         logger.debug(url)
-        return resource_path, url_fix(urljoin(site, url))
+        return resource_path, url_fix(url)
 
     def __save_resource_local(self, provider, file_name, content):
 

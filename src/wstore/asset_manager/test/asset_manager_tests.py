@@ -241,9 +241,12 @@ class UploadAssetTestCase(TestCase):
 
     @parameterized.expand(
         [
-            ("basic", UPLOAD_CONTENT),
+            ("basic", False, UPLOAD_CONTENT),
+            ("basic_2", True, UPLOAD_CONTENT),
+            ("basic_3", False, UPLOAD_CONTENT_AWS),
             (
                 "whitespce_name",
+                False,
                 UPLOAD_CONTENT_WHITESPACE,
                 None,
                 None,
@@ -251,10 +254,11 @@ class UploadAssetTestCase(TestCase):
                 None,
                 "example file.wgt",
             ),
-            ("file", {"contentType": "application/x-widget", "isPublic":False}, _use_file),
-            ("existing_override", UPLOAD_CONTENT, _file_conflict, True),
+            ("file", False, {"contentType": "application/x-widget", "isPublic":False}, _use_file),
+            ("existing_override", False, UPLOAD_CONTENT, _file_conflict, True),
             (
                 "missing_type",
+                False,
                 MISSING_TYPE,
                 None,
                 False,
@@ -263,6 +267,7 @@ class UploadAssetTestCase(TestCase):
             ),
             (
                 "inv_file_name",
+                False,
                 UPLOAD_INV_FILENAME,
                 None,
                 False,
@@ -271,6 +276,7 @@ class UploadAssetTestCase(TestCase):
             ),
             (
                 "existing",
+                False,
                 UPLOAD_CONTENT,
                 _file_conflict_err,
                 True,
@@ -279,6 +285,7 @@ class UploadAssetTestCase(TestCase):
             ),
             (
                 "not_provided",
+                False,
                 {"contentType": "application/x-widget"},
                 None,
                 False,
@@ -287,6 +294,7 @@ class UploadAssetTestCase(TestCase):
             ),
             (
                 "inv_content_field",
+                False,
                 {
                     "contentType": "application/x-widget",
                     "content": ["http://content.com"],
@@ -302,6 +310,7 @@ class UploadAssetTestCase(TestCase):
     def test_upload_asset(
         self,
         name,
+        aws,
         data,
         side_effect=None,
         override=False,
@@ -309,6 +318,7 @@ class UploadAssetTestCase(TestCase):
         err_msg=None,
         file_name="example.wgt",
     ):
+        asset_manager.settings.AWS_ENABLED= aws
         if side_effect is not None:
             side_effect(self)
 
@@ -361,7 +371,7 @@ class UploadAssetTestCase(TestCase):
                 content_type="application/x-widget",
                 resource_type="",
                 state="",
-                is_public=False,
+                is_public=data["isPublic"],
                 meta_info={},
             )
         else:
