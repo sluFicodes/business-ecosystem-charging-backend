@@ -20,6 +20,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from os import environ, path
+from services_settings import *
 
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
@@ -39,8 +40,8 @@ DATABASES = {
         "ENFORCE_SCHEMA": False,
         "CLIENT": {
             "host": "localhost",
-            #'username': 'mongoadmin',
-            #'password': 'mongopass'
+            # 'username': 'mongoadmin',
+            # 'password': 'mongopass'
         },
     }
 }
@@ -141,13 +142,13 @@ INSTALLED_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
-    #'django.contrib.messages',
-    #'django.contrib.admin',
-    #'wstore.store_commons',
+    # 'django.contrib.messages',
+    # 'django.contrib.admin',
+    # 'wstore.store_commons',
     "wstore",
-    #'wstore.charging_engine',
-    #'django_crontab',
-    #'django_nose'
+    # 'wstore.charging_engine',
+    # 'django_crontab',
+    # 'django_nose'
 ]
 
 # Make this unique, and don't share it with anybody.
@@ -214,8 +215,6 @@ NOTIF_CERT_KEY_FILE = None
 PROPAGATE_TOKEN = True
 
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
-
-from services_settings import *
 
 # =====================================
 # ENVIRONMENT SETTINGS
@@ -284,8 +283,8 @@ PROPAGATE_TOKEN = environ.get("BAE_CB_PROPAGATE_TOKEN", PROPAGATE_TOKEN)
 if isinstance(PROPAGATE_TOKEN, str):
     PROPAGATE_TOKEN = PROPAGATE_TOKEN == "True"
 
-AWS_ACCESS_KEY_ID=environ.get("AWS_ACCESS_KEY_ID", '')
-AWS_SECRET_ACCESS_KEY=environ.get("AWS_ACCESS_KEY_ID", '')
-BUCKET_NAME = environ.get("AWS_ACCESS_KEY_ID", '')
-ACL_ENABLED=environ.get("AWS_ACCESS_KEY_ID", False)
-AWS_ENABLED= environ.get("AWS_ACCESS_KEY_ID", True)
+AWS_ACCESS_KEY_ID = environ.get("AWS_ACCESS_KEY_ID", "")
+AWS_SECRET_ACCESS_KEY = environ.get("AWS_ACCESS_KEY_ID", "")
+BUCKET_NAME = environ.get("AWS_ACCESS_KEY_ID", "")
+ACL_ENABLED = environ.get("AWS_ACCESS_KEY_ID", False)
+AWS_ENABLED = environ.get("AWS_ACCESS_KEY_ID", True)
