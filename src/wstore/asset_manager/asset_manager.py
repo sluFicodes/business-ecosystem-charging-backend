@@ -35,17 +35,22 @@ from wstore.store_commons.errors import ConflictError
 from wstore.store_commons.rollback import downgrade_asset, downgrade_asset_pa, rollback
 from wstore.store_commons.utils.name import is_valid_file
 from wstore.store_commons.utils.url import is_valid_url, url_fix
-
+import boto3
 logger = getLogger("wstore.default_logger")
 
 
 class AssetManager:
     def __init__(self):
-        pass
+        # AWS credentials
+        if settings.AWS_ENABLED:
+            self.s3 = boto3.client(
+                's3',
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY
+        )
 
-    def _save_resource_file(self, provider, file_):
+    def _save_resource_file(self, provider, file_, isPublic):
         logger.debug(f"Saving resource file {file_['name']}")
-
         # Load file contents
         if isinstance(file_, dict):
             file_name = file_["name"]
@@ -54,11 +59,67 @@ class AssetManager:
             file_name = file_.name
             file_.seek(0)
             content = file_.read()
-
         # Check file name
         if not is_valid_file(file_name):
             logger.debug(f"`{file_name}` is not a valid file name")
             raise ValueError("Invalid file name format: Unsupported character")
+        if isPublic is True and settings.AWS_ENABLED:
+            return self.__save_resource_aws(file_name, content)
+        else:
+            return self.__save_resource_local(provider, file_name, content)
+        
+
+    def __save_resource_aws(self,  file_name, content):
+
+        # Create temp dir for assets if it does not exist
+        provider_dir = os.path.join(settings.MEDIA_ROOT, "assets", "temp")
+
+        if not os.path.isdir(provider_dir):
+            os.makedirs(provider_dir, exist_ok=True)
+        # Local file path for the asset file 
+        file_path = os.path.join(provider_dir, file_name)
+        logger.debug(f"File path for asset file: {file_path}")
+        # Key of s3
+        resource_path = os.path.join(settings.MEDIA_DIR, file_name)
+
+        if resource_path.startswith("/"):
+            resource_path = resource_path[1:]
+
+        # Check if the file already exists
+        if os.path.exists(file_path):
+            logger.error(f"The asset file `{file_name}` already exists")
+            raise ConflictError(f"The provided digital asset file ({file_name}) already exists")
+
+        logger.debug("Paths needed for saving temp resource file OK")
+        
+        # Create file
+        with open(file_path, "wb") as f:
+            f.write(content)
+
+        self.rollback_logger["files"].append(file_path)
+
+        logger.debug("Asset temp file created")
+        # upload the file to S3
+        acl = {'ACL': 'public-read'} if settings.ACL_ENABLED else None
+        self.s3.upload_file(file_path, settings.BUCKET_NAME, resource_path, ExtraArgs=acl)
+
+        logger.debug(f'The file {file_name} is uploaded to {resource_path} in s3')
+
+        # delete file in local
+        try:
+            logger.debug(f"Deleting file {file_path}")
+            os.remove(file_path)
+            logger.debug(f"Deleting file {file_path}2")
+        except:
+            raise ConflictError(f"The provided digital asset file ({file_name}) cannot be removed")
+        site = settings.SITE
+        location = self.s3.get_bucket_location(Bucket=settings.BUCKET_NAME)['LocationConstraint']
+        logger.debug(location)
+        url = "https://s3-%s.amazonaws.com/%s/%s" % (location, settings.BUCKET_NAME, resource_path)
+        logger.debug(url)
+        return resource_path, url_fix(url)
+
+    def __save_resource_local(self, provider, file_name, content):
 
         # Create provider dir for assets if it does not exist
         provider_dir = os.path.join(settings.MEDIA_ROOT, "assets", provider)
@@ -208,7 +269,7 @@ class AssetManager:
 
             elif isinstance(data["content"], dict):
                 resource_data["content_path"], download_link = self._save_resource_file(
-                    current_organization.name, data["content"]
+                    current_organization.name, data["content"], data["isPublic"]
                 )
 
             else:
@@ -216,7 +277,7 @@ class AssetManager:
                 raise TypeError("`content` field has an unsupported type, expected string or object")
 
         elif file_ is not None:
-            resource_data["content_path"], download_link = self._save_resource_file(current_organization.name, file_)
+            resource_data["content_path"], download_link = self._save_resource_file(current_organization.name, file_, data["isPublic"])
 
         else:
             logger.error("The digital asset has not been provided")
