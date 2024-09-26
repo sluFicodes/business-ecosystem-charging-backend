@@ -25,7 +25,7 @@ from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from django.http import HttpResponse
 
 from wstore.asset_manager.asset_manager import AssetManager
-from wstore.asset_manager.errors import ProductError
+from wstore.asset_manager.errors import ProductError, ServiceError
 from wstore.asset_manager.offering_validator import OfferingValidator
 from wstore.asset_manager.product_validator import ProductValidator
 from wstore.asset_manager.resource_plugins.plugin_error import PluginError
@@ -40,7 +40,7 @@ from wstore.store_commons.utils.http import (
 )
 
 ##########################################
-from wstore.asset_manager import service_specification_manager
+#from wstore.asset_manager import service_specification_manager
 from wstore.asset_manager.service_validator import ServiceValidator
 ##########################################
 
@@ -271,6 +271,8 @@ def _validate_catalog_element(request, element, validator):
         return build_response(request, 400, str(e))
     except ProductError as e:
         return build_response(request, 400, str(e))
+    except ServiceError as e:
+        return build_response(request, 400, str(e))
     except ConflictError as e:
         return build_response(request, 409, str(e))
     except PluginError as e:
@@ -279,25 +281,35 @@ def _validate_catalog_element(request, element, validator):
         return build_response(request, 403, str(e))
     except:
         return build_response(request, 500, "An unexpected error has occurred")
-
+    
+    print("sale de _validate_catalog_element")
     return build_response(request, 200, "OK")
 
+class ValidateServiceCollection(Resource):
+    @supported_request_mime_types(("application/json",))
+    @authentication_required
+    def create(self, request):
+        """
+        Validates the digital asset contained in a TMForum service Specification
+        :param request:
+        :return:
+        """
+        
+        service_validator = ServiceValidator()
+        return _validate_catalog_element(request, "service", service_validator)
 
 class ValidateCollection(Resource):
     @supported_request_mime_types(("application/json",))
     @authentication_required
     def create(self, request):
         """
-        Validates the digital assets contained in a TMForum product Specification
+        Validates the digital assets contained in a TMForum service Specification assosiated to a product Specification
         :param request:
         :return:
         """
 
-        #product_validator = ProductValidator()
-        #return _validate_catalog_element(request, "product", product_validator)
-        service_validator = ServiceValidator()
-        return _validate_catalog_element(request, "service", service_validator)
-
+        product_validator = ProductValidator()
+        return _validate_catalog_element(request, "product", product_validator)
 
 class ValidateOfferingCollection(Resource):
     @supported_request_mime_types(("application/json",))

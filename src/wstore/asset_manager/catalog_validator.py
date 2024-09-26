@@ -40,7 +40,7 @@ class CatalogValidator:
         return characteristic["characteristicValueSpecification"][0]["value"]
     
     ###############################################
-
+    #TODO: Ya no se usa, hay que cambiarlo
     def parse_characteristics(self, product_spec):
 
         expected_chars = {
@@ -94,7 +94,7 @@ class CatalogValidator:
     
     ############################################
 
-    def parse_spec_characteristics(self, product_spec):
+    def parse_spec_characteristics(self, service_spec):
 
         #print("Entra en parse_spec_characteristics")
 
@@ -102,15 +102,15 @@ class CatalogValidator:
             "asset type": [],
             "media type": [],
             "location": [],
-            #"asset": [],
+            "asset": [], 
         }
 
         asset_type = None
         media_type = None
         location = None
-        #asset_id = None
+        asset_id = None
 
-        if "specCharacteristic" in product_spec:
+        if "specCharacteristic" in service_spec:
 
             #print("Entra if specCharacteristic")
             #print(product_spec["specCharacteristic"])
@@ -119,15 +119,14 @@ class CatalogValidator:
 
             # Extract the needed characteristics for processing digital assets
             is_digital = False
-            for char in product_spec["specCharacteristic"]:
+            for char in service_spec["specCharacteristic"]:
                 #print(char["name"])
                 if char["name"].lower() in expected_chars:
                     is_digital = True
                     #print("Tras el True")
                     expected_chars[char["name"].lower()].append(self._get_spec_characteristic_value(char)) #Falla aquí
                     #print("if char[name].lower() in expected_chars")
-
-                if char["name"].lower() == "license":
+                elif char["name"].lower() == "license":
                     terms.append(self._get_characteristic_value(char))
                     #print("char[name].lower() == license")
 
@@ -158,7 +157,7 @@ class CatalogValidator:
             #print("Tercer if")
 
             if len(terms) > 1:
-                raise ProductError("The product specification must not contain more than one license characteristic")
+                raise ProductError("The service specification must not contain more than one license characteristic")
 
             self._has_terms = len(terms) > 0
 
@@ -166,11 +165,11 @@ class CatalogValidator:
                 asset_type = expected_chars["asset type"][0]
                 media_type = expected_chars["media type"][0]
                 location = expected_chars["location"][0]
-                #asset_id = expected_chars["asset"][0]
+                asset_id = expected_chars["asset"][0]
 
         #print("Antes del return")
 
-        return asset_type, media_type, location#, asset_id
+        return asset_type, media_type, location, asset_id
     
     ############################################
 

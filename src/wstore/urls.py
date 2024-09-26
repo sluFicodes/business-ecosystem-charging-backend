@@ -54,10 +54,9 @@ urlpatterns = [
         offering_views.ValidateCollection(permitted_methods=("POST",)),
     ),
     #######################################################
-    #No va a funcionar, no necesitamos validar esto, la creación del asset se hace bien. No hay que hacer ninguna validación.
-    url(
-        r"^charging/api/assetManagement/assets/validateJobSpecification/?$",
-        offering_views.ValidateCollection(permitted_methods=("POST",)),
+     url(
+        r"^charging/api/assetManagement/assets/validateServiceJob/?$",
+        offering_views.ValidateServiceCollection(permitted_methods=("POST",)),
     ),
     #######################################################
     url(

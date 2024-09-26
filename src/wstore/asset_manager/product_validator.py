@@ -28,7 +28,6 @@ from wstore.asset_manager.errors import ProductError
 from wstore.asset_manager.inventory_upgrader import InventoryUpgrader
 from wstore.asset_manager.models import Resource, ResourcePlugin
 from wstore.asset_manager.resource_plugins.decorators import (
-    on_product_spec_attachment,
     on_product_spec_upgrade,
     on_product_spec_validation,
 )
@@ -84,10 +83,10 @@ class ProductValidator(CatalogValidator):
                     "The URL specified in the location characteristic does not point to a valid digital asset"
                 )
 
-            if asset.product_id is not None:
-                raise ConflictError(
-                    "There is already an existing product specification defined for the given digital asset"
-                )
+            # if asset.product_id is not None:
+            #     raise ConflictError(
+            #         "There is already an existing product specification defined for the given digital asset"
+            #     )
 
             self._validate_product_characteristics(asset, provider, asset_t, media_type)
 
@@ -125,18 +124,18 @@ class ProductValidator(CatalogValidator):
 
         # The asset model is included to the rollback list so if an exception is raised in the plugin post validation
         # the asset model would be deleted
-        self.rollback_logger["models"].append(asset)
+        self.rollback_logger["models"].append(asset) # type: ignore
 
         return asset
 
-    @on_product_spec_attachment
-    def _attach_product_info(self, asset, asset_t, product_spec):
-        # Complete asset information
-        asset.product_id = product_spec["id"]
-        asset.version = product_spec["version"]
-        asset.resource_type = asset_t
-        asset.state = "attached"
-        asset.save()
+    # @on_product_spec_attachment
+    # def _attach_product_info(self, asset, asset_t, product_spec):
+    #     # Complete asset information
+    #     asset.product_id = product_spec["id"]
+    #     asset.version = product_spec["version"]
+    #     asset.resource_type = asset_t
+    #     asset.state = "attached"
+    #     asset.save()
 
     def _extract_digital_assets(self, bundled_specs):
         assets = []
@@ -171,48 +170,48 @@ class ProductValidator(CatalogValidator):
                 bundled_assets=assets,
             )
 
-    @rollback()
-    def attach_info(self, provider, product_spec):
-        # Get the digital asset
-        asset_t, media_type, url, asset_id = self.parse_characteristics(product_spec)
-        is_digital = asset_t is not None and media_type is not None and url is not None
+    # @rollback()
+    # def attach_info(self, provider, product_spec):
+    #     # Get the digital asset
+    #     asset_t, media_type, url, asset_id = self.parse_characteristics(product_spec)
+    #     is_digital = asset_t is not None and media_type is not None and url is not None
 
-        asset = None
-        if is_digital:
-            asset = Resource.objects.get(pk=ObjectId(asset_id))
+    #     asset = None
+    #     if is_digital:
+    #         asset = Resource.objects.get(pk=ObjectId(asset_id))
 
-        elif product_spec["isBundle"]:
-            # Get the list of bundles pending to be attached of the given provider
-            pending_bundles = Resource.objects.filter(
-                product_id=None,
-                provider=provider,
-                content_type="bundle",
-                resource_path="",
-                download_link="",
-            )
+    #     elif product_spec["isBundle"]:
+    #         # Get the list of bundles pending to be attached of the given provider
+    #         pending_bundles = Resource.objects.filter(
+    #             product_id=None,
+    #             provider=provider,
+    #             content_type="bundle",
+    #             resource_path="",
+    #             download_link="",
+    #         )
 
-            # Get the digital assets included in the bundle product spec
-            assets = self._extract_digital_assets(product_spec["bundledProductSpecification"])
+    #         # Get the digital assets included in the bundle product spec
+    #         assets = self._extract_digital_assets(product_spec["bundledProductSpecification"])
 
-            asset = None
-            for bundle in pending_bundles:
-                if len(bundle.bundled_assets) == len(assets):
-                    for bundled_asset in bundle.bundled_assets:
-                        if bundled_asset not in assets:
-                            break
-                    else:
-                        # All the assets are the expected ones, so the bundle is correct
-                        asset = bundle
+    #         asset = None
+    #         for bundle in pending_bundles:
+    #             if len(bundle.bundled_assets) == len(assets):
+    #                 for bundled_asset in bundle.bundled_assets:
+    #                     if bundled_asset not in assets:
+    #                         break
+    #                 else:
+    #                     # All the assets are the expected ones, so the bundle is correct
+    #                     asset = bundle
 
-                    if asset is not None:
-                        break
+    #                 if asset is not None:
+    #                     break
 
-        if asset is not None:
-            # TODO: Drop the product object from the catalog in case of error
-            self.rollback_logger["models"].append(asset)
+    #     if asset is not None:
+    #         # TODO: Drop the product object from the catalog in case of error
+    #         self.rollback_logger["models"].append(asset) # type: ignore
 
-            # The asset is a digital product or a bundle containing a digital product
-            self._attach_product_info(asset, asset_t, product_spec)
+    #         # The asset is a digital product or a bundle containing a digital product
+    #         self._attach_product_info(asset, asset_t, product_spec)
 
     @on_product_spec_upgrade
     def _notify_product_upgrade(self, asset, asset_t, product_spec):
@@ -243,8 +242,8 @@ class ProductValidator(CatalogValidator):
         if asset.state != "upgrading":
             raise ProductError("There is not a new version of the specified digital asset")
 
-        if asset.product_id != product_id:
-            raise ProductError("The specified digital asset is included in other product spec")
+        # if asset.product_id != product_id:
+        #     raise ProductError("The specified digital asset is included in other product spec")
 
         return asset, lock
 

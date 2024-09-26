@@ -76,24 +76,24 @@ def on_product_spec_validation(func):
     return wrapper
 
 
-def on_product_spec_attachment(func):
-    @wraps(func)
-    def wrapper(self, asset, asset_t, product_spec):
-        if not len(asset.bundled_assets):
-            # Load plugin module
-            plugin_module = load_plugin_module(asset_t)
+# def on_product_spec_attachment(func):
+#     @wraps(func)
+#     def wrapper(self, asset, asset_t, product_spec):
+#         if not len(asset.bundled_assets):
+#             # Load plugin module
+#             plugin_module = load_plugin_module(asset_t)
 
-            # Call on pre create event handler
-            plugin_module.on_pre_product_spec_attachment(asset, asset_t, product_spec)
+#             # Call on pre create event handler
+#             plugin_module.on_pre_product_spec_attachment(asset, asset_t, product_spec)
 
-        # Call method
-        func(self, asset, asset_t, product_spec)
+#         # Call method
+#         func(self, asset, asset_t, product_spec)
 
-        if not len(asset.bundled_assets):
-            # Call on post create event handler
-            plugin_module.on_post_product_spec_attachment(asset, asset_t, product_spec)
+#         if not len(asset.bundled_assets):
+#             # Call on post create event handler
+#             plugin_module.on_post_product_spec_attachment(asset, asset_t, product_spec)
 
-    return wrapper
+#     return wrapper
 
 
 def on_product_spec_upgrade(func):
@@ -206,23 +206,22 @@ def on_usage_refreshed(order, contract):
 
 def on_service_spec_validation(func):
     @wraps(func)
-    def wrapper(self, provider, asset_t, media_type, url):
-    #def wrapper(self, provider, asset_t, media_type, url, asset_id):
+    def wrapper(self, provider, asset_t, media_type, url, asset_id):
         print("Entra en los decorators")
         plugin_module = load_plugin_module(asset_t)
         print("Tras el load_plugin_module")
 
         # On pre validation
-        plugin_module.on_pre_product_spec_validation(provider, asset_t, media_type, url)
+        plugin_module.on_pre_service_spec_validation(provider, asset_t, media_type, url)
         print("On pre validation")
 
         # Call method
         #asset = func(self, provider, asset_t, media_type, url, asset_id)
-        asset = func(self, provider, asset_t, media_type, url)
+        asset = func(self, provider, asset_t, media_type, url, asset_id)
         print("Call method")
 
         # On post validation
-        plugin_module.on_post_product_spec_validation(provider, asset)
+        plugin_module.on_post_service_spec_validation(provider, asset)
 
         print("Sale de los decorators")
 
@@ -230,4 +229,23 @@ def on_service_spec_validation(func):
 
     return wrapper
 
+
+def on_service_spec_attachment(func):
+    @wraps(func)
+    def wrapper(self, asset, asset_t, service_spec):
+        if not len(asset.bundled_assets):
+            # Load plugin module
+            plugin_module = load_plugin_module(asset_t)
+
+            # Call on pre create event handler
+            plugin_module.on_pre_service_spec_attachment(asset, asset_t, service_spec)
+
+        # Call method
+        func(self, asset, asset_t, service_spec)
+
+        if not len(asset.bundled_assets):
+            # Call on post create event handler
+            plugin_module.on_post_service_spec_attachment(asset, asset_t, service_spec)
+
+    return wrapper
 ##################################################
