@@ -29,14 +29,13 @@ class CatalogValidator:
     def _get_characteristic_value(self, characteristic):
         if len(characteristic["productSpecCharacteristicValue"]) > 1:
             raise ProductError(f"The characteristic {characteristic['name']} must not contain multiple values")
-
         return characteristic["productSpecCharacteristicValue"][0]["value"]
     
-    def _get_spec_characteristic_value(self, characteristic): #Preguntar para que sirve esto e para que o vamos necesitar                              
-        #print("Entra en _get_spec_characteristic_value")
+    def _get_spec_characteristic_value(self, characteristic):                              
         if len(characteristic["characteristicValueSpecification"]) > 1:
-            raise ProductError(f"The characteristic {characteristic['name']} must not contain multiple values")
-
+            raise ServiceError(f"The characteristic {characteristic['name']} must not contain multiple values")
+        if not characteristic["characteristicValueSpecification"][0]["value"]:
+            raise ServiceError(f"Missing 'value' attribute in {characteristic['name']} at characteristicValueSpecification")
         return characteristic["characteristicValueSpecification"][0]["value"]
     
     ###############################################
@@ -124,7 +123,7 @@ class CatalogValidator:
                     is_digital = True
                     expected_chars[char["name"].lower()].append(self._get_spec_characteristic_value(char))
                 elif char["name"].lower() == "license":
-                    terms.append(self._get_characteristic_value(char))
+                    terms.append(self._get_spec_characteristic_value(char))
             if not len(expected_chars["asset"]):
                 # asset id is set to None for automatic creation of the asset
                 expected_chars["asset"].append(None)

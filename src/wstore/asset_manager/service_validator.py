@@ -165,7 +165,6 @@ class ServiceValidator(CatalogValidator):
         else: 
             raise ServiceError("The asset included doesn't exist")
         print("return attach_info")
-        return service_spec
 
     """
     @on_service_spec_upgrade
@@ -217,9 +216,9 @@ class ServiceValidator(CatalogValidator):
 
     @rollback(downgrade_asset_pa)
     def validate_upgrade(self, provider, service_spec):
-        if "version" in service_spec and "serviceSpecCharacteristic" in service_spec:
+        if "version" in service_spec and "SpecCharacteristic" in service_spec:
             # Extract service needed characteristics
-            asset_t, media_type, url, asset_id = self.parse_characteristics(service_spec)
+            asset_t, media_type, url, asset_id = self.parse_spec_characteristics(service_spec)
             is_digital = asset_t is not None and media_type is not None and url is not None
 
             if is_digital:
@@ -242,10 +241,9 @@ class ServiceValidator(CatalogValidator):
 
                 # Release asset lock
                 lock.unlock_document()
-        return service_spec
 
     def _rollback_handler(self, provider, service_spec, rollback_method):
-        asset_t, media_type, url, asset_id = self.parse_characteristics(service_spec)
+        asset_t, media_type, url, asset_id = self.parse_spec_characteristics(service_spec)
         is_digital = asset_t is not None and media_type is not None and url is not None
 
         if is_digital:
@@ -262,7 +260,6 @@ class ServiceValidator(CatalogValidator):
                 asset.delete()
 
         self._rollback_handler(provider, service_spec, rollback_method)
-        return service_spec
 
     def rollback_upgrade(self, provider, service_spec):
         def rollback_method(asset):
@@ -270,7 +267,6 @@ class ServiceValidator(CatalogValidator):
                 downgrade_asset(asset)
 
         self._rollback_handler(provider, service_spec, rollback_method)
-        return service_spec
 
     # Detalles a tener en cuenta:
     # Esto es para los serviceos, no para los service specification
