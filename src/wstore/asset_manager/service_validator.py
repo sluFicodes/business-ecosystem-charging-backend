@@ -11,30 +11,32 @@ from wstore.asset_manager.resource_plugins.decorators import (
     on_service_spec_attachment,
     on_service_spec_validation,
 )
-from django.db.models.base import Model
 from wstore.store_commons.database import DocumentLock
 from wstore.store_commons.errors import ConflictError
 from wstore.store_commons.rollback import downgrade_asset, downgrade_asset_pa, rollback
 from wstore.store_commons.utils.url import is_valid_url
 from wstore.store_commons.utils.version import is_lower_version, is_valid_version
-
+from bson.errors import InvalidId
 logger = getLogger("wstore.service_validator")
 class ServiceValidator(CatalogValidator):
 
-    def _get_asset_resouces(self, asset_t, url):
+    def _get_asset_resouces(self, asset_t, asset_id):
         try:
             # Search the asset type
             resource_asset_type = ResourcePlugin.objects.get(name=asset_t)
-            # Use the location to retrieve the attached asset
-            resource_assets = Resource.objects.filter(download_link=url)
-        except Model.DoesNotExist:
-            raise ServiceError("The asset type characteristic included in the service specification is not a valid ASSET TYPE")
+            # Use the asset_id to retrieve the asset linked in service spec characteristic
+            resource_asset = Resource.objects.get(pk=ObjectId(asset_id)) if asset_id else None
+        except Resource.DoesNotExist:
+             raise ServiceError("The asset or asset type characteristic included in the service specification is not valid")
+        except InvalidId:
+            raise ServiceError("Invalid asset id")      
         except Exception as e:
+            print(type(e).__name__)
             logger.error(f"_get_asset_resources:{e}")
             #For security we cannot pass all error messages to the user 
-            raise ServiceError(f"Error retrieving assets or asset types, check charging backend for further details.")
+            raise ServiceError(f"Error retrieving the asset or the asset type, check charging backend for further details.")
 
-        return resource_asset_type, resource_assets
+        return resource_asset_type, resource_asset
 
     def _validate_service_characteristics(self, asset, provider, asset_t, media_type):
         print("_validate_spec_characteristic")
@@ -59,21 +61,11 @@ class ServiceValidator(CatalogValidator):
         # Validate location format
         if not is_valid_url(url):
             raise ServiceError("The location characteristic included in the service specification is not a valid URL")
-        resource_asset_type, resource_assets = self._get_asset_resouces(asset_t, url)
-        if len(resource_assets):
+        resource_asset_type, resource_asset = self._get_asset_resouces(asset_t, asset_id)
+        if asset_id is not None and resource_asset:
             # Check if the asset is already registered
             print("asset dentro de mongo")
-            asset = None
-            for resource_asset in resource_assets:
-                if str(resource_asset.pk) == asset_id:
-                    print("asset coincide con el de resource")
-                    asset = resource_asset
-                    break
-            else:
-                raise ServiceError(
-                    "The URL specified in the location characteristic does not point to a valid digital asset"
-                )
-
+            asset = resource_asset
             if asset.service_id is not None:
                 raise ServiceError(
                     "There is already an existing service specification defined for the given digital asset"
@@ -133,6 +125,7 @@ class ServiceValidator(CatalogValidator):
         asset.resource_type = asset_t
         asset.state = "attached"
         asset.save()
+        print("saved")
 
 
     def _extract_digital_assets(self, bundled_specs):
@@ -145,19 +138,34 @@ class ServiceValidator(CatalogValidator):
         return assets
     @rollback()
     def attach_info(self, provider, service_spec):
+        print("attach_info")
+        print(service_spec)
+        print("-----------------------")
         # Get the digital asset
         asset_t, media_type, url, asset_id = self.parse_spec_characteristics(service_spec)
+        print(asset_t)
+        print(media_type)
+        print(url)
+        print(asset_id)
         is_digital = asset_t is not None and media_type is not None and url is not None
-
+        print("digital check")
         if is_digital:
-            asset = Resource.objects.get(pk=ObjectId(asset_id))
-            # TODO: Drop the service object from the catalog in case of error
-            self.rollback_logger["models"].append(asset) # type: ignore
+            try:
+                print("get asset id")
+                asset = Resource.objects.get(pk=ObjectId(asset_id))
+                # TODO: Drop the service object from the catalog in case of error
+                self.rollback_logger["models"].append(asset) # type: ignore
 
-            # The asset is a digital service or a bundle containing a digital service
-            self._attach_service_info(asset, asset_t, service_spec)
+                # The asset is a digital service or a bundle containing a digital service
+                self._attach_service_info(asset, asset_t, service_spec)
+            except Resource.DoesNotExist:
+                raise ServiceError("The asset included doesn't exist")
+            except InvalidId:
+                raise ServiceError("invalid asset id")
         else: 
             raise ServiceError("The asset included doesn't exist")
+        print("return attach_info")
+        return service_spec
 
     """
     @on_service_spec_upgrade
@@ -171,15 +179,13 @@ class ServiceValidator(CatalogValidator):
         asset.save()
     """
 
-    def _get_upgrading_asset(self, asset_t, url, service_id):
-        asset_type, assets = self._get_asset_resouces(asset_t, url)
+    def _get_upgrading_asset(self, asset_t, asset_id, service_id):
+        asset_type, asset = self._get_asset_resouces(asset_t, asset_id)
 
-        if not len(assets):
+        if not asset:
             raise ServiceError(
-                "The URL specified in the location characteristic does not point to a valid digital asset"
+                "Invalid asset_id"
             )
-
-        asset = assets[0]
         # Lock the access to the asset
         lock = DocumentLock("wstore_resource", asset.pk, "asset")
         lock.wait_document()
@@ -206,6 +212,7 @@ class ServiceValidator(CatalogValidator):
 
             # Release asset lock
             lock.unlock_document()
+        return service_spec
     """
 
     @rollback(downgrade_asset_pa)
@@ -216,7 +223,7 @@ class ServiceValidator(CatalogValidator):
             is_digital = asset_t is not None and media_type is not None and url is not None
 
             if is_digital:
-                asset, lock = self._get_upgrading_asset(asset_t, url, service_spec["id"])
+                asset, lock = self._get_upgrading_asset(asset_t, asset_id, service_spec["id"])
 
                 self._to_downgrade = asset
 
@@ -235,18 +242,19 @@ class ServiceValidator(CatalogValidator):
 
                 # Release asset lock
                 lock.unlock_document()
+        return service_spec
 
     def _rollback_handler(self, provider, service_spec, rollback_method):
         asset_t, media_type, url, asset_id = self.parse_characteristics(service_spec)
         is_digital = asset_t is not None and media_type is not None and url is not None
 
         if is_digital:
-            _, resource_assets = self._get_asset_resouces(asset_t, url)
-            for resource_asset in resource_assets:
-                if str(resource_asset.pk) == asset_id:
-                    self._validate_service_characteristics(resource_asset, provider, asset_t, media_type)
-                    rollback_method(resource_asset)
-                    break
+            _, resource_asset = self._get_asset_resouces(asset_t, asset_id)
+            if resource_asset:
+                self._validate_service_characteristics(resource_asset, provider, asset_t, media_type)
+                rollback_method(resource_asset)
+            else:
+                raise ServiceError("Cannot rollback an asset with invalid id")
 
     def rollback_create(self, provider, service_spec):
         def rollback_method(asset):
@@ -254,6 +262,7 @@ class ServiceValidator(CatalogValidator):
                 asset.delete()
 
         self._rollback_handler(provider, service_spec, rollback_method)
+        return service_spec
 
     def rollback_upgrade(self, provider, service_spec):
         def rollback_method(asset):
@@ -261,6 +270,7 @@ class ServiceValidator(CatalogValidator):
                 downgrade_asset(asset)
 
         self._rollback_handler(provider, service_spec, rollback_method)
+        return service_spec
 
     # Detalles a tener en cuenta:
     # Esto es para los serviceos, no para los service specification
@@ -284,6 +294,7 @@ class ServiceValidator(CatalogValidator):
     #        # The service bundle may contain digital services already registered
     #        self._build_bundle(provider, service_spec)
     
+    
     @rollback()
     def validate_creation(self, provider, service_spec):
         print("Entra en validate_creation")
@@ -301,5 +312,9 @@ class ServiceValidator(CatalogValidator):
             raise ServiceError("Service spec bundles are not supported")
         if is_digital:
             print("Entra en _validate_service 1")
-            self._validate_service(provider, asset_t, media_type, url, asset_id)
+            asset = self._validate_service(provider, asset_t, media_type, url, asset_id)
+            print(f"asset id validate creation: {str(asset._id)}")
+            if asset_id is None:
+                return {"id": str(asset._id)}
+        
             

@@ -19,7 +19,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from wstore.asset_manager.errors import ProductError
+from wstore.asset_manager.errors import ProductError, ServiceError
 
 
 class CatalogValidator:
@@ -120,34 +120,22 @@ class CatalogValidator:
             # Extract the needed characteristics for processing digital assets
             is_digital = False
             for char in service_spec["specCharacteristic"]:
-                #print(char["name"])
                 if char["name"].lower() in expected_chars:
                     is_digital = True
-                    #print("Tras el True")
-                    expected_chars[char["name"].lower()].append(self._get_spec_characteristic_value(char)) #Falla aquí
-                    #print("if char[name].lower() in expected_chars")
+                    expected_chars[char["name"].lower()].append(self._get_spec_characteristic_value(char))
                 elif char["name"].lower() == "license":
                     terms.append(self._get_characteristic_value(char))
-                    #print("char[name].lower() == license")
-
-            #print("Segundo if")
-
-            #print(expected_chars)
-
-            
+            if not len(expected_chars["asset"]):
+                # asset id is set to None for automatic creation of the asset
+                expected_chars["asset"].append(None)
+         
             for char_name in expected_chars:
-
-                #print(char_name)
-                # Validate the existence of the characteristic
                 if not len(expected_chars[char_name]) and is_digital:
-                    raise ProductError("Digital product specifications must contain a " + char_name + " characteristic")
-                
-                #print("Segundo if primeiro if")
-
+                    raise ServiceError("Digital service specifications must contain a " + char_name + " characteristic")
                 # Validate that only a value has been provided
                 if len(expected_chars[char_name]) > 1:
-                    raise ProductError(
-                        "The product specification must not contain more than one " + char_name + " characteristic"
+                    raise ServiceError(
+                        "The service specification must not contain more than one " + char_name + " characteristic"
                     )
                 
                 #print("Segundo if segundo if")
@@ -157,7 +145,7 @@ class CatalogValidator:
             #print("Tercer if")
 
             if len(terms) > 1:
-                raise ProductError("The service specification must not contain more than one license characteristic")
+                raise ServiceError("The service specification must not contain more than one license characteristic")
 
             self._has_terms = len(terms) > 0
 
@@ -167,35 +155,36 @@ class CatalogValidator:
                 location = expected_chars["location"][0]
                 asset_id = expected_chars["asset"][0]
 
-        #print("Antes del return")
+        print("Antes del return")
+        print(f"asset ->{asset_id}")
 
         return asset_type, media_type, location, asset_id
     
     ############################################
 
     def validate_creation(self, provider, catalog_element):
-        pass
+        raise NotImplementedError("This action is not allowed to be called.")
 
     def attach_info(self, provider, catalog_element):
-        pass
+         raise NotImplementedError("This action is not allowed to be called.")
 
     def rollback_create(self, provider, catalog_element):
-        pass
+        raise NotImplementedError("This action is not allowed to be called.")
 
     def validate_update(self, provider, catalog_element):
-        pass
+        raise NotImplementedError("This action is not allowed to be called.")
 
     def validate_upgrade(self, provider, catalog_element):
-        pass
+        raise NotImplementedError("This action is not allowed to be called.")
 
     def rollback_upgrade(self, provider, catalog_element):
-        pass
+        raise NotImplementedError("This action is not allowed to be called.")
 
     def attach_upgrade(self, provider, catalog_element):
-        pass
+        raise NotImplementedError("This action is not allowed to be called.")
 
     def validate_deletion(self, provider, catalog_element):
-        pass
+        raise NotImplementedError("This action is not allowed to be called.")
 
     def validate(self, action, provider, catalog_element):
 
@@ -217,4 +206,4 @@ class CatalogValidator:
             msg += ") is not valid. Allowed values are create, attach, update, upgrade, and delete"
             raise ValueError(msg)
 
-        validators[action](provider, catalog_element)
+        return validators[action](provider, catalog_element)

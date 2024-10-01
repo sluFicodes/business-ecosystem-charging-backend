@@ -266,7 +266,7 @@ def _validate_catalog_element(request, element, validator):
         return build_response(request, 400, "Missing required field: product")
 
     try:
-        validator.validate(data["action"], user.userprofile.current_organization, data[element])
+        response = validator.validate(data["action"], user.userprofile.current_organization, data[element])
     except ValueError as e:
         return build_response(request, 400, str(e))
     except ProductError as e:
@@ -279,11 +279,11 @@ def _validate_catalog_element(request, element, validator):
         return build_response(request, 422, str(e))
     except PermissionDenied as e:
         return build_response(request, 403, str(e))
-    except:
+    except Exception as e:
+        print(str(e))
         return build_response(request, 500, "An unexpected error has occurred")
-    
     print("sale de _validate_catalog_element")
-    return build_response(request, 200, "OK")
+    return build_response(request, 200, "OK", extra_content=response)
 
 class ValidateServiceCollection(Resource):
     @supported_request_mime_types(("application/json",))
