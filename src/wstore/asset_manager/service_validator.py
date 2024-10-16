@@ -3,13 +3,14 @@ from bson import ObjectId
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 
+from wstore.asset_manager.service_inventory_upgrader import ServiceInventoryUpgrader
 from wstore.asset_manager.catalog_validator import CatalogValidator
 from wstore.asset_manager.errors import ServiceError
-from wstore.asset_manager.inventory_upgrader import InventoryUpgrader
 from wstore.asset_manager.models import Resource, ResourcePlugin
 from wstore.asset_manager.resource_plugins.decorators import (
     on_service_spec_attachment,
     on_service_spec_validation,
+    on_service_spec_upgrade
 )
 from wstore.store_commons.database import DocumentLock
 from wstore.store_commons.errors import ConflictError
@@ -38,15 +39,19 @@ class ServiceValidator(CatalogValidator):
 
         return resource_asset_type, resource_asset
 
-    def _validate_service_characteristics(self, asset, provider, asset_t, media_type):
+    def _validate_service_characteristics(self, asset, provider, asset_t, media_type, location):
         print("_validate_spec_characteristic")
         if asset.provider != provider:
             raise PermissionDenied(
                 "You are not authorized to use the digital asset specified in the location characteristic"
             )
+        print(location)
+        print(asset.download_link)
+        if asset.download_link != location:
+            raise ServiceError("The location specified is different from the one in the asset")
 
         if asset.resource_type != asset_t:
-            raise ServiceError("The specified asset type is different from the asset one")
+            raise ServiceError("The specified asset type does not match the asset's current type")
 
         if asset.content_type.lower() != media_type.lower():
             raise ServiceError("The provided media type characteristic is different from the asset one")
@@ -66,12 +71,12 @@ class ServiceValidator(CatalogValidator):
             # Check if the asset is already registered
             print("asset dentro de mongo")
             asset = resource_asset
-            if asset.service_id is not None:
+            if asset.service_spec_id is not None:
                 raise ServiceError(
                     "There is already an existing service specification defined for the given digital asset"
                 )
             print("validate spec characteristic")
-            self._validate_service_characteristics(asset, provider, asset_t, media_type)
+            self._validate_service_characteristics(asset, provider, asset_t, media_type, url)
             print("start save")
             asset.has_terms = self._has_terms
             asset.save()
@@ -120,7 +125,7 @@ class ServiceValidator(CatalogValidator):
     @on_service_spec_attachment
     def _attach_service_info(self, asset, asset_t, service_spec):
         # Complete asset information
-        asset.service_id = service_spec["id"]
+        asset.service_spec_id = service_spec["id"]
         asset.version = service_spec["version"]
         asset.resource_type = asset_t
         asset.state = "attached"
@@ -131,7 +136,7 @@ class ServiceValidator(CatalogValidator):
     def _extract_digital_assets(self, bundled_specs):
         assets = []
         for bundled_info in bundled_specs:
-            digital_asset = Resource.objects.filter(service_id=bundled_info["id"])
+            digital_asset = Resource.objects.filter(service_spec_id=bundled_info["id"])
             if len(digital_asset):
                 assets.append(digital_asset[0].pk)
 
@@ -162,85 +167,98 @@ class ServiceValidator(CatalogValidator):
                 raise ServiceError("The asset included doesn't exist")
             except InvalidId:
                 raise ServiceError("invalid asset id")
-        else: 
+        else:
             raise ServiceError("The asset included doesn't exist")
         print("return attach_info")
 
-    """
-    @on_service_spec_upgrade
-    def _notify_service_upgrade(self, asset, asset_t, service_spec):
-        # Update existing inventory services to include new version asset info
-        upgrader = InventoryUpgrader(asset)
-        upgrader.start()
+    def _get_upgrading_asset(self, asset_t, asset_id):
+        print(asset_id)
+        _, resource_asset = self._get_asset_resouces(asset_t, asset_id)
 
-        # Set the asset status to attached
-        asset.state = "attached"
-        asset.save()
-    """
-
-    def _get_upgrading_asset(self, asset_t, asset_id, service_id):
-        asset_type, asset = self._get_asset_resouces(asset_t, asset_id)
-
-        if not asset:
+        if not resource_asset:
             raise ServiceError(
                 "Invalid asset_id"
             )
         # Lock the access to the asset
-        lock = DocumentLock("wstore_resource", asset.pk, "asset")
+        lock = DocumentLock("wstore_resource", resource_asset.pk, "asset")
         lock.wait_document()
 
-        asset = Resource.objects.get(pk=asset.pk)
+        resource_asset = Resource.objects.get(pk=resource_asset.pk)
 
-        # Check that the asset is in upgrading state
-        if asset.state != "upgrading":
-            raise ServiceError("There is not a new version of the specified digital asset")
-
-        if asset.service_id != service_id:
-            raise ServiceError("The specified digital asset is included in other service spec")
-
-        return asset, lock
-
-    """
-    def attach_upgrade(self, provider, service_spec):
-        asset_t, media_type, url, asset_id = self.parse_characteristics(service_spec)
-        is_digital = asset_t is not None and media_type is not None and url is not None
-
-        if is_digital:
-            asset, lock = self._get_upgrading_asset(asset_t, url, service_spec["id"])
-            self._notify_service_upgrade(asset, asset_t, service_spec)
-
-            # Release asset lock
-            lock.unlock_document()
-        return service_spec
-    """
+        return resource_asset, lock
 
     @rollback(downgrade_asset_pa)
     def validate_upgrade(self, provider, service_spec):
-        if "version" in service_spec and "SpecCharacteristic" in service_spec:
+        print("inicio validate_upgrade")
+        print("serviceSpec")
+        print(service_spec)
+        if "version" in service_spec and "specCharacteristic" in service_spec:
             # Extract service needed characteristics
             asset_t, media_type, url, asset_id = self.parse_spec_characteristics(service_spec)
             is_digital = asset_t is not None and media_type is not None and url is not None
 
             if is_digital:
-                asset, lock = self._get_upgrading_asset(asset_t, asset_id, service_spec["id"])
+                print("get_upgrading_asset")
+                try:
+                    resource_asset, lock = self._get_upgrading_asset(asset_t, asset_id)
+                    
+                    print("validando upgrading state")
+                    # Check that the asset is in upgrading state
+                    if resource_asset.state != "upgrading":
+                        raise ServiceError("There is not a new version of the specified digital asset")     
+                    self._to_downgrade = resource_asset
+                    print("validate service char")
+                    self._validate_service_characteristics(resource_asset, provider, asset_t, media_type, url)
 
-                self._to_downgrade = asset
+                    print("is valid version 1")
+                    # Check service version
+                    if not is_valid_version(service_spec["version"]):
+                        raise ServiceError("The field version does not have a valid format")
 
-                self._validate_service_characteristics(asset, provider, asset_t, media_type)
+                    print("is valid version 2")
+                    if resource_asset.old_versions and len(resource_asset.old_versions)>0 and not is_lower_version(resource_asset.old_versions[-1]["version"], service_spec["version"]):
+                        raise ServiceError("The provided version is not higher that the previous one")
 
-                # Check service version
-                if not is_valid_version(service_spec["version"]):
-                    raise ServiceError("The field version does not have a valid format")
+                    print("validando id de asset y service spec")
+                    if resource_asset.service_spec_id != service_spec["id"]:
+                        raise ServiceError("The specified digital asset is included in other service spec")
 
-                if not is_lower_version(asset.old_versions[-1].version, service_spec["version"]):
-                    raise ServiceError("The provided version is not higher that the previous one")
+                    # Attach new info
+                    resource_asset.version = service_spec["version"]
+                    resource_asset.save()
+                finally:
+                    # Release asset lock
+                    lock.unlock_document()
+        print("final validate_upgrade")
 
-                # Attach new info
-                asset.version = service_spec["version"]
-                asset.save()
+    @on_service_spec_upgrade
+    def _notify_service_upgrade(self, asset, asset_t, service_spec):
+        # Update existing inventory services to include new version asset info
+        upgrader = ServiceInventoryUpgrader(asset)
+        upgrader.start()
+        print("updated inventory")
 
+        # Set the asset status to attached
+        asset.state = "attached"
+        asset.save()
+
+    def attach_upgrade(self, provider, service_spec):
+        print("inicio attach_upgrade")
+        print(service_spec)
+        asset_t, media_type, url, asset_id = self.parse_spec_characteristics(service_spec)
+        is_digital = asset_t is not None and media_type is not None and url is not None
+
+        if is_digital:
+            try:
+                print("get_upgrading_asset")
+                asset, lock = self._get_upgrading_asset(asset_t, asset_id)
+                print("notify_upgrading_asset")
+                self._notify_service_upgrade(asset, asset_t, service_spec)
+            finally:
                 # Release asset lock
                 lock.unlock_document()
+        print("final attach_upgrade")
+        return service_spec
 
     def _rollback_handler(self, provider, service_spec, rollback_method):
         asset_t, media_type, url, asset_id = self.parse_spec_characteristics(service_spec)
@@ -249,48 +267,25 @@ class ServiceValidator(CatalogValidator):
         if is_digital:
             _, resource_asset = self._get_asset_resouces(asset_t, asset_id)
             if resource_asset:
-                self._validate_service_characteristics(resource_asset, provider, asset_t, media_type)
+                self._validate_service_characteristics(resource_asset, provider, asset_t, media_type, url)
                 rollback_method(resource_asset)
             else:
                 raise ServiceError("Cannot rollback an asset with invalid id")
 
     def rollback_create(self, provider, service_spec):
         def rollback_method(asset):
-            if asset.service_id is None:
+            if asset.service_spec_id is None:
                 asset.delete()
 
         self._rollback_handler(provider, service_spec, rollback_method)
 
     def rollback_upgrade(self, provider, service_spec):
         def rollback_method(asset):
-            if asset.service_id == service_spec["id"] and asset.state == "upgrading":
+            if asset.service_spec_id == service_spec["id"] and asset.state == "upgrading":
                 downgrade_asset(asset)
 
         self._rollback_handler(provider, service_spec, rollback_method)
 
-    # Detalles a tener en cuenta:
-    # Esto es para los serviceos, no para los service specification
-    # Eso significa que pueden tener varios service specification y que hay que hacer el parse para todos
-
-    #@rollback()
-    #def validate_creation(self, provider, service_spec):
-        # Extract service needed characteristics
-    #    asset_t, media_type, url, asset_id = self.parse_characteristics(service_spec)
-    #    is_digital = asset_t is not None and media_type is not None and url is not None
-
-        # Service spec bundles are intended for creating composed services, it cannot contain its own asset
-    #    if service_spec["isBundle"] and is_digital:
-    #        raise ServiceError("Service spec bundles cannot define digital assets")
-
-    #    if not service_spec["isBundle"] and is_digital:
-    #        # Process the new digital service
-    #        self._validate_service(provider, asset_t, media_type, url, asset_id)
-
-    #    elif service_spec["isBundle"] and not is_digital:
-    #        # The service bundle may contain digital services already registered
-    #        self._build_bundle(provider, service_spec)
-    
-    
     @rollback()
     def validate_creation(self, provider, service_spec):
         print("Entra en validate_creation")
@@ -302,7 +297,7 @@ class ServiceValidator(CatalogValidator):
         print(url)
         print(asset_id)
         
-        # Service spec bundles does not exist
+        # Service spec bundles do not exist
         if service_spec["isBundle"]:
             print("ValidateCreation Service Error")
             raise ServiceError("Service spec bundles are not supported")

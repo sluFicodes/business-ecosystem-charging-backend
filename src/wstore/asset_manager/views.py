@@ -225,7 +225,8 @@ class UpgradeCollection(Resource):
         :param asset_id: Id of the asset to be upgraded
         :return: Response 200 if the asset is correctly upgraded
         """
-
+        print("upgrade")
+        print(asset_id)
         def upgrade_asset(req, user, content_type):
             asset_manager = AssetManager()
 

@@ -96,6 +96,25 @@ def on_product_spec_validation(func):
 #     return wrapper
 
 
+def on_service_spec_upgrade(func):
+    @wraps(func)
+    def wrapper(self, asset, asset_t, product_spec):
+        if not len(asset.bundled_assets):
+            # Load plugin module
+            plugin_module = load_plugin_module(asset_t)
+
+            # Call on pre create event handler
+            plugin_module.on_pre_service_spec_upgrade(asset, asset_t, product_spec)
+
+        # Call method
+        func(self, asset, asset_t, product_spec)
+
+        if not len(asset.bundled_assets):
+            # Call on post create event handler
+            plugin_module.on_post_service_spec_upgrade(asset, asset_t, product_spec)
+
+    return wrapper
+
 def on_product_spec_upgrade(func):
     @wraps(func)
     def wrapper(self, asset, asset_t, product_spec):
@@ -114,7 +133,6 @@ def on_product_spec_upgrade(func):
             plugin_module.on_post_product_spec_upgrade(asset, asset_t, product_spec)
 
     return wrapper
-
 
 def _expand_bundled_assets(offering_assets):
     assets = []
