@@ -24,7 +24,7 @@ from logging import getLogger
 
 from bson.objectid import ObjectId
 
-from wstore.asset_manager.errors import ProductError
+from wstore.asset_manager.errors import ServiceError
 from wstore.asset_manager.models import Resource
 from wstore.models import ResourcePlugin
 from wstore.ordering.models import Offering
@@ -35,9 +35,8 @@ logger = getLogger("wstore.default_logger")
 def _get_plugin_model(name):
     try:
         plugin_model = ResourcePlugin.objects.get(name=name)
-    except:
-        # Validate resource type
-        raise ProductError("The given product specification contains a not supported asset type: " + name)
+    except ResourcePlugin.DoesNotExist:
+        raise ServiceError("The asset type included in the service specification is not valid")
 
     return plugin_model
 
@@ -54,13 +53,13 @@ def load_plugin_module(asset_t):
     )
 
     logger.debug(f"Loaded plugin module for {asset_t}")
-    return module_class(plugin_model)
+    return module_class(plugin_model), plugin_model
 
 
 def on_product_spec_validation(func):
     @wraps(func)
     def wrapper(self, provider, asset_t, media_type, url, asset_id):
-        plugin_module = load_plugin_module(asset_t)
+        plugin_module, _ = load_plugin_module(asset_t)
 
         # On pre validation
         plugin_module.on_pre_product_spec_validation(provider, asset_t, media_type, url)
@@ -95,32 +94,12 @@ def on_product_spec_validation(func):
 
 #     return wrapper
 
-
-def on_service_spec_upgrade(func):
-    @wraps(func)
-    def wrapper(self, asset, asset_t, product_spec):
-        if not len(asset.bundled_assets):
-            # Load plugin module
-            plugin_module = load_plugin_module(asset_t)
-
-            # Call on pre create event handler
-            plugin_module.on_pre_service_spec_upgrade(asset, asset_t, product_spec)
-
-        # Call method
-        func(self, asset, asset_t, product_spec)
-
-        if not len(asset.bundled_assets):
-            # Call on post create event handler
-            plugin_module.on_post_service_spec_upgrade(asset, asset_t, product_spec)
-
-    return wrapper
-
 def on_product_spec_upgrade(func):
     @wraps(func)
     def wrapper(self, asset, asset_t, product_spec):
         if not len(asset.bundled_assets):
             # Load plugin module
-            plugin_module = load_plugin_module(asset_t)
+            plugin_module, _ = load_plugin_module(asset_t)
 
             # Call on pre create event handler
             plugin_module.on_pre_product_spec_upgrade(asset, asset_t, product_spec)
@@ -162,7 +141,7 @@ def on_product_offering_validation(func):
         assets = _expand_bundled_assets(offering_assets)
 
         for asset in assets:
-            plugin_module = load_plugin_module(asset.resource_type)
+            plugin_module, _ = load_plugin_module(asset.resource_type)
             plugin_module.on_pre_product_offering_validation(asset, product_offering)
 
         is_open = func(self, provider, product_offering, bundled_offerings)
@@ -177,7 +156,7 @@ def on_product_offering_validation(func):
 
 def _execute_asset_event(asset, order, contract, type_):
     # Load plugin module
-    plugin_module = load_plugin_module(asset.resource_type)
+    plugin_module, _ = load_plugin_module(asset.resource_type)
 
     events = {
         "activate": plugin_module.on_product_acquisition,
@@ -226,7 +205,7 @@ def on_service_spec_validation(func):
     @wraps(func)
     def wrapper(self, provider, asset_t, media_type, url, asset_id):
         print("Entra en los decorators")
-        plugin_module = load_plugin_module(asset_t)
+        plugin_module, resource_asset_t = load_plugin_module(asset_t)
         print("Tras el load_plugin_module")
 
         # On pre validation
@@ -235,7 +214,7 @@ def on_service_spec_validation(func):
 
         # Call method
         #asset = func(self, provider, asset_t, media_type, url, asset_id)
-        asset = func(self, provider, asset_t, media_type, url, asset_id)
+        asset = func(self, provider, resource_asset_t, media_type, url, asset_id)
         print("Call method")
 
         # On post validation
@@ -253,7 +232,7 @@ def on_service_spec_attachment(func):
     def wrapper(self, asset, asset_t, service_spec):
         if not len(asset.bundled_assets):
             # Load plugin module
-            plugin_module = load_plugin_module(asset_t)
+            plugin_module, _ = load_plugin_module(asset_t)
 
             # Call on pre create event handler
             plugin_module.on_pre_service_spec_attachment(asset, asset_t, service_spec)
@@ -266,4 +245,24 @@ def on_service_spec_attachment(func):
             plugin_module.on_post_service_spec_attachment(asset, asset_t, service_spec)
 
     return wrapper
+
+def on_service_spec_upgrade(func):
+    @wraps(func)
+    def wrapper(self, asset, asset_t, product_spec):
+        if not len(asset.bundled_assets):
+            # Load plugin module
+            plugin_module, _ = load_plugin_module(asset_t)
+
+            # Call on pre create event handler
+            plugin_module.on_pre_service_spec_upgrade(asset, asset_t, product_spec)
+
+        # Call method
+        func(self, asset, asset_t, product_spec)
+
+        if not len(asset.bundled_assets):
+            # Call on post create event handler
+            plugin_module.on_post_service_spec_upgrade(asset, asset_t, product_spec)
+
+    return wrapper
+
 ##################################################
