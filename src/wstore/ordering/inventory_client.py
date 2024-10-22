@@ -205,28 +205,24 @@ class InventoryClient:
 
     def create_service(self, service_spec_id, customer_party):
         # Get service specification
-        service_spec = self.download_spec(settings.SERVICE_CATALOG, '/serviceSpecification', service_spec_id)
-
-        # TODO: Replace this code when the service inventory is available
-        from wstore.service.models import Service
-
-        inv_service_id = 'urn:ngsi-ld:Service:{}'.format(str(uuid4()))
-        service = Service(
-            uuid = inv_service_id,
-            startDate = datetime.now(),
-            party_id = customer_party["id"],
-            state = "reserved",
-            characteristics = [self.build_inventory_char(char, "characteristicValueSpecification") for char in service_spec["specCharacteristic"]]
-        )
-
+        service_spec = self.download_spec(settings.SERVICE_CATALOG, '/serviceSpecification', service_id)
+        service = {
+            "serviceCharacteristic": [self.build_inventory_char(char, "characteristicValueSpecification") for char in service_spec["specCharacteristic"]],
+            "relatedParty": [customer_party],
+            "state": "reserved",
+            "startDate": datetime.now().isoformat() + "Z"
+        }
         if "name" in service_spec:
-            service.name = service_spec["name"]
+            service["name"] = service_spec["name"]
 
         if "description" in service_spec:
-            service.description = service_spec["description"]
+            service["description"] = service_spec["description"]
+        inventory = urlparse(settings.SERVICE_INVENTORY)
+        resource_url = "{}://{}{}".format(inventory.scheme, inventory.netloc, inventory.path + '/service')
+        inv_response = requests.post(resource_url, json=service, verify=settings.VERIFY_REQUESTS)
+        inv_service = inv_response.json()
+        return inv_service["id"]
 
-        service.save()
-        return inv_service_id
 
     def get_services(self, query={}):
         """
@@ -259,3 +255,4 @@ class InventoryClient:
         response.raise_for_status()
 
         return response.json()
+    
