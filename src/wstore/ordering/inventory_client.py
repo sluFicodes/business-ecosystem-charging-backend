@@ -205,7 +205,7 @@ class InventoryClient:
 
     def create_service(self, service_spec_id, customer_party):
         # Get service specification
-        service_spec = self.download_spec(settings.SERVICE_CATALOG, '/serviceSpecification', service_id)
+        service_spec = self.download_spec(settings.SERVICE_CATALOG, '/serviceSpecification', service_spec_id)
         service = {
             "serviceCharacteristic": [self.build_inventory_char(char, "characteristicValueSpecification") for char in service_spec["specCharacteristic"]],
             "relatedParty": [customer_party],
