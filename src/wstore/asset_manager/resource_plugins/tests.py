@@ -887,7 +887,7 @@ class DecoratorsTestCase(TestCase):
 
     def setUp(self):
         self._module = MagicMock()
-        decorators.load_plugin_module = MagicMock(return_value=self._module)
+        decorators.load_plugin_module = MagicMock(return_value=(self._module, MagicMock()))
         self._order = MagicMock()
         self._contract = MagicMock()
 

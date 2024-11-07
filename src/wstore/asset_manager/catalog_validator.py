@@ -19,6 +19,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import requests
+from django.conf import settings
 from wstore.asset_manager.errors import ProductError, ServiceError
 
 
@@ -34,7 +36,7 @@ class CatalogValidator:
     def _get_spec_characteristic_value(self, characteristic):                              
         if len(characteristic["characteristicValueSpecification"]) > 1:
             raise ServiceError(f"The characteristic {characteristic['name']} must not contain multiple values")
-        if not characteristic["characteristicValueSpecification"][0]["value"]:
+        if "value" not in characteristic["characteristicValueSpecification"][0]:
             raise ServiceError(f"Missing 'value' attribute in {characteristic['name']} at characteristicValueSpecification")
         return characteristic["characteristicValueSpecification"][0]["value"]
     
@@ -92,10 +94,22 @@ class CatalogValidator:
         return asset_type, media_type, location, asset_id
     
     ############################################
+    def _get_specs(self, url):
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.json()
+
+    def _get_service_specs(self, ref_ids):
+        url = f"{settings.SERVICE_CATALOG}/serviceSpecification?id={ref_ids}"
+        return self._get_specs(url)
+
+    def _get_product_specs(self, ref_ids):
+        url = f"{settings.CATALOG}/productSpecification?id={ref_ids}"
+        return self._get_specs(url)
 
     def parse_spec_characteristics(self, service_spec):
 
-        #print("Entra en parse_spec_characteristics")
+        print("Entra en parse_spec_characteristics")
 
         expected_chars = {
             "asset type": [],
@@ -112,13 +126,14 @@ class CatalogValidator:
         if "specCharacteristic" in service_spec:
 
             #print("Entra if specCharacteristic")
-            #print(product_spec["specCharacteristic"])
+            print(service_spec["specCharacteristic"])
 
             terms = []
 
             # Extract the needed characteristics for processing digital assets
             is_digital = False
             for char in service_spec["specCharacteristic"]:
+                print(char["name"])
                 if char["name"].lower() in expected_chars:
                     is_digital = True
                     expected_chars[char["name"].lower()].append(self._get_spec_characteristic_value(char))
@@ -127,7 +142,7 @@ class CatalogValidator:
             if not len(expected_chars["asset"]):
                 # asset id is set to None for automatic creation of the asset
                 expected_chars["asset"].append(None)
-         
+
             for char_name in expected_chars:
                 if not len(expected_chars[char_name]) and is_digital:
                     raise ServiceError("Digital service specifications must contain a " + char_name + " characteristic")
@@ -136,12 +151,6 @@ class CatalogValidator:
                     raise ServiceError(
                         "The service specification must not contain more than one " + char_name + " characteristic"
                     )
-                
-                #print("Segundo if segundo if")
-            
-            
-
-            #print("Tercer if")
 
             if len(terms) > 1:
                 raise ServiceError("The service specification must not contain more than one license characteristic")
@@ -155,7 +164,7 @@ class CatalogValidator:
                 asset_id = expected_chars["asset"][0]
 
         print("Antes del return")
-        print(f"asset ->{asset_id}")
+        print(f"asset_id ->{asset_id}")
 
         return asset_type, media_type, location, asset_id
     

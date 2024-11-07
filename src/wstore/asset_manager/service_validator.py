@@ -6,7 +6,7 @@ from django.core.exceptions import PermissionDenied
 from wstore.asset_manager.service_inventory_upgrader import ServiceInventoryUpgrader
 from wstore.asset_manager.catalog_validator import CatalogValidator
 from wstore.asset_manager.errors import ServiceError
-from wstore.asset_manager.models import Resource, ResourcePlugin
+from wstore.asset_manager.models import Resource
 from wstore.asset_manager.resource_plugins.decorators import (
     on_service_spec_attachment,
     on_service_spec_validation,
@@ -192,6 +192,7 @@ class ServiceValidator(CatalogValidator):
 
             if is_digital:
                 print("get_upgrading_asset")
+                lock = None
                 try:
                     resource_asset, lock = self._get_upgrading_asset( asset_id)
                     
@@ -222,7 +223,8 @@ class ServiceValidator(CatalogValidator):
                     resource_asset.save()
                 finally:
                     # Release asset lock
-                    lock.unlock_document()
+                    if lock is not None:
+                        lock.unlock_document()
         print("final validate_upgrade")
 
     @on_service_spec_upgrade
@@ -243,6 +245,7 @@ class ServiceValidator(CatalogValidator):
         is_digital = asset_t is not None and media_type is not None and url is not None
 
         if is_digital:
+            lock=None
             try:
                 print("get_upgrading_asset")
                 asset, lock = self._get_upgrading_asset(asset_id)
@@ -250,7 +253,8 @@ class ServiceValidator(CatalogValidator):
                 self._notify_service_upgrade(asset, asset_t, service_spec)
             finally:
                 # Release asset lock
-                lock.unlock_document()
+                if lock is not None:
+                    lock.unlock_document()
         print("final attach_upgrade")
         return service_spec
 

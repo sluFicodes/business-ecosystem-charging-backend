@@ -69,6 +69,7 @@ def on_product_spec_validation(func):
 
         # On post validation
         plugin_module.on_post_product_spec_validation(provider, asset)
+        print("plugin validation for product")
 
         return asset
 
@@ -94,24 +95,24 @@ def on_product_spec_validation(func):
 
 #     return wrapper
 
-def on_product_spec_upgrade(func):
-    @wraps(func)
-    def wrapper(self, asset, asset_t, product_spec):
-        if not len(asset.bundled_assets):
-            # Load plugin module
-            plugin_module, _ = load_plugin_module(asset_t)
+# def on_product_spec_upgrade(func):
+#     @wraps(func)
+#     def wrapper(self, asset, asset_t, product_spec):
+#         if not len(asset.bundled_assets):
+#             # Load plugin module
+#             plugin_module, _ = load_plugin_module(asset_t)
 
-            # Call on pre create event handler
-            plugin_module.on_pre_product_spec_upgrade(asset, asset_t, product_spec)
+#             # Call on pre create event handler
+#             plugin_module.on_pre_product_spec_upgrade(asset, asset_t, product_spec)
 
-        # Call method
-        func(self, asset, asset_t, product_spec)
+#         # Call method
+#         func(self, asset, asset_t, product_spec)
 
-        if not len(asset.bundled_assets):
-            # Call on post create event handler
-            plugin_module.on_post_product_spec_upgrade(asset, asset_t, product_spec)
+#         if not len(asset.bundled_assets):
+#             # Call on post create event handler
+#             plugin_module.on_post_product_spec_upgrade(asset, asset_t, product_spec)
 
-    return wrapper
+#     return wrapper
 
 def _expand_bundled_assets(offering_assets):
     assets = []
@@ -127,26 +128,27 @@ def _expand_bundled_assets(offering_assets):
 
 def on_product_offering_validation(func):
     @wraps(func)
-    def wrapper(self, provider, product_offering, bundled_offerings):
+    def wrapper(self, provider, product_offering, bundled_offerings, s_assets):
         offering_assets = []
         if len(bundled_offerings) > 0:
             # Get bundled offerings assets
-            offering_assets = [offering.asset for offering in bundled_offerings if offering.is_digital]
+            for offering in bundled_offerings:
+                offering_assets.extend(offering.asset)
         else:
             # Get offering asset
-            asset = Resource.objects.filter(product_id=product_offering["productSpecification"]["id"])
-            offering_assets.extend(asset)
+            offering_assets.extend(s_assets)
 
+        # Deprecated
         # Get the effective assets
-        assets = _expand_bundled_assets(offering_assets)
+        # assets = _expand_bundled_assets(offering_assets)
 
-        for asset in assets:
+        for asset in offering_assets:
             plugin_module, _ = load_plugin_module(asset.resource_type)
             plugin_module.on_pre_product_offering_validation(asset, product_offering)
 
-        is_open = func(self, provider, product_offering, bundled_offerings)
+        is_open = func(self, provider, product_offering, bundled_offerings, s_assets)
 
-        for asset in assets:
+        for asset in offering_assets:
             plugin_module.on_post_product_offering_validation(asset, product_offering)
 
         return is_open

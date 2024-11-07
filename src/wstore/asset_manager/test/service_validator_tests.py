@@ -1,14 +1,13 @@
 from importlib import reload
 
 from parameterized import parameterized
-from django.core.exceptions import PermissionDenied
 from django.test.testcases import TestCase
-from mock import MagicMock, call
+from mock import MagicMock
 
 from bson import ObjectId
 
 from django.core.exceptions import ObjectDoesNotExist
-from src.wstore.asset_manager import service_validator
+from src.wstore.asset_manager import service_validator, catalog_validator
 from wstore.asset_manager.errors import ServiceError
 from wstore.asset_manager.test.service_validator_test_data import *
 
@@ -51,6 +50,8 @@ class SValidatorTestCase(TestCase):
         
     def tearDown(self):
         reload(service_validator)
+        reload(wstore.asset_manager.resource_plugins.decorators)
+        reload(catalog_validator)
         
     def _not_existing(self):
         self._plugin_instance.formats = ["FILE", "URL"]
@@ -93,7 +94,7 @@ class SValidatorTestCase(TestCase):
         validator = service_validator.ServiceValidator()
         asset_id = validator.validate("create", self._provider, NO_CHARS_SERVICE)
 
-        service_validator.ResourcePlugin.objects.get.assert_not_called()
+        wstore.asset_manager.resource_plugins.decorators.ResourcePlugin.objects.get.assert_not_called()
         service_validator.Resource.objects.get.assert_not_called()
         service_validator.Resource.objects.get().save.assert_not_called()
         self.assertIsNone(asset_id)
@@ -104,7 +105,7 @@ class SValidatorTestCase(TestCase):
         validator = service_validator.ServiceValidator()
         asset_id = validator.validate("create", self._provider, BASIC_SERVICE["service"])
 
-        service_validator.ResourcePlugin.objects.get.assert_called_once_with(name="Widget")
+        wstore.asset_manager.resource_plugins.decorators.ResourcePlugin.objects.get.assert_called_once_with(name="Widget")
         service_validator.Resource.objects.get.assert_called_once_with(pk=ObjectId("61004aba5e05acc115f022f0"))
         self.assertFalse(service_validator.Resource.objects.get().has_terms)
         service_validator.Resource.objects.get().save.assert_called_once_with()

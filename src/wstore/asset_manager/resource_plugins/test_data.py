@@ -118,6 +118,7 @@ PLUGIN_INFO_DOWNGRADE = {
     "version": "0.2",
     "module": "test.TestPluginDg",
     "formats": ["FILE", "URL"],
+    "category_id": "cat_2"
 }
 
 PLUGIN_INFO_DOWNGRADE_ACCOUNTING = {
@@ -127,6 +128,7 @@ PLUGIN_INFO_DOWNGRADE_ACCOUNTING = {
     "module": "test.TestPluginDg",
     "formats": ["FILE", "URL"],
     "pull_accounting": True,
+    "category_id": "cat_2"
 }
 
 MISSING_NAME = {
