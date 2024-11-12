@@ -1,5 +1,5 @@
 from django.test.testcases import TestCase
-from wstore.asset_manager import offering_validator
+from wstore.asset_manager import offering_validator, service_validator
 from mock import MagicMock, call
 import wstore.asset_manager.resource_plugins.decorators
 import wstore.ordering.models
@@ -18,6 +18,9 @@ class ValidatorTestCase(TestCase):
         
     
     def setUp(self):
+        reload(offering_validator)
+        reload(catalog_validator)
+        reload(wstore.asset_manager.resource_plugins.decorators)
         self._provider = MagicMock()
         
         self._asset_instance = MagicMock(name="asset_instance")
@@ -45,6 +48,8 @@ class ValidatorTestCase(TestCase):
 
     def tearDown(self):
         reload(offering_validator)
+        reload(catalog_validator)
+        reload(wstore.asset_manager.resource_plugins.decorators)
     
     
     
@@ -147,7 +152,7 @@ class ValidatorTestCase(TestCase):
         offering_validator.Offering.objects.filter.side_effect = offering_responses
 
     def _catalog_api_error(self):
-        offering_validator.requests.get().status_code = 500
+        offering_validator.requests.get.status_code = 500
 
     def _non_open_bundled(self):
         for bundle_resp in self._bundles:

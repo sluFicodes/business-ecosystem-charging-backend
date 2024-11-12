@@ -68,6 +68,8 @@ class ValidatorTestCase(TestCase):
 
     def tearDown(self):
         reload(product_validator)
+        reload(catalog_validator)
+        reload(wstore.asset_manager.resource_plugins.decorators)
 
     def _not_supported(self):
         import wstore.asset_manager.resource_plugins.decorators

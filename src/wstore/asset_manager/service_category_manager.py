@@ -49,7 +49,7 @@ class ServiceCategoryManager:
         return sc_client.create_service_category(plugin_model)
         ############
 
-    def update_service_cat(self, plugin_model):
+    def update_service_cat(self, category_id, plugin_model):
 
         ############
         # Marcos
@@ -64,7 +64,7 @@ class ServiceCategoryManager:
         }
 
         sc_client = service_category_imp.ServiceCategory()
-        sc_client.update_service_category(sc_json)
+        sc_client.update_service_category(category_id ,sc_json)
         ############
 
     def remove_service_cat(self, plugin_model):

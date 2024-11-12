@@ -89,7 +89,7 @@ class PluginLoader:
         with zipfile.ZipFile(path, "r") as z:
             # Validate that the file package.json exists
             if "package.json" not in z.namelist():
-                logger.error("Invalid package format: Not a zip file")
+                logger.error("Invalid package format: Missing package.json file")
                 raise PluginError("Missing package.json file")
 
             logger.debug("Found `package.json`")
@@ -217,7 +217,12 @@ class PluginLoader:
         """
 
         # Get plugin model
-        plugin_model = ResourcePlugin.objects.get(plugin_id=plugin_id)
+        try:
+            plugin_model = ResourcePlugin.objects.get(plugin_id=plugin_id)
+        except ResourcePlugin.DoesNotExist:
+            raise PluginError("Plugin name not found")     
+        except Exception as e:
+            raise PluginError("Error while retrieving the plugin")
 
         if version is None:
             version = plugin_model.version_history[-1] if plugin_model.version_history else None
@@ -231,12 +236,12 @@ class PluginLoader:
 
         while plugin_model.version != version:
             self._downgrade_plugin_to_last_version(plugin_id, plugin_model)
-
+        category_id = plugin_model.category_id
         ###############
         # En la base de datos del api solo se guardará la versión acctual
         # service category
         s_cat = service_category_manager.ServiceCategoryManager()
-        s_cat.update_service_cat(plugin_model)
+        s_cat.update_service_cat(category_id, plugin_model)
         ###############
 
         logger.info(f"Plugin {plugin_id} successfully downgraded")

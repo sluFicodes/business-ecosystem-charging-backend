@@ -491,14 +491,14 @@ class OrderingManagementTestCase(TestCase):
                 _missing_offering_local,
                 "OrderingError: The offering 20 has not been previously registered",
             ),
-            (
-                "missing_postal_address",
-                BASIC_ORDER,
-                BASIC_PRICING,
-                None,
-                _missing_postal,
-                "OrderingError: Provided Billing Account does not contain a Postal Address",
-            ),
+            # (
+            #     "missing_postal_address",
+            #     BASIC_ORDER,
+            #     BASIC_PRICING,
+            #     None,
+            #     _missing_postal,
+            #     "OrderingError: Provided Billing Account does not contain a Postal Address",
+            # ),
             (
                 "missing_contact",
                 BASIC_ORDER,

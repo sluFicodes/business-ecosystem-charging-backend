@@ -33,7 +33,7 @@ class ServiceValidator(CatalogValidator):
             print(type(e).__name__)
             logger.error(f"_get_asset_resources:{e}")
             #For security we cannot pass all error messages to the user 
-            raise ServiceError(f"Error retrieving the asset or the asset type, check charging backend for further details.")
+            raise ServiceError("Error retrieving the asset or the asset type, check charging backend for further details.")
 
         return resource_asset
 

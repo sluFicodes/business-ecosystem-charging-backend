@@ -6,7 +6,6 @@ from mock import MagicMock
 
 from bson import ObjectId
 
-from django.core.exceptions import ObjectDoesNotExist
 from src.wstore.asset_manager import service_validator, catalog_validator
 from wstore.asset_manager.errors import ServiceError
 from wstore.asset_manager.test.service_validator_test_data import *
@@ -20,6 +19,9 @@ class SValidatorTestCase(TestCase):
         pass
         
     def setUp(self):
+        reload(service_validator)
+        reload(wstore.asset_manager.resource_plugins.decorators)
+        reload(catalog_validator)
         # Mock Site
         service_validator.settings.SITE = "http://testlocation.org/"
 
@@ -237,6 +239,7 @@ class SValidatorTestCase(TestCase):
         validator.parse_spec_characteristics.assert_called_once_with(service_spec)
         if is_digital:
             service_validator.Resource.objects.get.assert_called_once_with(pk=ObjectId(digital_chars[3]))
+            wstore.asset_manager.resource_plugins.decorators.ResourcePlugin.objects.get.assert_called_once_with(name=digital_chars[0])
             self.assertEquals(0, service_validator.Resource.objects.filter.call_count)
             self.assertEquals(service_spec["id"], self._asset_instance.service_spec_id)
             self.assertEquals(service_spec["version"], self._asset_instance.version)

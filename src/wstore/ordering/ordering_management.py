@@ -284,7 +284,9 @@ class OrderingManager:
         account = None
         try:
             billing_client = BillingClient()
+            print(11)
             account = billing_client.get_billing_account(billing_account["id"])
+            print(account)
         except Exception as e:
             logger.error("Error retriving billing account {}".format(str(e)))
             raise OrderingError("Invalid billing account, billing account could not be loaded")

@@ -26,6 +26,7 @@ PLUGIN_INFO = {
     "author": "test author",
     "version": "1.0",
     "module": "test.TestPlugin",
+    "category_id": "cat_2",
     "media_types": [
         "application/x-widget+mashable-application-component",
         "application/x-mashup+mashable-application-component",
@@ -72,6 +73,7 @@ PLUGIN_INFO = {
 PLUGIN_INFO2 = {
     "name": "test plugin 5",
     "author": "test author",
+    "category_id": "cat2",
     "version": "1.0",
     "module": "test.TestPlugin",
     "formats": ["FILE"],

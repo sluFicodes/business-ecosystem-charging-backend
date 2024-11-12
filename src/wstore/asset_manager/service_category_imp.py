@@ -28,7 +28,7 @@ from django.conf import settings
 
 class ServiceCategory:
     def __init__(self):
-        self._serviceCategory_api = settings.SERVICE
+        self._serviceCategory_api = settings.SERVICE_CATALOG
         if not self._serviceCategory_api.endswith("/"):
             self._serviceCategory_api += "/"
 
@@ -98,10 +98,10 @@ class ServiceCategory:
         r = requests.patch(url, json=patch)
         r.raise_for_status()
 
-    def update_service_category(self, serviceCategory_id, state):
+    def update_service_category(self, serviceCategory_id, serviceCategory):
         """
         Updates the status of a given serviceCategory
         :param serviceCategory_id: serviceCategory to be modified
         :param state: new status
         """
-        self._patch_serviceCategory(serviceCategory_id, state)
+        self._patch_serviceCategory(serviceCategory_id, serviceCategory)

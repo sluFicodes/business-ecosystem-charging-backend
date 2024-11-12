@@ -80,7 +80,7 @@ class Resource(models.Model):
 
 class ResourcePlugin(models.Model):
     _id = models.ObjectIdField()
-    plugin_id = models.CharField(max_length=100)
+    plugin_id = models.CharField(max_length=100) # Plugin name
     category_id = models.CharField(max_length=100) # Id del category en el API
     name = models.CharField(max_length=100)
     version = models.CharField(max_length=50)
