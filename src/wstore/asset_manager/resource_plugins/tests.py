@@ -111,7 +111,7 @@ class PluginLoaderTestCase(TestCase):
             (
                 "pull_accounting",
                 "test_plugin_8.zip",
-                None,
+                PLUGIN_INFO3,
                 None,
                 Exception,
                 "Call to configure expecs",
@@ -413,6 +413,13 @@ class PluginLoaderTestCase(TestCase):
     def test_plugin_removal(self, name, pull=False, side_effect=None, err_type=None, err_msg=None):
         plugin_name = "Test Plugin"
 
+        # Mocking service category api
+        resp = MagicMock()
+        resp.json.return_value = None
+        resp.status_code = 200
+        service_category_imp.requests= MagicMock()
+        service_category_imp.requests.delete.return_value = resp
+
         # Mock libraries
         plugin_loader.Resource = MagicMock(name="Resource")
 
@@ -428,6 +435,7 @@ class PluginLoaderTestCase(TestCase):
         plugin_mock.pull_accounting = pull
         plugin_mock.module = "wstore.asset_manager.resource_plugins.tests.TestPlugin"
         plugin_mock.usage_called = False
+        plugin_mock.category_id = "id"
 
         plugin_loader.ResourcePlugin.objects.get.return_value = plugin_mock
 
@@ -455,7 +463,7 @@ class PluginLoaderTestCase(TestCase):
             plugin_loader.Resource.objects.filter.assert_called_once_with(resource_type=plugin_name)
             plugin_loader.rmtree.assert_called_once_with(os.path.join(plugin_l._plugins_path, "test_plugin"))
             plugin_mock.delete.assert_called_once_with()
-
+            service_category_imp.requests.delete.assert_called_once_with(urljoin(plugin_loader.settings.SERVICE_CATALOG, "serviceCategory/id"),)
             self.assertEquals(pull, plugin_mock.usage_called)
         else:
             self.assertIsInstance(error, err_type)

@@ -282,7 +282,7 @@ class PluginLoader:
         # Hai que mirar o tema dos nomes dos plugins porque non podo buscalos ou borralos
         # por id porque non vou ter o id da BD
         s_cat = service_category_manager.ServiceCategoryManager()
-        s_cat.remove_service_cat(plugin_model)
+        s_cat.remove_service_cat(plugin_model.category_id)
         ###############
 
         # Remove model

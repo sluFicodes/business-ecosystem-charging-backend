@@ -67,7 +67,7 @@ class ServiceCategoryManager:
         sc_client.update_service_category(category_id ,sc_json)
         ############
 
-    def remove_service_cat(self, plugin_model):
+    def remove_service_cat(self, category_id):
 
         ############
         # Marcos
@@ -77,6 +77,5 @@ class ServiceCategoryManager:
         # Non sei cales son os characteristic que necesito
 
         sc_client = service_category_imp.ServiceCategory()
-        plugin_rm = sc_client.get_service_category(plugin_model.name)
-        sc_client.delete_service_category(plugin_rm['id'])
+        sc_client.delete_service_category(category_id)
         ############

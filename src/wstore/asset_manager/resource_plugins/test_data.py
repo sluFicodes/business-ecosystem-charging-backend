@@ -79,6 +79,16 @@ PLUGIN_INFO2 = {
     "formats": ["FILE"],
 }
 
+PLUGIN_INFO3 = {
+    "name": "test plugin 8",
+    "author": "test author",
+    "category_id": "cat2",
+    "version": "1.0",
+    "module": "test.TestPlugin",
+    "formats": ["FILE"],
+    "pull_accounting": True
+}
+
 PLUGIN_INFO_ACCOUNTING = {
     "name": "test plugin",
     "author": "test author",
