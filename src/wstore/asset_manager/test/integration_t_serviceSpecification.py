@@ -22,7 +22,7 @@ class ServiceSpecificationClientTestCase(TestCase):
     tags = ("service-specification-client",)
 
     def setUp(self):
-        service_specification_imp.settings.SERVICE = "http://host.docker.internal:8638"
+        service_specification_imp.settings.SERVICE_CATALOG = "http://host.docker.internal:8638"
 
     def _addIdHref(self, gson, returned):
         print(returned['id'])

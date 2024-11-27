@@ -170,7 +170,7 @@ class OfferingValidator(CatalogValidator):
     def _get_offering_asset(self, product_offering, bundled_offerings):
         assets = []
         
-        # Check if the offering is a bundle
+        # Check if the offering is not a bundle
         if not len(bundled_offerings):
             product_specs = self._get_product_specs(product_offering["productSpecification"]["id"])
             if len(product_specs) == 0:
@@ -207,19 +207,24 @@ class OfferingValidator(CatalogValidator):
         # Unsupported
         # if len(assets) > 0:
         #     self._set_asset_public_status(assets, is_open)
-
-        Offering.objects.create(
-            owner_organization=provider,
-            name=product_offering["name"],
-            description=description,
-            version=product_offering["version"],
-            asset=assets,
-            is_open=is_open,
-            is_custom=is_custom,
-            bundled_offerings=[offering.pk for offering in bundled_offerings],
-        )
+        try:
+            offering = Offering.objects.create(
+                owner_organization=provider,
+                name=product_offering["name"],
+                description=description,
+                version=product_offering["version"],
+                is_open=is_open,
+                is_custom=is_custom,
+                bundled_offerings=[offering.pk for offering in bundled_offerings],
+            )
+            print(offering)
+            offering.asset.set(assets)
+            offering.save()
+        except Exception as e:
+            raise Exception(f"Offering Creation Error: {e}")
 
     def attach_info(self, provider, product_offering):
+        print("attach info")
         # Find the offering model to attach the info
         offerings = Offering.objects.filter(
             off_id=None,
@@ -241,7 +246,9 @@ class OfferingValidator(CatalogValidator):
         assets = self._get_offering_asset(product_offering, bundled_offerings)
         print(assets)
         is_open, is_custom = self._validate_offering_pricing(provider, product_offering, bundled_offerings, assets)
+        print(1)
         self._build_offering_model(provider, product_offering, bundled_offerings, assets, is_open, is_custom)
+        print(2)
 
     def validate_update(self, provider, product_offering):
         bundled_offerings = self._get_bundled_offerings(product_offering)

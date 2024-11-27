@@ -37,6 +37,7 @@ from wstore.store_commons.errors import ConflictError
 from wstore.store_commons.rollback import downgrade_asset, downgrade_asset_pa, rollback
 from wstore.store_commons.utils.url import is_valid_url
 from wstore.store_commons.utils.version import is_lower_version, is_valid_version
+from bson.errors import InvalidId
 
 PAGE_LEN = 100
 
@@ -45,7 +46,13 @@ class ProductValidator(CatalogValidator):
     @on_product_spec_validation
     def _validate_product(self,  provider, asset_t, media_type, url, asset_id):
         print("validate_product")
-        return
+        try:
+            asset = Resource.objects.get(pk=ObjectId(asset_id))
+            return asset
+        except Resource.DoesNotExist:
+            raise ProductError("The asset id included in the product specification is not valid")
+        except InvalidId:
+            raise ProductError("Invalid asset id")   
 
     def _build_bundle(self, provider, product_spec):
         if (

@@ -274,13 +274,13 @@ class PluginLoader:
             module_class(plugin_model).remove_usage_specs()
 
         # Remove plugin files
-        plugin_path = os.path.join(self._plugins_path, plugin_id)
-        rmtree(plugin_path)
+        plugin_path = self._plugins_path
+        for file in os.listdir(plugin_path):
+            if file.startswith(f"{plugin_id}-"):
+                rmtree(os.path.join(plugin_path, file))
 
         ###############
         # service category
-        # Hai que mirar o tema dos nomes dos plugins porque non podo buscalos ou borralos
-        # por id porque non vou ter o id da BD
         s_cat = service_category_manager.ServiceCategoryManager()
         s_cat.remove_service_cat(plugin_model.category_id)
         ###############

@@ -22,7 +22,7 @@ class ServiceCategoryClientTestCase(TestCase):
     tags = ("service-catalog-client",)
 
     def setUp(self):
-        service_category_imp.settings.SERVICE = "http://host.docker.internal:8638"
+        service_category_imp.settings.SERVICE_CATALOG = "http://host.docker.internal:8638"
 
     def _addIdHref(self, gson, returned):
         print(returned['id'])

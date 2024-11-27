@@ -28,7 +28,7 @@ from django.conf import settings
 
 class ServiceCandidate:
     def __init__(self):
-        self._serviceCandidate_api = settings.SERVICE
+        self._serviceCandidate_api = settings.SERVICE_CATALOG
         if not self._serviceCandidate_api.endswith("/"):
             self._serviceCandidate_api += "/"
 

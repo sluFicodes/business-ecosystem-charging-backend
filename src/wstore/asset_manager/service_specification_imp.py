@@ -28,7 +28,7 @@ from django.conf import settings
 
 class ServiceSpecification:
     def __init__(self):
-        self._serviceSpecification_api = settings.SERVICE
+        self._serviceSpecification_api = settings.SERVICE_CATALOG
         if not self._serviceSpecification_api.endswith("/"):
             self._serviceSpecification_api += "/"
 

@@ -440,7 +440,9 @@ class PluginLoaderTestCase(TestCase):
         plugin_loader.ResourcePlugin.objects.get.return_value = plugin_mock
 
         plugin_loader.rmtree = MagicMock(name="rmtree")
-
+        plugin_loader.os.listdir = MagicMock(name="listdir")
+        plugin_loader.os.listdir.return_value = ["test_plugin-123","no_re","no_re2"]
+        
         if side_effect is not None:
             if name == "two_versions":
                 side_effect(self, plugin_mock)
@@ -461,7 +463,7 @@ class PluginLoaderTestCase(TestCase):
             # Check calls
             plugin_loader.ResourcePlugin.objects.get.assert_called_once_with(plugin_id="test_plugin")
             plugin_loader.Resource.objects.filter.assert_called_once_with(resource_type=plugin_name)
-            plugin_loader.rmtree.assert_called_once_with(os.path.join(plugin_l._plugins_path, "test_plugin"))
+            plugin_loader.rmtree.assert_called_once_with(os.path.join(plugin_l._plugins_path, "test_plugin-123"))
             plugin_mock.delete.assert_called_once_with()
             service_category_imp.requests.delete.assert_called_once_with(urljoin(plugin_loader.settings.SERVICE_CATALOG, "serviceCategory/id"),)
             self.assertEquals(pull, plugin_mock.usage_called)

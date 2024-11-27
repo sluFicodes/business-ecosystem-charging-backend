@@ -65,11 +65,12 @@ class ValidatorTestCase(TestCase):
             name=offering["name"],
             description="",
             version=offering["version"],
-            asset=assets,
             is_open=is_open,
             is_custom=is_custom,
             bundled_offerings=[]
         )
+        self.offering.save.assert_called_once()
+        self.offering.asset.set.assert_called_once_with(assets)
 
     def _validate_single_offering_calls(self, offering, service_spec_id):
         self._validate_offering_calls(offering, service_spec_id, [self._asset_instance], True)
@@ -91,9 +92,10 @@ class ValidatorTestCase(TestCase):
             version=offering["version"],
             is_open=is_open,
             is_custom=False,
-            asset=[],
             bundled_offerings=[off[0].pk for off in self._bundles],
         )
+        self.offering.save.assert_called_once()
+        self.offering.asset.set.assert_called_once_with([])
 
     def _validate_bundle_digital_offering_calls(self, offering, _):
         self._validate_bundle_offering_calls(offering)
@@ -315,6 +317,8 @@ class ValidatorTestCase(TestCase):
         offering_responses = [bund for bund in self._bundles]
         offering_responses.append([])
         wstore.ordering.models.Offering.objects.filter.side_effect = offering_responses
+        self.offering = MagicMock(name = "offer")
+        wstore.ordering.models.Offering.objects.create.return_value = self.offering
         if side_effect is not None:
             side_effect(self)
 
