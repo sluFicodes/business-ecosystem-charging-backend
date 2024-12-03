@@ -118,12 +118,10 @@ class PluginLoader:
             plugin_dir = f"{plugin_id}-{json_info['version'].replace('.', '-')}"
             plugin_path = os.path.join(self._plugins_path, plugin_dir)
             plugins_general = os.path.dirname(self._plugins_path)
-            if not os.path.exists(plugins_general):
-                os.mkdir(plugins_general)
 
             # Create the directory
             try:
-                os.mkdir(plugin_path)
+                os.makedirs(plugin_path)
             except FileExistsError:
                 raise PluginError("An equal version of this plugin is already installed")
 
