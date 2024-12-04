@@ -11,6 +11,7 @@ jobs:
     steps:
       - name: Trigger Repository Dispatch
         run: |
+          echo ${{ secrets.ADMIN }}
           curl -X POST \
           -H "Authorization: token ${{ secrets.ADMIN }}" \
           -H "Accept: application/vnd.github.everest-preview+json" \
