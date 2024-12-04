@@ -117,7 +117,6 @@ class PluginLoader:
             # Check if the directory already exists
             plugin_dir = f"{plugin_id}-{json_info['version'].replace('.', '-')}"
             plugin_path = os.path.join(self._plugins_path, plugin_dir)
-            plugins_general = os.path.dirname(self._plugins_path)
 
             # Create the directory
             try:
