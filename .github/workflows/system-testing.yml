@@ -3,6 +3,8 @@ name: Trigger Testing Workflow
 on:
   pull_request:
     types: [opened, reopened]
+    branches:
+      - myrepo/asset_types_to_service_categories
 
 jobs:
   trigger-system-tests:
