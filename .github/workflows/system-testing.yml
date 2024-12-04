@@ -12,7 +12,7 @@ jobs:
       - name: Trigger Repository Dispatch
         run: |
           curl -X POST \
-          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Authorization: token ${{ secrets.ADMIN }}" \
           -H "Accept: application/vnd.github.everest-preview+json" \
           -H "Content-Type: application/json" \
           -d '{
