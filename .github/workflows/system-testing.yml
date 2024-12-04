@@ -2,7 +2,10 @@ name: Trigger Testing Workflow
 
 on:
   pull_request:
-    types: [opened, reopened]
+    types:
+      - opened
+    branches:
+      - main
 
 jobs:
   trigger-system-tests:
