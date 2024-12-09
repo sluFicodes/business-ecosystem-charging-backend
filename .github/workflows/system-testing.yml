@@ -22,7 +22,7 @@ jobs:
             echo "repository not found: %STATUS"
             exit 1
           fi
-          TM_VERSION=$(echo -e '${{ github.event.pull_request.body }}' | grep 'TM_VERSION' | tr -d '\n\r')
+          TM_VERSION=$(echo -e '${{ github.event.pull_request.body }}' | sed 's/\r//' | grep '^TM_VERSION' | tr -d '\n\r')
           if [[ -z "$TM_VERSION" ]]; then
             echo "tmforum api version: $TM_VERSION"
           else
