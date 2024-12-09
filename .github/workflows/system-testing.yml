@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Trigger Repository Dispatch
         run: |
-          LOCATION=$(echo -e '${{ github.event.pull_request.body }}' | grep '^DEPENDS ON' | sed 's/DEPENDS ON //' | sed ' //')
+          LOCATION=$(echo -e '${{ github.event.pull_request.body }}' | grep '^DEPENDS ON' | sed 's/DEPENDS ON //' | sed 's/ //')
           echo location: $LOCATION
           STATUS=$(curl -o /dev/null -s -w "%{http_code}" "$LOCATION")
           echo $STATUS
