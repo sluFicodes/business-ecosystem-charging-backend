@@ -21,7 +21,7 @@ jobs:
             echo "repository not found: %STATUS"
             exit 1
           fi
-          TM_VERSION=$(echo -e '${{ github.event.pull_request.body }}' | grep '^TMVERSION' | sed 's/TMVERSION //')
+          TM_VERSION=$(echo -e '${{ github.event.pull_request.body }}' | grep '^TM_VERSION' | sed 's/TM_VERSION //')
           D_REPO=$(echo -e $LOCATION | awk -F "/" '{print $4 "/" $5}')
           D_BRANCH=$(echo -e $LOCATION | awk -F "/tree/" '{print $2}')
           if [[ -z "$D_BRANCH" ]]; then
