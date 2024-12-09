@@ -43,15 +43,15 @@ jobs:
           -H "Authorization: token ${{ secrets.ADMIN }}" \
           -H "Accept: application/vnd.github.everest-preview+json" \
           -H "Content-Type: application/json" \
-          -d '{
-            "event_type": "cross-repo-test",
-            "client_payload": {
-              "repository_B": "${{ github.repository }}",
-              "branch_B": "${{ github.event.pull_request.head.ref }}",
-              "pull_request_url": "${{ github.event.pull_request.html_url }}",
-              "tm_version": $TM_VERSION,
-              "repository_A": $D_REPO,
-              "branch_A": $D_BRANCH
+          -d "{
+            \"event_type\": \"cross-repo-test\",
+            \"client_payload\": {
+              \"repository_B\": \"${{ github.repository }}\",
+              \"branch_B\": \"${{ github.event.pull_request.head.ref }}\",
+              \"pull_request_url\": \"${{ github.event.pull_request.html_url }}\",
+              \"tm_version\": \"$TM_VERSION\",
+              \"repository_A\": \"$D_REPO\",
+              \"branch_A\": \"$D_BRANCH\"
             }
-          }' \
+          }" \
           https://api.github.com/repos/sluFicodes/DOME-testing/dispatches
