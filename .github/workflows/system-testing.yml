@@ -30,6 +30,7 @@ jobs:
             exit 1
           fi
           D_REPO=$(echo -e $LOCATION | awk -F "/" '{print $4 "/" $5}')
+          echo repo: $D_REPO
           D_BRANCH=$(echo -e $LOCATION | awk -F "/tree/" '{print $2}')
           if [[ -z "$D_BRANCH" ]]; then
             echo "branch collected: $D_BRANCH"
