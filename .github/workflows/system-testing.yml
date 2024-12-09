@@ -11,9 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Repository Dispatch
-        env:
-          LOCATION: echo -e "${{ github.event.pull_request.body }}" | grep "^DEPENDS ON" | sed 's/DEPENDS ON //'
         run: |
+          LOCATION=$(echo -e '${{ github.event.pull_request.body }}' | grep '^DEPENDS ON' | sed 's/DEPENDS ON //')
           echo $LOCATION
           STATUS=$(curl -o /dev/null -s -w "%{http_code}" "$LOCATION")
           if [[ "$STATUS" -eq 200 ]]; then
