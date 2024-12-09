@@ -37,12 +37,12 @@ jobs:
           -d '{
             "event_type": "cross-repo-test",
             "client_payload": {
-              "repository_A": "${{ github.repository }}",
-              "branch_A": "${{ github.event.pull_request.head.ref }}",
+              "repository_B": "${{ github.repository }}",
+              "branch_B": "${{ github.event.pull_request.head.ref }}",
               "pull_request_url": "${{ github.event.pull_request.html_url }}",
               "tm_version": "$TM_VERSION",
-              "repository_B": "$D_REPO",
-              "branch_B": "$D_BRANCH"
+              "repository_A": "$D_REPO",
+              "branch_A": "$D_BRANCH"
             }
           }' \
           https://api.github.com/repos/sluFicodes/DOME-testing/dispatches
