@@ -21,6 +21,7 @@ jobs:
             echo "repository not found: %STATUS"
             exit 1
           fi
+          TM_VERSION=$(echo -e '${{ github.event.pull_request.body }}' | grep '^TMVERSION' | sed 's/TMVERSION //')
           D_REPO=$(echo -e $LOCATION | awk -F "/" '{print $4 "/" $5}')
           D_BRANCH=$(echo -e $LOCATION | awk -F "/tree/" '{print $2}')
           if [[ -z "$D_BRANCH" ]]; then
@@ -39,6 +40,7 @@ jobs:
               "repository_A": "${{ github.repository }}",
               "branch_A": "${{ github.event.pull_request.head.ref }}",
               "pull_request_url": "${{ github.event.pull_request.html_url }}",
+              "tm_version": "$TM_VERSION",
               "repository_B": "$D_REPO",
               "branch_B": "$D_BRANCH"
             }
