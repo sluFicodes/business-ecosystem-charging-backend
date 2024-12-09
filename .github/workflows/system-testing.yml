@@ -24,19 +24,19 @@ jobs:
           fi
           TM_VERSION=$(echo -e '${{ github.event.pull_request.body }}' | tr -d '\r' | grep '^TM_VERSION' | sed 's/TM_VERSION //' )
           if [[ -z $TM_VERSION ]]; then
-            echo "tmforum api version: $TM_VERSION"
-          else
             echo "missing tmforum api version"
             exit 1
+          else
+            echo "tmforum api version: $TM_VERSION"
           fi
           D_REPO=$(echo -e $LOCATION | awk -F "/" '{print $4 "/" $5}')
           echo repo: $D_REPO
           D_BRANCH=$(echo -e $LOCATION | awk -F "/tree/" '{print $2}')
           if [[ -z $D_BRANCH ]]; then
-            echo "branch collected: $D_BRANCH"
-          else
             echo "missing branch, if the branch is master, please don't specify the keyword DEPENDS ON at the beginning of line"
             exit 1
+          else
+            echo "branch collected: $D_BRANCH"
           fi
           echo ${{ secrets.ADMIN }}
           curl -X POST \
