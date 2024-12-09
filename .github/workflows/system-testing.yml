@@ -14,11 +14,11 @@ jobs:
         env:
           LOCATION: echo -e "${{ github.event.pull_request.body }}" | grep "^DEPENDS ON" | sed 's/DEPENDS ON //'
         run: |
-          STATUS=$(curl -H "Authorization: token ${{ secrets.ADMIN }}" -o /dev/null -s -w "%{http_code}" "$LOCATION")
+          STATUS=$(curl -o /dev/null -s -w "%{http_code}" "$LOCATION")
           if [[ "$STATUS" -eq 200 ]]; then
             echo "repository found"
           else
-            echo "repository not found"
+            echo "repository not found: %STATUS"
             exit 1
           fi
           D_REPO=$(echo -e $LOCATION | awk -F "/" '{print $4 "/" $5}')
