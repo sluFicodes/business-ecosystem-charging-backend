@@ -13,7 +13,7 @@ jobs:
       - name: Trigger Repository Dispatch
         run: |
           LOCATION=$(echo -e '${{ github.event.pull_request.body }}' | grep '^DEPENDS ON' | sed 's/DEPENDS ON //')
-          echo $LOCATION
+          echo location: $LOCATION
           STATUS=$(curl -o /dev/null -s -w "%{http_code}" "$LOCATION")
           if [[ "$STATUS" -eq 200 ]]; then
             echo "repository found"
@@ -22,7 +22,7 @@ jobs:
             exit 1
           fi
           TM_VERSION=$(echo -e '${{ github.event.pull_request.body }}' | grep '^TM_VERSION' | sed 's/TM_VERSION //')
-          echo $TM_VERSION
+          echo tmforum api version: $TM_VERSION
           D_REPO=$(echo -e $LOCATION | awk -F "/" '{print $4 "/" $5}')
           D_BRANCH=$(echo -e $LOCATION | awk -F "/tree/" '{print $2}')
           if [[ -z "$D_BRANCH" ]]; then
