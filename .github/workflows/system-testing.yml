@@ -12,19 +12,18 @@ jobs:
     steps:
       - name: Trigger Repository Dispatch
         run: |
-          LOCATION=$(echo -e '${{ github.event.pull_request.body }}' | grep '^DEPENDS ON' | sed 's/DEPENDS ON //' | tr -d '\n\r')
+          LOCATION=$(echo -e '${{ github.event.pull_request.body }}' | tr -d '\r'| grep '^DEPENDS ON' | sed 's/DEPENDS ON //' )
           echo location: "$LOCATION"
           STATUS=$(curl -o /dev/null -s -w "%{http_code}" "$LOCATION")
           echo $STATUS
-          if [[ "$STATUS" -eq 200 ]]; then
+          if [[ $STATUS -eq 200 ]]; then
             echo "repository found"
           else
             echo "repository not found: %STATUS"
             exit 1
           fi
-          TM_VERSION=$(echo -e '${{ github.event.pull_request.body }}' | tr -d '\r' | grep '^TM_VERSION' | sed 's/TM_VERSION //' | tr -d '\n\r')
-          echo $TM_VERSION
-          if [[ -z "$TM_VERSION" ]]; then
+          TM_VERSION=$(echo -e '${{ github.event.pull_request.body }}' | tr -d '\r' | grep '^TM_VERSION' | sed 's/TM_VERSION //' )
+          if [[ -z $TM_VERSION ]]; then
             echo "tmforum api version: $TM_VERSION"
           else
             echo "missing tmforum api version"
@@ -33,7 +32,7 @@ jobs:
           D_REPO=$(echo -e $LOCATION | awk -F "/" '{print $4 "/" $5}')
           echo repo: $D_REPO
           D_BRANCH=$(echo -e $LOCATION | awk -F "/tree/" '{print $2}')
-          if [[ -z "$D_BRANCH" ]]; then
+          if [[ -z $D_BRANCH ]]; then
             echo "branch collected: $D_BRANCH"
           else
             echo "missing branch, if the branch is master, please don't specify the keyword DEPENDS ON at the beginning of line"
