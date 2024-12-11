@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Trigger Repository Dispatch
         run: |
-          LOCATION=$(echo -e '${{ github.event.pull_request.body }}' | tr -d '\r'| grep '^DEPENDS ON' | sed 's/DEPENDS ON //' | tr -d '\n' )
+          LOCATION=$(echo -e '${{ github.event.pull_request.body }}' | tr -d '\r'| grep '^DEPENDS ON' | sed 's/DEPENDS ON //')
           echo location: "$LOCATION"
           STATUS=$(curl -o /dev/null -s -w "%{http_code}" "$LOCATION")
           echo $STATUS
@@ -22,7 +22,7 @@ jobs:
             echo "repository not found: %STATUS"
             exit 1
           fi
-          TM_VERSION=$(echo -e '${{ github.event.pull_request.body }}' | tr -d '\r' | grep '^TM_VERSION' | sed 's/TM_VERSION //' | tr -d '\n' )
+          TM_VERSION=$(echo -e '${{ github.event.pull_request.body }}' | tr -d '\r' | grep '^TM_VERSION' | sed 's/TM_VERSION //')
           if [[ -z $TM_VERSION ]]; then
             echo "missing tmforum api version"
             exit 1
