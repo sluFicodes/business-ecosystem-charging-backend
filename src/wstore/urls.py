@@ -90,12 +90,20 @@ urlpatterns = [
         ordering_views.OrderingCollection(permitted_methods=("POST",)),
     ),
     url(
+        r"^charging/api/orderManagement/orders/completed/(?P<order_id>[^/]+)/?$",
+        ordering_views.NotifyOrderCollection(permitted_methods=("POST",)),
+    ),
+    url(
         r"^charging/api/orderManagement/orders/confirm/?$",
         charging_views.PaymentConfirmation(permitted_methods=("POST",)),
     ),
     url(
         r"^charging/api/orderManagement/orders/refund/?$",
         charging_views.PaymentRefund(permitted_methods=("POST",)),
+    ),
+    url(
+        r"^charging/api/orderManagement/orders/preview/?$",
+        charging_views.PaymentPreview(permitted_methods=("POST",)),
     ),
     url(
         r"^charging/api/orderManagement/products/?$",

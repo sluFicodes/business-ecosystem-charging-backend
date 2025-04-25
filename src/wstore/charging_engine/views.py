@@ -20,11 +20,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
+
 from copy import deepcopy
 from logging import getLogger
 from requests.exceptions import HTTPError
 
 from bson import ObjectId
+
+from django.http import HttpResponse
 
 from wstore.asset_manager.resource_plugins.decorators import on_product_acquired
 from wstore.rss.cdr_manager import CDRManager
@@ -38,6 +41,7 @@ from wstore.ordering.ordering_management import OrderingManager
 from wstore.store_commons.database import get_database_connection
 from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import authentication_required, build_response, supported_request_mime_types
+from wstore.charging_engine.pricing_engine import PriceEngine
 
 logger = getLogger("wstore.default_logger")
 
@@ -61,7 +65,7 @@ class PaymentConfirmation(Resource):
 
         # Oder Items state is not checked
         # self.ordering_client.update_items_state(raw_order, 'InProgress', digital_items)
-        self.ordering_client.update_items_state(raw_order, "completed", digital_items)
+        # self.ordering_client.update_items_state(raw_order, "completed", digital_items)
 
         # Notify order completed
         try:
@@ -165,9 +169,9 @@ class PaymentConfirmation(Resource):
         # If the order state value is different from pending means that
         # the timeout function has completely ended before acquiring the resource
         # so _lock is set to false and the view ends
-        if pre_value["state"] != "pending":
-            db.wstore_order.find_one_and_update({"_id": ObjectId(reference)}, {"$set": {"_lock": False}})
-            raise PaymentTimeoutError("The timeout set to process the payment has finished")
+        # if pre_value["state"] != "pending":
+        #     db.wstore_order.find_one_and_update({"_id": ObjectId(reference)}, {"$set": {"_lock": False}})
+        #     raise PaymentTimeoutError("The timeout set to process the payment has finished")
 
         # Check that the request user is authorized to end the payment
         if request_user.userprofile.current_organization != order.owner_organization or request_user != order.customer:
@@ -308,3 +312,30 @@ class PaymentRefund(Resource):
             return build_response(request, 400, "Sales cannot be refunded")
 
         return build_response(request, 200, "Ok")
+
+
+class PaymentPreview(Resource):
+
+    @supported_request_mime_types(("application/json",))
+    #@authentication_required
+    def create(self, request):
+        response = {
+            "orderTotalPrice": []
+        }
+
+        try:
+            data = json.loads(request.body)
+
+            price_engine = PriceEngine()
+            response = {
+            "orderTotalPrice": price_engine.calculate_prices(data)
+        }
+        except:
+            return build_response(request, 400, "Invalid order format")
+
+        # Check if a discount needs to be applied
+        return HttpResponse(
+            json.dumps(response),
+            content_type="application/json; charset=utf-8",
+            status=200,
+        )
