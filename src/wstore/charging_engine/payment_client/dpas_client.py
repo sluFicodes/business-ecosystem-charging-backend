@@ -24,15 +24,25 @@ class DpasClient(PaymentClient):
         payment_items = []
         for t in transactions:
             payment_item = {
-                "productProviderExternalId": "1", #
-                "amount": float(t['price']),
+                "productProviderExternalId": t["provider"], # This is the provider party ID
+                "paymentItemExternalId": t["rateId"], # this is the ID of the applied billing rate
                 "currency": t['currency'],
                 "productProviderSpecificData": {}
             }
+
             if "recurring" in t['related_model']:
                 payment_item.update({"recurring": True})
+
+                # Recurring prepaid payment is processed now
+                if t['related_model'] == "recurring-prepaid":
+                    payment_item.update({
+                        "amount": float(t['price'])
+                    })
             else:
-                payment_item.update({"recurring": False})
+                payment_item.update({
+                    "recurring": False,
+                    "amount": float(t['price'])
+                })
 
             payment_items.append(payment_item)
 
@@ -46,12 +56,12 @@ class DpasClient(PaymentClient):
 
         payload = {
             "baseAttributes": {
-                "externalId": str(self._order.order_id),
-                "customerId": str(self._order.customer_id),
-                "customerOrganizationId": str(self._order.owner_organization_id),
+                "externalId": str(self._order.order_id),  ## Use the raw order ID
+                "customerOrganizationId": str(self._order.owner_organization.actor_id), ## Use the organization Party ID
                 "invoiceId": "invoice id", #
                 "paymentItems": payment_items
             },
+            "customerId": str(self._order.customer.userprofile.actor_id), ## Use the user Party ID
             "processSuccessUrl": success_url,
             "processErrorUrl": cancel_url,
             "responseUrlJwtQueryName": "jwt"

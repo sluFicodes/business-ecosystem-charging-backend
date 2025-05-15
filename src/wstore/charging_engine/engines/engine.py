@@ -65,27 +65,35 @@ class Engine:
                 logger.info("Received response " + json.dumps(response))
 
                 # Create the Billing rates as not billed
-                curated_party = [
-                    {
+                seller_id = None
+                curated_party = []
+
+                for party in item["product"]["relatedParty"]:
+                    curated_party.append({
                         "id": party["id"],
                         "href": party["href"],
                         "role": party["role"],
                         "@referredType": "organization"
-                    } for party in item["product"]["relatedParty"]
-                ]
-                inv_ids = billing_client.create_batch_customer_rates(response, curated_party)
+                    })
 
-                contract.applied_rates = inv_ids
+                    if party["role"].lower() == "seller":
+                        seller_id = party["id"]
+
+                created_rates = billing_client.create_batch_customer_rates(response, curated_party)
+
+                contract.applied_rates = [ n_rate["id"] for n_rate in created_rates ]
                 new_contracts.append(contract)
 
                 transactions.extend([{
                     "item": contract.item_id,
+                    "provider": seller_id,
+                    "rateId": rate["id"],
                     "price": rate["taxIncludedAmount"]["value"],
                     "duty_free": rate["taxExcludedAmount"]["value"],
                     "description": '',
                     "currency": rate["taxIncludedAmount"]["unit"],
-                    "related_model": rate["appliedBillingRateType"].lower(),
-                } for rate in response])
+                    "related_model": rate["type"].lower(),
+                } for rate in created_rates])
 
         if len(transactions) == 0:
             return None
