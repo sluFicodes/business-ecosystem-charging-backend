@@ -94,11 +94,11 @@ LOGGING = {
 }
 
 CHARGE_PERIODS = {
-    "daily": 1,  # One day
-    "weekly": 7,  # One week
-    "monthly": 30,  # One month
-    "quarterly": 90,  # Three months
-    "yearly": 365,  # One year
+    "day": 1,  # One day
+    "week": 7,  # One week
+    "month": 30,  # One month
+    "quarter": 90,  # Three months
+    "year": 365,  # One year
     "quinquennial": 1825,  # Five years
 }
 
@@ -266,6 +266,7 @@ SITE = environ.get("BAE_SERVICE_HOST", SITE)
 LOCAL_SITE = environ.get("BAE_CB_LOCAL_SITE", LOCAL_SITE)
 
 CATALOG = environ.get("BAE_CB_CATALOG", CATALOG)
+PARTY = environ.get("BAE_CB_PARTY", PARTY)
 RESOURCE_CATALOG = environ.get("BAE_CB_RESOURCE_CATALOG", RESOURCE_CATALOG)
 SERVICE_CATALOG = environ.get("BAE_CB_SERVICE_CATALOG", SERVICE_CATALOG)
 
@@ -273,8 +274,13 @@ INVENTORY = environ.get("BAE_CB_INVENTORY", INVENTORY)
 RESOURCE_INVENTORY = environ.get("BAE_CB_RESOURCE_INVENTORY", RESOURCE_INVENTORY)
 SERVICE_INVENTORY = environ.get("BAE_CB_SERVICE_INVENTORY", SERVICE_INVENTORY)
 
+DOME_BILLING_URL = environ.get("BAE_CB_DOME_BILLING_URL", DOME_BILLING_URL)
+
 ORDERING = environ.get("BAE_CB_ORDERING", ORDERING)
-BILLING = environ.get("BAE_CB_BILLING", BILLING)
+
+BILLING = environ.get("BAE_CB_CUSTOMER_BILL", BILLING)
+ACCOUNT = environ.get("BAE_CB_BILLING", ACCOUNT)
+
 USAGE = environ.get("BAE_CB_USAGE", USAGE)
 AUTHORIZE_SERVICE = environ.get("BAE_CB_AUTHORIZE_SERVICE", AUTHORIZE_SERVICE)
 
@@ -295,3 +301,6 @@ if isinstance(ACL_ENABLED, str):
 AWS_ENABLED = environ.get("AWS_ENABLED", False)
 if isinstance(AWS_ENABLED, str):
     AWS_ENABLED = AWS_ENABLED == "True"
+
+
+BILLING_ENGINE = 'local'

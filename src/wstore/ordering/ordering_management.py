@@ -37,7 +37,9 @@ from wstore.charging_engine.charging_engine import ChargingEngine
 from wstore.ordering.errors import OrderingError
 from wstore.ordering.inventory_client import InventoryClient
 from wstore.ordering.models import Contract, Offering, Order
+from wstore.ordering.ordering_client import OrderingClient
 from wstore.store_commons.rollback import rollback
+from wstore.store_commons.utils.url import get_service_url
 
 logger = getLogger("wstore.default_logger")
 
@@ -56,16 +58,17 @@ class OrderingManager:
 
         return r.json()
 
-    def _get_offering(self, item):
+    def _get_offering_info(self, item):
         # Download related product offering and product specification
-        catalog = urlparse(settings.CATALOG)
-
         offering_id = item["productOffering"]["href"]
-        offering_url = "{}://{}{}/{}".format(
-            catalog.scheme, catalog.netloc, catalog.path + "/productOffering", offering_id
-        )
+        offering_url = get_service_url("catalog", f"/productOffering/{offering_id}")
 
         offering_info = self._download(offering_url, "product offering", item["id"])
+        return offering_info
+
+    def _get_offering(self, item):
+        offering_info = self._get_offering_info(item)
+        offering_id = offering_info["id"]
 
         # Check if the offering has been already loaded in the system
         if len(Offering.objects.filter(off_id=offering_id)) > 0:
@@ -158,10 +161,8 @@ class OrderingManager:
         for off_price in offering_info["productOfferingPrice"]:
             if off_price["id"] == product_price["productOfferingPrice"]["id"]:
                 # Download the product offering price model
-                catalog = urlparse(settings.CATALOG)
-                price_url = "{}://{}{}/{}".format(
-                    catalog.scheme, catalog.netloc, catalog.path + "/productOfferingPrice", off_price["id"]
-                )
+
+                price_url = get_service_url("catalog", f"/productOfferingPrice/{off_price['id']}")
                 offering_pricing = self._download(price_url, "product offering price", off_price["id"])
 
                 break
@@ -174,6 +175,7 @@ class OrderingManager:
             )
 
         # Validate that all pricing fields match
+        # MATCHING NO LONGER NEEDED ONLY ID IS PROVIDED NOW
         if (
             offering_pricing["priceType"].lower() != product_price["priceType"].lower()
             or (
@@ -213,61 +215,116 @@ class OrderingManager:
 
         return product_price
 
+    def _get_mode(self, offering_info):
+        if "productOfferingTerm" in offering_info:
+            for term in offering_info["productOfferingTerm"]:
+                if "name" in term and "description" in term and term["name"].lower() == "procurement":
+                    return term["description"].lower()
+
+    def _filter_item(self, item):
+        # Get the product offering
+        offering_info = self._get_offering_info(item)
+
+        product_price = None
+        if "itemTotalPrice" in item and len(item["itemTotalPrice"]) > 0 and "productOfferingPrice" in item["itemTotalPrice"][0]:
+            product_price = item["itemTotalPrice"][0]["productOfferingPrice"]
+
+        # Check if the product price has not been included but must
+        if product_price is None and len(offering_info["productOfferingPrice"]):
+            raise OrderingError(f"The price model has not been included for productOrderItem {item['id']}")
+
+        if product_price is not None:
+            o_prices = [op for op in offering_info["productOfferingPrice"] if op["id"] == product_price["id"]]
+            if len(o_prices) == 0:
+                raise OrderingError(f"The product price included in productOrderItem {item['id']} does not match with any of the prices included in the related offering")
+
+        mode = self._get_mode(offering_info)
+        if mode is None:
+            mode = "manual"
+        elif mode not in ["manual", "payment-automatic", "automatic"]:
+            raise OrderingError(f"The procurement mode {mode} is not supported")
+
+        # Download the POP if the offering is not free
+        offering_pricing = None
+        if product_price is not None:
+            price_url = get_service_url("catalog", f"/productOfferingPrice/{product_price['id']}")
+            offering_pricing = self._download(price_url, "product offering price", product_price["id"])
+
+        if (offering_pricing is not None and "priceType" in offering_pricing and offering_pricing["priceType"].lower() == "custom") or \
+                mode == "manual":
+
+            return None, offering_info, mode
+
+        if product_price is None:
+            product_price = {}
+
+        return Contract(
+            item_id=item["id"],
+            pricing_model=product_price,
+            offering=offering_info["id"],
+            options=item.get("product", {}).get("productCharacteristic", []),
+        ), offering_info, mode
+
     def _build_contract(self, item):
         # Build offering
         offering, offering_info = self._get_offering(item)
 
-        # Check if the product price has not been include but must
-        if ("product" not in item or "productPrice" not in item["product"] or not len(item["product"]["productPrice"])) and \
-                len(offering_info["productOfferingPrice"]) and not offering.is_custom:
+        # Now pricing is taken from a different field
+        #
+        product_price = None
+        if "itemTotalPrice" in item and len(item["itemTotalPrice"]) > 0 and "productOfferingPrice" in item["itemTotalPrice"][0]:
+            product_price = item["itemTotalPrice"][0]["productOfferingPrice"]
+
+        # Check if the product price has not been included but must
+        if product_price is None and len(offering_info["productOfferingPrice"]) and not offering.is_custom:
             raise OrderingError(f"The price model has not been included for productOrderItem {item['id']}")
 
         # Build pricing if included
         pricing = {}
-        if "product" in item and "productPrice" in item["product"] and len(item["product"]["productPrice"]):
+        if product_price is not None:
             if offering.is_custom:
                 raise OrderingError(f"Custom pricing models are handled externally, please don't include a price in product")
 
-            model_mapper = {
-                "one time": "single_payment",
-                "recurring": "subscription",
-                "usage": "pay_per_use",
-            }
+            # model_mapper = {
+            #     "one time": "single_payment",
+            #     "recurring": "subscription",
+            #     "usage": "pay_per_use",
+            # }
 
-            price = self._get_effective_pricing(item["id"], item["product"]["productPrice"][0], offering_info)
+            # price = self._get_effective_pricing(item["id"], item["product"]["productPrice"][0], offering_info)
 
-            price_unit = self._parse_price(model_mapper, price)
+            # price_unit = self._parse_price(model_mapper, price)
 
-            pricing["general_currency"] = price["price"]["taxIncludedAmount"]["unit"]
-            pricing[model_mapper[price["priceType"].lower()]] = [price_unit]
+            # pricing["general_currency"] = price["price"]["taxIncludedAmount"]["unit"]
+            # pricing[model_mapper[price["priceType"].lower()]] = [price_unit]
 
-            # Process price alterations
-            # TODO: Current implementation of the Catalog API does not support price alterations
-            if "productOfferPriceAlteration" in price:
-                alteration = price["productOfferPriceAlteration"]
+            # # Process price alterations
+            # # TODO: Current implementation of the Catalog API does not support price alterations
+            # if "productOfferPriceAlteration" in price:
+            #     alteration = price["productOfferPriceAlteration"]
 
-                # Check type of alteration (discount or fee)
-                if "discount" in alteration["name"].lower() and "fee" not in alteration["name"].lower():
-                    # Is a discount
-                    pricing["alteration"] = self._parse_alteration(alteration, "discount")
+            #     # Check type of alteration (discount or fee)
+            #     if "discount" in alteration["name"].lower() and "fee" not in alteration["name"].lower():
+            #         # Is a discount
+            #         pricing["alteration"] = self._parse_alteration(alteration, "discount")
 
-                elif "discount" not in alteration["name"].lower() and "fee" in alteration["name"].lower():
-                    # Is a fee
-                    if "priceCondition" not in alteration or not len(alteration["priceCondition"]):
-                        # In this case the alteration is processed as another price
-                        price_unit = self._parse_price(model_mapper, alteration)
+            #     elif "discount" not in alteration["name"].lower() and "fee" in alteration["name"].lower():
+            #         # Is a fee
+            #         if "priceCondition" not in alteration or not len(alteration["priceCondition"]):
+            #             # In this case the alteration is processed as another price
+            #             price_unit = self._parse_price(model_mapper, alteration)
 
-                        if model_mapper[alteration["priceType"].lower()] not in pricing:
-                            pricing[model_mapper[alteration["priceType"].lower()]] = []
+            #             if model_mapper[alteration["priceType"].lower()] not in pricing:
+            #                 pricing[model_mapper[alteration["priceType"].lower()]] = []
 
-                        pricing[model_mapper[alteration["priceType"].lower()]].append(price_unit)
-                    else:
-                        pricing["alteration"] = self._parse_alteration(alteration, "fee")
-                else:
-                    logger.error("Invalid price alteration")
-                    raise OrderingError(
-                        "Invalid price alteration, it is not possible to determine if it is a discount or a fee"
-                    )
+            #             pricing[model_mapper[alteration["priceType"].lower()]].append(price_unit)
+            #         else:
+            #             pricing["alteration"] = self._parse_alteration(alteration, "fee")
+            #     else:
+            #         logger.error("Invalid price alteration")
+            #         raise OrderingError(
+            #             "Invalid price alteration, it is not possible to determine if it is a discount or a fee"
+            #         )
 
         # Calculate the revenue sharing class
         # revenue_class = offering_info["serviceCandidate"]["id"]
@@ -313,21 +370,47 @@ class OrderingManager:
             "country": postal_address["country"],
         }
 
-    def _process_add_items(self, items, order_id, description, terms_accepted, billing_account):
-        new_contracts = [self._build_contract(item) for item in items]
+    def _terms_found(self, offering_info):
+        expected_terms = ["procurement"]
+        found = False
+        if "productOfferingTerm" in offering_info:
+            for term in offering_info["productOfferingTerm"]:
+                if term["name"].lower() not in expected_terms:
+                    found = True
+                    break
+
+        return found
+
+    def _filter_add_items(self, items):
+        process_items = []
+        for item in items:
+            new_contract, offering_info, mode = self._filter_item(item)
+            if new_contract is not None:
+                process_items.append({
+                    'item': item,
+                    'offering_info': offering_info,
+                    'contract': new_contract,
+                    'mode': mode
+                })
+
+        return process_items
+
+    def _process_add_items(self, item_info, order, description, terms_accepted):
+        order_id = order["id"]
+        billing_account = order["billingAccount"]
 
         terms_found = False
-        for c in new_contracts:
-            off = Offering.objects.get(pk=ObjectId(c.offering))
-            if off.asset is not None and off.asset.has_terms:
-                terms_found = True
+        new_contracts = []
+        for item in item_info:
+            terms_found = terms_found or self._terms_found(item["offering_info"])
+            new_contracts.append(item["contract"])
 
         if terms_found and not terms_accepted:
             logger.error("Terms and conditions of the offering not accepted")
             raise OrderingError("You must accept the terms and conditions of the offering to acquire it")
 
         current_org = self._customer.userprofile.current_organization
-        order = Order.objects.create(
+        order_obj = Order.objects.create(
             order_id=order_id,
             customer=self._customer,
             owner_organization=current_org,
@@ -338,10 +421,12 @@ class OrderingManager:
             description=description,
         )
 
-        self.rollback_logger["models"].append(order)
+        logger.info("Order model created in the database")
 
-        charging_engine = ChargingEngine(order)
-        return charging_engine.resolve_charging()
+        self.rollback_logger["models"].append(order_obj)
+
+        charging_engine = ChargingEngine(order_obj)
+        return charging_engine.resolve_charging(raw_order=order)
 
     def _get_existing_contract(self, inv_client, product_id):
         # Get product info
@@ -461,81 +546,169 @@ class OrderingManager:
             if "billingAccount" not in order:
                 raise OrderingError("Missing billing account in product order")
 
-            redirection_url = self._process_add_items(
-                items["add"], order["id"], description, terms_accepted, order["billingAccount"]
-            )
+            # Filter out the items that are not going to be processed
+            process_items = self._filter_add_items(items["add"])
+            logger.info("Items are being processed")
+
+            if len(process_items) == 0:
+                # No contracts to process, all the items as manual
+                return None
+
+            ordering_client = OrderingClient()
+            # Update status of items to be processed
+            ordering_client.update_items_state(order, "inProgress", items=[item["item"] for item in process_items])
+            ordering_client.update_state(order, "inProgress")
+
+            logger.info("Status of orders and items set to inProgress")
+
+            redirection_url = self._process_add_items(process_items, order, description, terms_accepted)
 
         return redirection_url
 
-    def notify_completed(self, order):
-        # Process product order items to instantiate the inventory
-        for orderItem in order["productOrderItem"]:
-            # Get product specification
-            # TODO: Add service and resource candidates to the product offering
-            catalog = urlparse(settings.CATALOG)
+    def get_offer_info(self, orderItem):
 
-            offering_id = orderItem["productOffering"]["href"]
-            offering_url = "{}://{}{}/{}".format(
-                catalog.scheme, catalog.netloc, catalog.path + "/productOffering", offering_id
-            )
+        offering_id = orderItem["productOffering"]["href"]
 
-            offering_info = self._download(offering_url, "product offering", orderItem["id"])
+        offering_url = get_service_url("catalog", f"/productOffering/{offering_id}")
+        offering_info = self._download(offering_url, "product offering", orderItem["id"])
+        return offering_info
 
-            resources = []
-            services = []
-            inventory_client = InventoryClient()
+    def create_inventory_product(self, order, orderItem, offering_info, extra_char=None):
+        resources = []
+        services = []
+        inventory_client = InventoryClient()
 
-            product = orderItem["product"]
+        product = inventory_client.build_product_model(orderItem, order["id"], order["billingAccount"])
+        customer_party = None
+        for party in product["relatedParty"]:
+            if party["role"].lower() == "customer":
+                customer_party = party
+                break
 
-            customer_party = None
-            for party in product["relatedParty"]:
-                if party["role"].lower() == "customer":
-                    customer_party = party
-                    break
+        # Instantiate services and resources if needed
+        if "productSpecification" in offering_info:
 
-            # Instantiate services and resources if needed
-            if "productSpecification" in offering_info:
-                spec_id = offering_info["productSpecification"]["id"]
-                spec_url = "{}://{}{}/{}".format(
-                    catalog.scheme, catalog.netloc, catalog.path + "/productSpecification", spec_id
-                )
+            spec_id = offering_info["productSpecification"]["id"]
+            spec_url = get_service_url("catalog", f"/productSpecification/{spec_id}")
 
-                spec_info = self._download(spec_url, "product specification", orderItem["id"])
+            spec_info = self._download(spec_url, "product specification", orderItem["id"])
 
-                if "resourceSpecification" in spec_info:
-                    # Create resources in the inventory
-                    resources = [
-                        inventory_client.create_resource(resource["id"], customer_party)
-                        for resource in spec_info["resourceSpecification"]
-                    ]
+            if "resourceSpecification" in spec_info:
+                # Create resources in the inventory
+                resources = [
+                    inventory_client.create_resource(resource["id"], customer_party)
+                    for resource in spec_info["resourceSpecification"]
+                ]
 
-                if "serviceSpecification" in spec_info:
-                    # Create services in the inventory
-                    services = [
-                        inventory_client.create_service(service["id"], customer_party)
-                        for service in spec_info["serviceSpecification"]
-                    ]
+            # if "serviceSpecification" in spec_info:
+            #     # Create services in the inventory
+            #     services = [
+            #         inventory_client.create_service(service["id"], customer_party)
+            #         for service in spec_info["serviceSpecification"]
+            #     ]
 
-            product["name"] = "oid={}".format(order["id"])
-            product["status"] = "created"
-            product["productOffering"] = orderItem["productOffering"]
-
+        if len(resources) > 0:
             product["realizingResource"] = [{"id": resource, "href": resource} for resource in resources]
 
-            # This cannot work until the Service Intentory API is published
-            if "productCharacteristic" not in product:
-                product["productCharacteristic"] = []
+        # if len(services) > 0:
+        #     product["realizingService"] = [{"id": service, "href": service} for service in services]
 
-            product["productCharacteristic"].extend([{"name": "service", "value": service}] for service in services)
+        # This cannot work until the Service Intentory API is published
+        product["productCharacteristic"].extend([{"name": "service", "value": service}] for service in services)
 
-            # product["realizingService"] = [{
-            #     "id": service,
-            #     "href": service
-            # } for service in services]
+        if extra_char is not None:
+            product["productCharacteristic"].extend(extra_char)
 
-            new_product = inventory_client.create_product(product)
+        logger.info("Creating product in the inventory")
+        new_product = inventory_client.create_product(product)
 
+        return new_product
+
+    def notify_completed(self, order):
+        #####
+        ### TODO: We need to refactor this method to create the inventory items when the
+        ### Product order is completed for other methods
+        #####
+
+        # Process product order items to instantiate the inventory
+        # Get order from the database
+        order_model = Order.objects.get(order_id=order["id"])
+
+        extra_char = []
+        for sale_id in order_model.sales_ids:
+            extra_char.append({"name": "paymentPreAuthorizationId", "value": sale_id})
+
+        processed_items = []
+        for orderItem in order["productOrderItem"]:
+            contracts = [ cnt for cnt in order_model.get_contracts() if cnt.item_id == orderItem["id"] ]
+            if len(contracts) == 0:
+                continue
+
+            contract = contracts[0]
+
+            # Get product offering
+            offering_info = self.get_offer_info(orderItem)
+
+            if "productOfferingTerm" in offering_info:
+                mode = 'manual'
+                for term in offering_info["productOfferingTerm"]:
+                    if term["name"].lower() == "procurement":
+                        mode = term["description"].lower()
+                        break
+
+                if mode != 'automatic':
+                    continue
+
+            new_product = self.create_inventory_product(order, orderItem, offering_info, extra_char=extra_char)
+
+            # Update the billing for automatic procurement
+            for inv_id in contract.applied_rates:
+                billing_client = BillingClient()
+                billing_client.update_customer_rate(inv_id, new_product["id"])
+
+            logger.info("Rates updates")
             self.activate_product(order["id"], new_product)
+            processed_items.append(orderItem)
+
+        ordering_client = OrderingClient()
+        ordering_client.update_items_state(order, "completed", items=processed_items)
+
+        if len(processed_items) == len(order["productOrderItem"]):
+            ordering_client.update_state(order, "completed")
+
+        logger.info("Items completed")
+
+    def process_order_completed(self, order):
+        orders = Order.objects.filter(order_id=order["id"])
+
+        order_model = None
+        if len(orders) > 0:
+            logger.info("Order not found in the database, externally processed or fully manual")
+            order_model = orders[0]
+
+        extra_char = []
+        if order_model is not None:
+            for sale_id in order_model.sales_ids:
+                extra_char.append({"name": "paymentPreAuthorizationId", "value": sale_id})
+
+        for orderItem in order["productOrderItem"]:
+            contract = None
+            if order_model is not None:
+                contracts = [ cnt for cnt in order_model.get_contracts() if cnt.item_id == orderItem["id"] ]
+
+                if len(contracts) > 0:
+                    contract = contracts[0]
+
+            # Create the product for the orderItem
+            offering_info = self.get_offer_info(orderItem)
+            new_product = self.create_inventory_product(order, orderItem, offering_info, extra_char=extra_char)
+
+            # Update the billing for automatic procurement
+            if contract is not None:
+                for inv_id in contract.applied_rates:
+                    billing_client = BillingClient()
+                    billing_client.update_customer_rate(inv_id, new_product["id"])
+
 
     def activate_product(self, order_id, product):
         # Get order
@@ -545,8 +718,7 @@ class OrderingManager:
         # Search contract
         new_contracts = []
         for cont in order.get_contracts():
-            off = Offering.objects.get(pk=ObjectId(cont.offering))
-            if product["productOffering"]["id"] == off.off_id:
+            if product["productOffering"]["id"] == cont.offering:
                 contract = cont
 
             new_contracts.append(cont)
@@ -572,6 +744,7 @@ class OrderingManager:
         inventory_client.activate_product(product["id"])
 
         # Create the initial charge in the billing API
+        ## TODO: This is going to be created with the applied customer billing rates generated by the billing engine
         if contract.charges is not None and len(contract.charges) == 1:
             billing_client = BillingClient()
             valid_to = None

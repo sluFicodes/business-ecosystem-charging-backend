@@ -60,9 +60,12 @@ class OrderingCollection(Resource):
             return build_response(request, 400, "The provided data is not a valid JSON object")
 
         client = OrderingClient()
-        client.update_items_state(order, "inProgress")
+        # we are not setting all the items as inProgress
+        # client.update_items_state(order, "inProgress")
 
         terms_accepted = request.META.get("HTTP_X_TERMS_ACCEPTED", "").lower() == "true"
+
+        logger.info("New product order received: {}".format(order["id"]))
 
         try:
             response = None
@@ -70,7 +73,8 @@ class OrderingCollection(Resource):
             redirect_url = om.process_order(user, order, terms_accepted=terms_accepted)
 
             if redirect_url is not None:
-                client.update_items_state(order, "pending")
+                # logger.info("Order items set as pending: {}".format(order["id"]))
+                # client.update_items_state(order, "pending")
 
                 response = HttpResponse(
                     json.dumps({"redirectUrl": redirect_url}),
@@ -79,21 +83,7 @@ class OrderingCollection(Resource):
                 )
 
             else:
-                # All the order items are free so digital assets can be set as Completed
-                digital_items = []
-                order_model = Order.objects.get(order_id=order["id"])
-
-                for item in order["productOrderItem"]:
-                    contract = order_model.get_item_contract(item["id"])
-                    offering = Offering.objects.get(pk=ObjectId(contract.offering))
-
-                    # if offering.is_digital:
-                    #    digital_items.append(item)
-                    digital_items.append(item)
-                    ### Asumming all the offers in the system are digital
-
-                client.update_items_state(order, "completed", digital_items)
-
+                # Trigger the notification, the process will check the procurement mode
                 try:
                     om.notify_completed(order)
                 except:
@@ -104,12 +94,53 @@ class OrderingCollection(Resource):
 
         except OrderingError as e:
             response = build_response(request, 400, str(e.value))
-            client.update_items_state(order, "failed")
+            client.update_all_states(order, "failed")
         except Exception as e:
             response = build_response(request, 500, "Your order could not be processed")
-            client.update_items_state(order, "failed")
+            client.update_all_states(order, "failed")
 
         return response
+
+
+class NotifyOrderCollection(Resource):
+    @authentication_required
+    @supported_request_mime_types(("application/json",))
+    def create(self, request, order_id):
+        """
+        This mthod is called when a product order is completed
+        :param request:
+        :return:
+        """
+
+        oc = OrderingClient()
+        try:
+            order = oc.get_order(order_id)
+        except Exception as e:
+            # The order is correct so we cannot set is as failed
+            logger.error("The order {} could not be retrieved {}".format(order["id"], str(e.value)))
+            return build_response(request, 400, 'Error accessing the product order')
+
+        # Check if the product already exists
+        try:
+            iv = InventoryClient()
+            products = iv.get_products(query={"name": "oid-{}".format(order["id"])})
+
+            if len(products) > 0:
+                return build_response(request, 200, "OK")
+
+        except Exception as e:
+            logger.error("The products for order {} could not be created {}".format(order["id"], str(e.value)))
+            return build_response(request, 400, 'Error creating product in the inventory')
+
+        om = OrderingManager()
+        try:
+            om.process_order_completed(order)
+        except Exception as e:
+            # The order is correct so we cannot set is as failed
+            logger.error("The products for order {} could not be created {}".format(order["id"], str(e.value)))
+            return build_response(request, 400, 'Error creating product in the inventory')
+
+        return build_response(request, 200, "OK")
 
 
 class InventoryCollection(Resource):

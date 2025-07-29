@@ -2,6 +2,8 @@
 
 # Copyright (c) 2016 - 2017 CoNWeT Lab., Universidad Politécnica de Madrid
 
+# Copyright (c) 2025 Future Internet Consulting and Development Solutions S.L.
+
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
 
@@ -26,6 +28,7 @@ from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from urllib.parse import urljoin
+from logging import getLogger
 
 from bson.objectid import ObjectId
 from django.conf import settings
@@ -33,6 +36,8 @@ from django.core.exceptions import ImproperlyConfigured
 
 from wstore.models import User
 from wstore.ordering.models import Offering
+
+logger = getLogger("wstore.default_logger")
 
 
 class NotificationsHandler:
@@ -48,6 +53,8 @@ class NotificationsHandler:
             raise ImproperlyConfigured("Missing email configuration")
 
     def _send_email(self, recipient, msg):
+        logger.debug(f"Sending email with {self._server}, {self._port}, {self._mailuser}, {self._fromaddr}, {self._password}")
+
         server = smtplib.SMTP(self._server, self._port)
         server.starttls()
         server.login(self._mailuser, self._password)
@@ -55,6 +62,8 @@ class NotificationsHandler:
         server.sendmail(self._fromaddr, recipient, msg.as_string())
 
     def _send_text_email(self, text, recipients, subject):
+        logger.debug("Sending email to " + ",".join(recipients) + "with subject " + subject)
+
         msg = MIMEText(text)
         msg["Subject"] = subject
         msg["From"] = self._fromaddr
@@ -208,4 +217,8 @@ The error was: {}""".format(
             recipient, error_msg
         )
 
+        self._send_text_email(text, recipients, subject)
+
+    def send_custom_email(self, recipient, subject, text):
+        recipients = [recipient]
         self._send_text_email(text, recipients, subject)

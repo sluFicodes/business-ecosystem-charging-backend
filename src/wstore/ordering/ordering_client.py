@@ -21,15 +21,20 @@
 
 
 from urllib.parse import urljoin
+from logging import getLogger
 
 import requests
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
+from wstore.store_commons.utils.url import get_service_url
+
+
+logger = getLogger("wstore.default_logger")
 
 class OrderingClient:
     def __init__(self):
-        self._ordering_api = settings.ORDERING
+        pass
 
     def create_ordering_subscription(self):
         """
@@ -42,7 +47,8 @@ class OrderingClient:
 
         callback = {"callback": urljoin(site, "charging/api/orderManagement/orders")}
 
-        r = requests.post(self._ordering_api + "/productOrdering/v2/hub", callback)
+        url = get_service_url("ordering", "/productOrdering/v2/hub")
+        r = requests.post(url, callback)
 
         if r.status_code != 200 and r.status_code != 409:
             msg = "It hasn't been possible to create ordering subscription, "
@@ -52,8 +58,8 @@ class OrderingClient:
 
     def get_order(self, order_id):
         path = "/productOrder/" + str(order_id)
-        url = urljoin(self._ordering_api, path)
 
+        url = get_service_url("ordering", path)
         r = requests.get(url)
         r.raise_for_status()
 
@@ -74,10 +80,22 @@ class OrderingClient:
 
         # Make PATCH request
         path = "/productOrder/" + str(order["id"])
-        url = urljoin(self._ordering_api, path)
 
-        r = requests.patch(url, json=patch)
-        r.raise_for_status()
+        url = get_service_url("ordering", path)
+        # Get the order first to avoid losing the order items
+
+        try:
+            resp1 = requests.get(url)
+            resp1.raise_for_status()
+            prev_order = resp1.json()
+
+            patch["productOrderItem"] = prev_order["productOrderItem"]
+
+            response = requests.patch(url, json=patch)
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            logger.error("Error Updating order state: " + str(e))
+            raise
 
     def update_items_state(self, order, state, items=None):
         """
@@ -87,8 +105,6 @@ class OrderingClient:
         :param state: New state
         :return:
         """
-
-        self.update_state(order, state)
 
         # Build patch body
         patch = {
@@ -107,7 +123,15 @@ class OrderingClient:
 
         # Make PATCH request
         path = "/productOrder/" + str(order["id"])
-        url = urljoin(self._ordering_api, path)
 
-        r = requests.patch(url, json=patch)
-        r.raise_for_status()
+        url = get_service_url("ordering", path)
+        try:
+            response = requests.patch(url, json=patch)
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            logger.error("Error Updating order items: " + str(e))
+            raise
+
+    def update_all_states(self, order, state):
+        self.update_items_state(order, state)
+        self.update_state(order, state)

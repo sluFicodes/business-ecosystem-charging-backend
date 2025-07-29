@@ -21,25 +21,142 @@
 
 
 import requests
+import datetime
+
 from decimal import Decimal
+from logging import getLogger
 from urllib.parse import urljoin, urlparse
 
 from django.conf import settings
+from wstore.store_commons.utils.url import get_service_url
 
+
+logger = getLogger("wstore.default_logger")
 
 class BillingClient:
     def __init__(self):
-        self._billing_api = settings.BILLING
-        if not self._billing_api.endswith("/"):
-            self._billing_api += "/"
+        pass
 
     def get_billing_account(self, account_id):
-        url = '{}billingAccount/{}'.format(self._billing_api, account_id)
+        url = get_service_url("account", f"billingAccount/{account_id}")
 
         response = requests.get(url, verify=settings.VERIFY_REQUESTS)
         response.raise_for_status()
 
         return response.json()
+
+    def create_customer_bill(self):
+        # FIXME: This objects is being created with the minum information
+        # We will need to add here the payment information and the invoice
+        # numbers
+
+        url = get_service_url("billing", 'customerBill')
+        data = {
+            "billDate": datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+        }
+
+        try:
+            response = requests.post(url, json=data, verify=settings.VERIFY_REQUESTS)
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            logger.error("Error creating customer bill: " + str(e))
+            raise
+
+        return response.json()["id"]
+
+    def update_customer_rate(self, rate_id, product_id):
+        # TODO: To be able to se the isBilled, the bill needs to be created
+        bill_id = self.create_customer_bill()
+
+        data = {
+            "isBilled": True,
+            "product": {
+                "id": product_id,
+                "href": product_id
+            },
+            "bill": {
+                "id": bill_id,
+                "href": bill_id
+            }
+        }
+
+        url = get_service_url("billing", f"appliedCustomerBillingRate/{rate_id}")
+
+        try:
+            response = requests.patch(url, json=data, verify=settings.VERIFY_REQUESTS)
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            logger.error("Error updating customer rate: " + str(e))
+            raise
+
+    def create_customer_rate(self, rate_type, currency, tax_rate, tax, tax_included, tax_excluded, billing_account, coverage_period=None, parties=None):
+        # TODO: Billing address and dates
+        data = {
+            # "appliedBillingRateType": rate_type,
+            "type": rate_type,
+            "isBilled": False,
+            "date": datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+            "appliedTax": [{
+                "taxCategory": "VAT",
+                "taxRate": tax_rate,
+                "taxAmount": {
+                    "unit": currency,
+                    "value": tax
+                }
+            }],
+            "taxIncludedAmount": {
+                "unit": currency,
+                "value": tax_included
+            },
+            "taxExcludedAmount": {
+                "unit": currency,
+                "value": tax_excluded
+            },
+            "billingAccount": billing_account
+        }
+
+        if coverage_period is not None:
+            data["periodCoverage"] = coverage_period
+
+        if parties is not None:
+            data["relatedParty"] = parties
+            data["@schemaLocation"] = "https://raw.githubusercontent.com/DOME-Marketplace/dome-odrl-profile/refs/heads/add-related-party-ref/schemas/simplified/RelatedPartyRef.schema.json"
+
+        url = get_service_url("billing", "appliedCustomerBillingRate")
+
+        try:
+            response = requests.post(url, json=data, verify=settings.VERIFY_REQUESTS)
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            logger.error("Error creating customer rate: " + str(e))
+            raise
+
+        return response.json()
+
+    def create_batch_customer_rates(self, rates, parties):
+        created_rates = []
+        for rate in rates:
+            if "appliedBillingRateType" in rate:
+                rate_type = rate["appliedBillingRateType"]
+            else:
+                rate_type = rate["type"]
+
+            currency = rate["taxIncludedAmount"]["unit"]
+            tax_rate = rate["appliedTax"][0]["taxRate"]
+            tax = rate["appliedTax"][0]["taxAmount"]["value"]
+            tax_included = rate["taxIncludedAmount"]["value"]
+            tax_excluded = rate["taxExcludedAmount"]["value"]
+            billing_account = rate["billingAccount"]
+
+            coverage_period = rate["periodCoverage"] if "periodCoverage" in rate else None
+
+            new_rate = self.create_customer_rate(
+                rate_type, currency, tax_rate, tax, tax_included, tax_excluded,
+                billing_account, coverage_period=coverage_period, parties=parties)
+
+            created_rates.append(new_rate)
+
+        return created_rates
 
     def create_charge(self, charge_model, product_id, start_date=None, end_date=None):
         # This Object is now part of the CustomerBillManagement API, not yet integrated

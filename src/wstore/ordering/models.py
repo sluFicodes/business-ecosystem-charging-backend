@@ -70,6 +70,9 @@ class Contract(models.Model):
 
     # Parsed version of the pricing model used to calculate charges
     pricing_model = models.JSONField(default={})  # Dict
+    options = models.JSONField(default={})  # Dict
+    applied_rates = models.JSONField(default=[]) # List
+
     # Date of the last charge to the customer
     last_charge = models.DateTimeField(blank=True, null=True)
     # List with the made charges
@@ -122,7 +125,8 @@ class Order(models.Model):
     contracts = models.ArrayField(model_container=Contract)
 
     # Pending payment info used in asynchronous charges
-    pending_payment = models.EmbeddedField(model_container=Payment, null=True)
+    # pending_payment = models.EmbeddedField(model_container=Payment, null=True)
+    pending_payment = models.JSONField(default={})
 
     objects = models.DjongoManager()
 
@@ -139,6 +143,8 @@ class Order(models.Model):
             revenue_class=contract_info["revenue_class"],
             suspended=contract_info["suspended"],
             terminated=contract_info["terminated"],
+            options=contract_info["options"],
+            applied_rates=contract_info["applied_rates"]
         )
 
     def get_contracts(self):
