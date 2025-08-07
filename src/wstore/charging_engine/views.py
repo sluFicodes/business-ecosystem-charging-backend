@@ -52,7 +52,7 @@ class PaymentConfirmation(Resource):
             # off = Offering.objects.get(pk=ObjectId(contract.offering))
             # return off.is_digital
             return True
-            ### We are asuming all the offers are digitals
+            # !!We are asuming all the offers are digitals
 
         # Set order items of digital products as completed
         involved_items = [t["item"] for t in transactions]
@@ -315,13 +315,10 @@ class PaymentRefund(Resource):
 
 
 class PaymentPreview(Resource):
-
     @supported_request_mime_types(("application/json",))
-    #@authentication_required
+    # @authentication_required
     def create(self, request):
-        response = {
-            "orderTotalPrice": []
-        }
+        response = {"orderTotalPrice": []}
 
         try:
             data = json.loads(request.body)
@@ -335,11 +332,9 @@ class PaymentPreview(Resource):
                 usage = data["usage"]
 
             price_engine = PriceEngine()
-            response = {
-                "orderTotalPrice": price_engine.calculate_prices(order, usage=usage)
-            }
-        except:
-            return build_response(request, 400, "Invalid order format")
+            response = {"orderTotalPrice": price_engine.calculate_prices(order, usage=usage)}
+        except Exception as e:
+            return build_response(request, 400, f"Invalid order format: {e}")
 
         # Check if a discount needs to be applied
         return HttpResponse(
