@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from logging import getLogger
 import requests
 from decimal import ROUND_HALF_UP, Decimal
 from datetime import datetime
@@ -29,7 +30,7 @@ from wstore.store_commons.utils.url import get_service_url
 
 WSDL_URL = "https://ec.europa.eu/taxation_customs/tedb/ws/VatRetrievalService.wsdl"
 ENDPOINT_URL = "https://ec.europa.eu/taxation_customs/tedb/ws/"
-
+logger = getLogger("wstore.default_logger")
 
 class PriceEngine:
     def _download_pricing(self, pop_id):
@@ -166,7 +167,7 @@ class PriceEngine:
                         return vat["rate"]["value"]
             raise ValueError("Standard VAT rate unavailable for the selected country.")
         except ValueError as e:
-            print("Error calling the service", e)
+            logger.error("Error calling the service", e)
             raise
 
     def calculate_prices(self, data, usage=[]):
