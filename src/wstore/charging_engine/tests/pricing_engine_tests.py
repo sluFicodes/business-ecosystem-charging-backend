@@ -440,10 +440,10 @@ class ChargingEngineTestCase(TestCase):
         mock_method(self)
 
         to_test = pricing_engine.PriceEngine()
-        to_test._calculate_org_taxes = MagicMock()
+        to_test._search_ue_taxes = MagicMock()
         print(tax)
         print("-------------")
-        to_test._calculate_org_taxes.return_value = tax
+        to_test._search_ue_taxes.return_value = tax
         result = to_test.calculate_prices({**data, "relatedParty": []}, usage=usage)
 
         self.assertEquals(result, expected_result)
@@ -482,7 +482,7 @@ class ChargingEngineTestCase(TestCase):
         engine._get_party_char = MagicMock()
         engine._get_party_char.side_effect = [self.build_mock_party(*call_1), self.build_mock_party(*call_2)]
 
-        result = engine._get_countries(related_party)
+        result = engine._get_customer_seller(related_party)
         self.assertEqual(result, (expected_customer, expected_provider))
 
     @parameterized.expand(
@@ -554,8 +554,8 @@ class ChargingEngineTestCase(TestCase):
         self, name, tuple_countries, vat_results, expected_result, ret_vat_params, expected_exception
     ):
         engine = pricing_engine.PriceEngine()
-        engine._get_countries = MagicMock()
-        engine._get_countries.return_value = tuple_countries
+        engine._get_customer_seller = MagicMock()
+        engine._get_customer_seller.return_value = tuple_countries
 
         pricing_engine.datetime = MagicMock()
         pricing_engine.datetime.now.return_value.date.return_value.isoformat.return_value = NOW
@@ -568,9 +568,9 @@ class ChargingEngineTestCase(TestCase):
             mockRetrieveVat.side_effects = expected_exception
         if expected_exception:
             with self.assertRaises(expected_exception):
-                engine._calculate_org_taxes(OFFPARTY)
+                engine._search_ue_taxes(OFFPARTY)
         else:
-            result = engine._calculate_org_taxes(OFFPARTY)
+            result = engine._search_ue_taxes(OFFPARTY)
             if ret_vat_params:
                 mockRetrieveVat.assert_called_once_with(**ret_vat_params)
             self.assertEquals(result, expected_result)
