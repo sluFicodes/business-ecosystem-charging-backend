@@ -186,36 +186,40 @@ class PriceEngine:
             logger.error("Error calling the service", e)
             raise
 
-    def _get_dft_bill_acc(self, party_id):
-        try:
-            billing_acc_url = get_service_url("account", f"/billingAccount?relatedParty.id={party_id}")
-            response = requests.get(billing_acc_url)
-            response.raise_for_status()
-            result = response.json()
-            print(result)
-            for bill_acc in result:
-                # Find default bill acc
-                if "contact" in bill_acc and "contactMedium" in bill_acc["contact"][0]:
-                    for medium in bill_acc["contact"][0]["contactMedium"]:
-                        if "preferred" in medium and "mediumType" in medium and medium["preferred"] and medium["mediumType"] == "PostalAddress":
-                            return medium["characteristic"]["country"]
-            return None
-        except:
-            raise ValueError("Error searching for preferred biling address")
+    # def _get_dft_bill_acc(self, party_id):
+    #     try:
+    #         billing_acc_url = get_service_url("account", f"/billingAccount?relatedParty.id={party_id}")
+    #         response = requests.get(billing_acc_url)
+    #         response.raise_for_status()
+    #         result = response.json()
+    #         for bill_acc in result:
+    #             # Find default bill acc
+    #             if "contact" in bill_acc and "contactMedium" in bill_acc["contact"][0]:
+    #                 for medium in bill_acc["contact"][0]["contactMedium"]:
+    #                     if "preferred" in medium and "mediumType" in medium and medium["preferred"] and medium["mediumType"] == "PostalAddress":
+    #                         return medium["characteristic"]["country"]
+    #         return None
+    #     except:
+    #         raise ValueError("Error searching for preferred biling address")
 
 
-    def _calculate_taxes(self, related_party):
+    def _calculate_taxes(self, related_party, selected_bill_acc=None):
         customer, seller = self._get_customer_seller(related_party)
 
-        customer_country = customer["country"]
-        customer_type = customer["type"]
-        customer_id = customer["id"]
-        seller_country = seller["country"]
+        customer_country: str | None = customer["country"]
+        customer_type: str = customer["type"]
+        customer_id: str = customer["id"]
+        seller_country: str | None = seller["country"]
 
         if customer_type == "individual":
-            # search for individual country from billing account
-            customer_country = self._get_dft_bill_acc(customer_id)
+
+            if selected_bill_acc and "contact" in selected_bill_acc and "contactMedium" in selected_bill_acc["contact"][0]:
+                for medium in selected_bill_acc["contact"][0]["contactMedium"]:
+                    if medium["mediumType"] == "PostalAddress":
+                        customer_country = medium["characteristic"]["country"]
+           # else, country is None bc individuals don't have partyChar with country attribute inside 
             return self._search_ue_taxes(related_party, customer_country, customer_country)
+
         else: # customer_type is an organization, checked in a previuos method
             return self._search_ue_taxes(related_party, customer_country, seller_country)
 
@@ -254,7 +258,7 @@ class PriceEngine:
 
         result = []
         tax = Decimal(
-            repr(self._calculate_taxes(data["relatedParty"]))
+            repr(self._calculate_taxes(data["relatedParty"], data["billingAccount"]["resolved"]))
         )  # Needs to repr() first because Decimal(20.1) returns 20.10000000000000142108547152020037174224853515625
         for priceType in aggregated.keys():
             for period in aggregated[priceType].keys():
