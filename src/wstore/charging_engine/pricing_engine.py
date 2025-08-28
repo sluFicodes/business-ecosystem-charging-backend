@@ -183,7 +183,7 @@ class PriceEngine:
                         return vat["rate"]["value"]
             raise ValueError("Standard VAT rate unavailable for the selected country.")
         except ValueError as e:
-            logger.error("Error calling the service", e)
+            logger.error("Error calling the service: %s", str(e))
             raise
 
     # def _get_dft_bill_acc(self, party_id):

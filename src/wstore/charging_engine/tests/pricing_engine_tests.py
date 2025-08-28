@@ -119,7 +119,9 @@ BASE_DATA = {
                 }
             ]
         }
-    ]
+    ],
+    "relatedParty": [],
+    "billingAccount": {"resolved": {}}
 }
 
 DATA_WITH_OPTIONS = {
@@ -134,7 +136,9 @@ DATA_WITH_OPTIONS = {
             ],
             "product": {"productCharacteristic": [{"name": "tailored", "value": 25}]},
         }
-    ]
+    ],
+    "relatedParty": [],
+    "billingAccount": {"resolved": {}}
 }
 
 RESULT_SIMPLE_POP = [
@@ -440,11 +444,9 @@ class ChargingEngineTestCase(TestCase):
         mock_method(self)
 
         to_test = pricing_engine.PriceEngine()
-        to_test._search_ue_taxes = MagicMock()
-        print(tax)
-        print("-------------")
-        to_test._search_ue_taxes.return_value = tax
-        result = to_test.calculate_prices({**data, "relatedParty": []}, usage=usage)
+        to_test._calculate_taxes = MagicMock()
+        to_test._calculate_taxes.return_value = tax
+        result = to_test.calculate_prices(data, usage=usage)
 
         self.assertEquals(result, expected_result)
 
@@ -471,19 +473,42 @@ class ChargingEngineTestCase(TestCase):
             ("offering_party", OFFPARTY, ("ES", ORG), ("DE", ORG), "ES", "DE"),
             ("offering_party_1_individual", OFFPARTY_IND_1, (None, IND), ("DE", ORG), None, "DE"),
             ("offering_party_2_individuals", OFFPARTY_IND_2, (None, IND), ("DE", IND), None, None),
-            ("offering_party_only_seller", OFFPARTY_ONLY_SELLER, ("ES", ORG), (None, None), None, "ES"),
-            ("offering_party_only_seller", OFFPARTY_ONLY_CUSTOMER, ("ES", ORG), (None, None), "ES", None),
-            ("offering_party_only_seller", OFFPARTY_EMPTY, ("ES", ORG), ("ES", ORG), None, None),
+            ("offering_party_only_seller", OFFPARTY_ONLY_SELLER, (None, None), ("ES", ORG), None, "ES"),
+            ("offering_party_only_customer", OFFPARTY_ONLY_CUSTOMER, ("ES", ORG), (None, None), "ES", None),
+            ("offering_party_empty", OFFPARTY_EMPTY, ("ES", ORG), ("ES", ORG), None, None),
         ]
     )
-    def test_get_countries(self, _name, related_party, call_1, call_2, expected_customer, expected_provider):
+    def test_get_customer_seller(self, _name, related_party, customer_call, seller_call, expected_customer, expected_provider):
         engine = pricing_engine.PriceEngine()
 
+        # Build side effects based on party roles
+        side_effects = []
+        customer_id = None
+        seller_id = None
+
+        for party in related_party:
+            if "role" in party and party["role"].lower() == "customer":
+                customer_id = party["id"]
+                side_effects.append((self.build_mock_party(*customer_call), customer_call[1]))
+            elif "role" in party and party["role"].lower() == "seller":
+                seller_id = party["id"]
+                side_effects.append((self.build_mock_party(*seller_call), seller_call[1]))
+
         engine._get_party_char = MagicMock()
-        engine._get_party_char.side_effect = [self.build_mock_party(*call_1), self.build_mock_party(*call_2)]
+        engine._get_party_char.side_effect = side_effects
 
         result = engine._get_customer_seller(related_party)
-        self.assertEqual(result, (expected_customer, expected_provider))
+
+        expected_result = (
+            {"country": expected_customer,
+             "type": customer_call[1] if customer_id else None,
+             "id": customer_id},
+            {"country": expected_provider,
+             "type": seller_call[1] if seller_id else None,
+             "id": seller_id}
+        )
+
+        self.assertEqual(result, expected_result)
 
     @parameterized.expand(
         [
@@ -523,7 +548,7 @@ class ChargingEngineTestCase(TestCase):
                     engine._get_party_char(party_id)
             else:
                 resultado = engine._get_party_char(party_id)
-                self.assertEqual(resultado, expected_output)
+                self.assertEqual(resultado, (expected_output, user_type))
 
             mock_get_service_url.assert_called_once_with("party", f"/{user_type}/{party_id}")
             mock_requests_get.assert_called_once_with(fake_url)
@@ -545,17 +570,15 @@ class ChargingEngineTestCase(TestCase):
                 ("DE", "DE"),
                 [RD_VAT],
                 0,
-                {"memberStates": {"isoCode": "ES"}, "situationOn": NOW},
+                {"memberStates": {"isoCode": "DE"}, "situationOn": NOW},
                 ValueError,
             ),
         ]
     )
-    def test_calculate_org_taxes(
+    def test_search_ue_taxes(
         self, name, tuple_countries, vat_results, expected_result, ret_vat_params, expected_exception
     ):
         engine = pricing_engine.PriceEngine()
-        engine._get_customer_seller = MagicMock()
-        engine._get_customer_seller.return_value = tuple_countries
 
         pricing_engine.datetime = MagicMock()
         pricing_engine.datetime.now.return_value.date.return_value.isoformat.return_value = NOW
@@ -566,11 +589,47 @@ class ChargingEngineTestCase(TestCase):
             mockRetrieveVat.return_value.vatRateResults = vat_results
         else:
             mockRetrieveVat.side_effects = expected_exception
+
+        customer_country, seller_country = tuple_countries
         if expected_exception:
             with self.assertRaises(expected_exception):
-                engine._search_ue_taxes(OFFPARTY)
+                engine._search_ue_taxes(OFFPARTY, customer_country, seller_country)
         else:
-            result = engine._search_ue_taxes(OFFPARTY)
+            result = engine._search_ue_taxes(OFFPARTY, customer_country, seller_country)
             if ret_vat_params:
                 mockRetrieveVat.assert_called_once_with(**ret_vat_params)
             self.assertEquals(result, expected_result)
+
+    @parameterized.expand([
+        (
+            "organization_individual_taxes",
+            {"country": "ES", "type": "organization", "id": "org1"},
+            {"country": "ES", "type": "organization", "id": "org2"},
+            None,
+            21.0
+        ),
+        (
+            "individual_with_billing_address",
+            {"country": None, "type": "individual", "id": "ind1"},
+            {"country": "DE", "type": "organization", "id": "org1"},
+            {"contact": [{"contactMedium": [{"mediumType": "PostalAddress", "characteristic": {"country": "FR"}}]}]},
+            0  # Different countries
+        ),
+        (
+            "individual_no_billing_address",
+            {"country": None, "type": "individual", "id": "ind1"},
+            {"country": "DE", "type": "organization", "id": "org1"},
+            None,
+            0  # No customer country
+        )
+    ])
+    def test_calculate_taxes(self, name, customer_data, seller_data, billing_account, expected_result):
+        engine = pricing_engine.PriceEngine()
+        engine._get_customer_seller = MagicMock()
+        engine._get_customer_seller.return_value = (customer_data, seller_data)
+
+        engine._search_ue_taxes = MagicMock()
+        engine._search_ue_taxes.return_value = expected_result
+
+        result = engine._calculate_taxes(OFFPARTY, billing_account)
+        self.assertEquals(result, expected_result)
