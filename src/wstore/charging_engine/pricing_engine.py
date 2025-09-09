@@ -117,7 +117,8 @@ class PriceEngine:
             response.raise_for_status()
             result = response.json()
             return result["partyCharacteristic"],  user_type
-        except:
+        except Exception as e:
+            logger.error(f"Error in process_price_component: {type(e).__name__}: {str(e)}")
             raise ValueError("Error fetching party information")
 
     def _get_customer_seller(self, related_party):
