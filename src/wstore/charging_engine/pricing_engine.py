@@ -258,8 +258,13 @@ class PriceEngine:
         # If the charactristic is tailored apply the value
 
         result = []
+        parties = None
+        if "relatedParty" in data:
+            parties = data["relatedParty"]
+        else:
+            parties = item["product"]["relatedParty"]
         tax = Decimal(
-            repr(self._calculate_taxes(data["relatedParty"], data["billingAccount"]["resolved"]))
+            repr(self._calculate_taxes(parties, data.get("billingAccount",{}).get("resolved", None)))
         )  # Needs to repr() first because Decimal(20.1) returns 20.10000000000000142108547152020037174224853515625
         for priceType in aggregated.keys():
             for period in aggregated[priceType].keys():
