@@ -49,83 +49,90 @@ class Engine:
         pass
 
     def process_initial_charging(self, raw_order):
-        # The billing engine processes the products one by one
-
-        # TODO: Potentially another filter needs to be included as
-        # recurring postpaid and usage models are not paid now
-        new_contracts = []
-        transactions = []
-        billing_client = BillingClient()
-        for contract in self._order.contracts:
-            item = self._get_item(contract.item_id, raw_order)
-
-            response = self.execute_billing(item, raw_order)
-
-            if len(response) > 0:
-                logger.info("Received response " + json.dumps(response))
-
-                # Create the Billing rates as not billed
-                seller_id = None
-                curated_party = []
-
-                for party in item["product"]["relatedParty"]:
-                    curated_party.append({
-                        "id": party["id"],
-                        "href": party["href"],
-                        "role": party["role"],
-                        "@referredType": "organization"
-                    })
-
-                    if party["role"].lower() == "seller":
-                        seller_id = party["id"]
-
-                created_rates = billing_client.create_batch_customer_rates(response, curated_party)
-
-                contract.applied_rates = [ n_rate["id"] for n_rate in created_rates ]
-                new_contracts.append(contract)
-
-                transactions.extend([{
-                    "item": contract.item_id,
-                    "provider": seller_id,
-                    "rateId": rate["id"],
-                    "price": rate["taxIncludedAmount"]["value"],
-                    "duty_free": rate["taxExcludedAmount"]["value"],
-                    "description": '',
-                    "currency": rate["taxIncludedAmount"]["unit"],
-                    "related_model": rate["type"].lower(),
-                } for rate in created_rates])
-
-        if len(transactions) == 0:
-            return None
-
-        # Update the order with the new contracts
-        self._order.contracts = new_contracts
-        pending_payment = {  # Payment model
-            "transactions": transactions,
-            "concept": 'initial',
-            "free_contracts": [],
-        }
-
-        self._order.pending_payment = pending_payment
         try:
-            self._order.save()
-        except DatabaseError as e:
+            # The billing engine processes the products one by one
+
+            # TODO: Potentially another filter needs to be included as
+            # recurring postpaid and usage models are not paid now
+            new_contracts = []
+            transactions = []
+            billing_client = BillingClient()
+            for contract in self._order.contracts:
+                item = self._get_item(contract.item_id, raw_order)
+
+                response = self.execute_billing(item, raw_order)
+
+                if len(response) > 0:
+                    logger.info("Received response " + json.dumps(response))
+
+                    # Create the Billing rates as not billed
+                    seller_id = None
+                    curated_party = []
+
+                    for party in item["product"]["relatedParty"]:
+                        curated_party.append({
+                            "id": party["id"],
+                            "href": party["href"],
+                            "role": party["role"],
+                            "@referredType": "organization"
+                        })
+
+                        if party["role"].lower() == "seller":
+                            seller_id = party["id"]
+
+                    created_rates = billing_client.create_batch_customer_rates(response, curated_party)
+
+                    contract.applied_rates = [ n_rate["id"] for n_rate in created_rates ]
+                    new_contracts.append(contract)
+
+                    transactions.extend([{
+                        "item": contract.item_id,
+                        "provider": seller_id,
+                        "rateId": rate["id"],
+                        "price": rate["taxIncludedAmount"]["value"],
+                        "duty_free": rate["taxExcludedAmount"]["value"],
+                        "description": '',
+                        "currency": rate["taxIncludedAmount"]["unit"],
+                        "related_model": rate["type"].lower(),
+                    } for rate in created_rates])
+
+            if len(transactions) == 0:
+                return None
+
+            # Update the order with the new contracts
+            self._order.contracts = new_contracts
+            pending_payment = {  # Payment model
+                "transactions": transactions,
+                "concept": 'initial',
+                "free_contracts": [],
+            }
+
+            self._order.pending_payment = pending_payment
+            try:
+                self._order.save()
+            except DatabaseError as e:
+                raise
+
+            # TODO: Check the local charging for info on the db objects that needs to be created for the payment
+
+            # Load payment client
+            payment_client = PaymentClient.get_payment_client_class()
+
+            # build the payment client
+            client = payment_client(self._order)
+
+            # Call the payment gateway
+            client.start_redirection_payment(transactions)
+
+            # Return the redirect URL to process the payment
+            logger.info("Billing processed")
+            return client.get_checkout_url()
+
+        except Exception as e:
+            logger.error(f"Error in process_initial_charging: {type(e).__name__}: {str(e)}")
+            logger.error(f"Order ID: {self._order.order_id if hasattr(self._order, 'order_id') else 'Unknown'}")
+            logger.error(f"Raw order: {json.dumps(raw_order, indent=2) if raw_order else 'None'}")
             raise
-
-        # TODO: Check the local charging for info on the db objects that needs to be created for the payment
-
-        # Load payment client
-        payment_client = PaymentClient.get_payment_client_class()
-
-        # build the payment client
-        client = payment_client(self._order)
-
-        # Call the payment gateway
-        client.start_redirection_payment(transactions)
-
-        # Return the redirect URL to process the payment
-        logger.info("Billing processed")
-        return client.get_checkout_url()
 
     def resolve_charging(self, type_="initial", related_contracts=None, raw_order=None):
 

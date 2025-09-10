@@ -41,7 +41,8 @@ class LocalEngine(Engine):
 
     def _build_charges(self, item, billing_account):
         prices = self._price_engine.calculate_prices({
-            "productOrderItem": [item]
+            "productOrderItem": [item],
+            "billingAccount":{ "resolved": self._order.tax_address["country"]}
         })
 
         # Only prices to be paid now are considered
