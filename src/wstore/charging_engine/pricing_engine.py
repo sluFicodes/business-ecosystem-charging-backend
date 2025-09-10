@@ -108,35 +108,52 @@ class PriceEngine:
     def _get_party_char(self, party_id):
         # Check if the party is an individual or an organization
         user_type = party_id.rsplit(sep=":")[2]
+        # Even though party_id is provided by the proxy, we validate it here to save an API call in case of invalid
+        if user_type != "individual" and user_type != "organization":
+            raise ValueError(f"Invalid user type: {user_type}")
         try:
             party_url = get_service_url("party", f"/{user_type}/{party_id}")
             response = requests.get(party_url)
             response.raise_for_status()
             result = response.json()
-            return result["partyCharacteristic"]
-        except:
+            return result["partyCharacteristic"],  user_type
+        except Exception as e:
+            logger.error(f"Error in process_price_component: {type(e).__name__}: {str(e)}")
             raise ValueError("Error fetching party information")
 
-    def _get_countries(self, related_party):
+    def _get_customer_seller(self, related_party):
         customer_country = None
         seller_country = None
+        customer_type = None
+        seller_type = None
+        customer_id = None
+        seller_id = None
+
         for party_ref in related_party:
-            party_chars = self._get_party_char(party_ref["id"])
+            party_id = party_ref["id"]
+            party_chars, user_type = self._get_party_char(party_id)
             country = None
+
             for char in party_chars:
                 if char["name"].lower() == "country" and "value" in char:
                     country = char["value"]
+
             if "role" in party_ref and party_ref["role"].lower() == settings.CUSTOMER_ROLE.lower():
                 customer_country = country
+                customer_type = user_type
+                customer_id = party_id
+
             elif "role" in party_ref and party_ref["role"].lower() == settings.PROVIDER_ROLE.lower():
                 seller_country = country
+                seller_type = user_type
+                seller_id = party_id
             # else cannot find the role
 
-        return customer_country, seller_country
+        return {"country": customer_country, "type": customer_type, "id": customer_id
+                }, {"country":seller_country, "type": seller_type, "id": seller_id}
 
-    def _calculate_org_taxes(self, related_party):
-        # only between org taxes
-        customer_country, seller_country = self._get_countries(related_party)
+    def _search_ue_taxes(self, related_party, customer_country, seller_country):
+        # Only between org taxes
         if (
             customer_country is None
             or seller_country is None
@@ -151,10 +168,10 @@ class PriceEngine:
 
         client = Client(wsdl=WSDL_URL, settings=Settings())
 
-        # Establecer endpoint manualmente (por si el WSDL apunta a http)
+        # Change endpoint manually (if the WSDL points to HTTP instead of HTTPS)
         client.service._binding_options["address"] = ENDPOINT_URL
 
-        # Realizar la petición
+        # Send the request
         try:
             response = client.service.retrieveVatRates(**args)
             results = response.vatRateResults
@@ -167,10 +184,47 @@ class PriceEngine:
                         return vat["rate"]["value"]
             raise ValueError("Standard VAT rate unavailable for the selected country.")
         except ValueError as e:
-            logger.error("Error calling the service", e)
+            logger.error("Error calling the service: %s", str(e))
             raise
 
-    def calculate_prices(self, data, usage=[]):
+    # def _get_dft_bill_acc(self, party_id):
+    #     try:
+    #         billing_acc_url = get_service_url("account", f"/billingAccount?relatedParty.id={party_id}")
+    #         response = requests.get(billing_acc_url)
+    #         response.raise_for_status()
+    #         result = response.json()
+    #         for bill_acc in result:
+    #             # Find default bill acc
+    #             if "contact" in bill_acc and "contactMedium" in bill_acc["contact"][0]:
+    #                 for medium in bill_acc["contact"][0]["contactMedium"]:
+    #                     if "preferred" in medium and "mediumType" in medium and medium["preferred"] and medium["mediumType"] == "PostalAddress":
+    #                         return medium["characteristic"]["country"]
+    #         return None
+    #     except:
+    #         raise ValueError("Error searching for preferred biling address")
+
+
+    def _calculate_taxes(self, related_party, selected_bill_acc=None):
+        customer, seller = self._get_customer_seller(related_party)
+
+        customer_country: str | None = customer["country"]
+        customer_type: str = customer["type"]
+        customer_id: str = customer["id"]
+        seller_country: str | None = seller["country"]
+
+        if customer_type == "individual":
+
+            if selected_bill_acc and "contact" in selected_bill_acc and "contactMedium" in selected_bill_acc["contact"][0]:
+                for medium in selected_bill_acc["contact"][0]["contactMedium"]:
+                    if medium["mediumType"] == "PostalAddress":
+                        customer_country = medium["characteristic"]["country"]
+           # else, country is None bc individuals don't have partyChar with country attribute inside 
+            return self._search_ue_taxes(related_party, customer_country, customer_country)
+
+        else: # customer_type is an organization, checked in a previuos method
+            return self._search_ue_taxes(related_party, customer_country, seller_country)
+
+    def calculate_prices(self, data: dict, usage=[]):
         aggregated = {}
 
         item = data["productOrderItem"][0]
@@ -204,8 +258,13 @@ class PriceEngine:
         # If the charactristic is tailored apply the value
 
         result = []
+        parties = None
+        if "relatedParty" in data:
+            parties = data["relatedParty"]
+        else:
+            parties = item["product"]["relatedParty"]
         tax = Decimal(
-            repr(self._calculate_org_taxes(data["relatedParty"]))
+            repr(self._calculate_taxes(parties, data.get("billingAccount",{}).get("resolved", None)))
         )  # Needs to repr() first because Decimal(20.1) returns 20.10000000000000142108547152020037174224853515625
         for priceType in aggregated.keys():
             for period in aggregated[priceType].keys():
