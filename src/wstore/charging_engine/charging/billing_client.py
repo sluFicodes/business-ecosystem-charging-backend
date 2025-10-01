@@ -48,7 +48,6 @@ class BillingClient:
     def update_customer_rate(self, rate_id, product_id):
 
         data = {
-            "isBilled": True,
             "product": {
                 "id": product_id,
                 "href": product_id
@@ -56,13 +55,6 @@ class BillingClient:
         }
 
         url = get_service_url("billing", f"appliedCustomerBillingRate/{rate_id}")
-        try:
-            response = requests.get(url, verify=settings.VERIFY_REQUESTS)
-            response.raise_for_status()
-        except requests.exceptions.HTTPError as e:
-            logger.error("Error updating customer rate: " + str(e))
-            raise
-        data["bill"] = response.json()["bill"]
 
         try:
             response = requests.patch(url, json=data, verify=settings.VERIFY_REQUESTS)
