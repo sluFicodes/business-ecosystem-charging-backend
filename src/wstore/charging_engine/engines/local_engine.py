@@ -20,6 +20,7 @@
 
 from logging import getLogger
 from decimal import Decimal
+import datetime
 
 from wstore.charging_engine.engines.engine import Engine
 from wstore.charging_engine.pricing_engine import PriceEngine
@@ -40,21 +41,24 @@ class LocalEngine(Engine):
         pass
 
     def _build_charges(self, item, billing_account):
+        now = datetime.datetime.now(datetime.timezone.utc)
+        now = now.replace(hour=0, minute=0, second=0, microsecond=0) # Rounded to ensure consistent periods over all the rates
+
         prices = self._price_engine.calculate_prices({
             "productOrderItem": [item],
             "billingAccount":{ "resolved": self._order.tax_address["country"]}
-        })
+        }, preview=False)
 
         # Only prices to be paid now are considered
         rates = []
         for price in prices:
             if price["priceType"].lower() == "one time" or price["priceType"].lower() == "recurring-prepaid" \
-                    or price["priceType"].lower() == "recurring":
+                    or price["priceType"].lower() == "recurring" or price["priceType"].lower() == "usage":
 
                 currency = price["price"]["dutyFreeAmount"]["unit"]
                 inc = Decimal(price["price"]["taxIncludedAmount"]["value"])
                 excl = Decimal(price["price"]["dutyFreeAmount"]["value"])
-                rate_type = "One time" if price["priceType"].lower() == "one time" else "Recurring"
+                rate_type = price["priceType"].lower()
 
                 tax = str(inc - excl)
                 rates.append({
@@ -78,10 +82,52 @@ class LocalEngine(Engine):
                         "unit": currency,
                         "value": price["price"]["dutyFreeAmount"]["value"]
                     },
-                    "billingAccount": billing_account
+                    "billingAccount": billing_account,
+                    "periodCoverage": self._build_period_coverage(price["recurringChargePeriod"], now)
                 })
 
         return rates
+
+
+    def _build_period_coverage(self, chargePeriod, now):
+        start_datetime = now.isoformat().replace('+00:00', 'Z')
+        end_datetime = None
+
+        logger.info("recurringChargePeriod: %s", chargePeriod)
+        if chargePeriod == PriceEngine.PERIOD_ONETIME:
+            pass
+        elif chargePeriod == PriceEngine.PERIOD_MONTH or chargePeriod == "1 month":
+            # usage period or 1 month
+            end_time = now + datetime.timedelta(days=30)
+            end_datetime = end_time.isoformat().replace('+00:00', 'Z')
+        else:
+            # Other periods such as "3 month", "1 week", etc.
+            parts = chargePeriod.split()
+            if len(parts) == 2:
+                amount = int(parts[0])
+                unit = parts[1].lower()
+
+                if unit in ["month", "months"]:
+                    end_time = now + datetime.timedelta(days=30 * amount)
+                elif unit in ["week", "weeks"]:
+                    end_time = now + datetime.timedelta(weeks=amount)
+                elif unit in ["day", "days"]:
+                    end_time = now + datetime.timedelta(days=amount)
+                elif unit in ["year", "years"]:
+                    end_time = now + datetime.timedelta(days=365 * amount)
+                else:
+                    raise ValueError("Invalid charge period")
+                end_datetime = end_time.isoformat().replace('+00:00', 'Z')
+            else:
+                raise ValueError("Invalid charge period")
+
+        result =  {
+            "startDateTime": start_datetime
+        }
+        if end_datetime:
+            result["endDateTime"] = end_datetime
+        return result
+
 
     def execute_billing(self, item, raw_order):
         return self._build_charges(item, raw_order["billingAccount"])

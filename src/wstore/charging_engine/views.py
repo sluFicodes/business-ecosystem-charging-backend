@@ -71,9 +71,10 @@ class PaymentConfirmation(Resource):
         try:
             om = OrderingManager()
             om.notify_completed(raw_order)
-        except:
+        except Exception as e:
             # The order is correct so we cannot set is as failed
             logger.error("The products for order {} could not be created".format(raw_order["id"]))
+            logger.error("reason: %s", e)
 
     def _set_renovation_states(self, transactions, raw_order, order):
         inventory_client = InventoryClient()
