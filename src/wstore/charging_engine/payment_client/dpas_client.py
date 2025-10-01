@@ -75,8 +75,8 @@ class DpasClient(PaymentClient):
 
         try:
             response = requests.post(self.api_url, json=payload, headers=headers)
-            #self._checkout_url = response.json()["redirectUrl"]
-            self._checkout_url = "http://google.com"
+            self._checkout_url = response.json()["redirectUrl"]
+            # self._checkout_url = "http://example.com"
             return self._checkout_url
         except requests.RequestException as e:
             logger.debug(f"Error contacting payment API: {e}")
