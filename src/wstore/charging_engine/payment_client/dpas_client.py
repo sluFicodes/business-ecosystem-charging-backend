@@ -80,6 +80,7 @@ class DpasClient(PaymentClient):
             return self._checkout_url
         except requests.RequestException as e:
             logger.debug(f"Error contacting payment API: {e}")
+            raise PaymentError(f"Failed to initiate DPAS payment: {str(e)}") from e
 
     def end_redirection_payment(self, **kwargs):
         token = kwargs.get("jwt", None)
