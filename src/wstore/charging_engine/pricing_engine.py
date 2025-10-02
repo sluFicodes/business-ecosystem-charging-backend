@@ -33,6 +33,9 @@ ENDPOINT_URL = "https://ec.europa.eu/taxation_customs/tedb/ws/"
 logger = getLogger("wstore.default_logger")
 
 class PriceEngine:
+    # Period constants
+    PERIOD_ONETIME = "onetime"
+    PERIOD_MONTH = "month"
     def _download_pricing(self, pop_id):
         price_url = get_service_url("catalog", "/productOfferingPrice/{}".format(pop_id))
         request = requests.get(price_url, verify=settings.VERIFY_REQUESTS)
@@ -83,14 +86,14 @@ class PriceEngine:
         if component["priceType"] not in aggregated:
             aggregated[component["priceType"]] = {}
 
-        period_key = "onetime"
+        period_key = self.PERIOD_ONETIME
         if "recurringChargePeriodType" in component and "recurringChargePeriodLength" in component:
             period_key = "{} {}".format(
                 component["recurringChargePeriodLength"], component["recurringChargePeriodType"]
             )
 
         if component["priceType"].lower() == "usage":
-            period_key = "month"
+            period_key = self.PERIOD_MONTH
 
         if period_key not in aggregated[component["priceType"]]:
             aggregated[component["priceType"]][period_key] = {"value": Decimal("0")}
@@ -104,6 +107,58 @@ class PriceEngine:
         else:
             tailored_price = component_value * tail_value
             aggregated[component["priceType"]][period_key]["value"] += tailored_price
+
+    def _proccess_price_component_indv(self, component, options, indv: list, usage):
+        tail_value = None
+        if "prodSpecCharValueUse" in component:
+            conditions = {}
+
+            for val in component["prodSpecCharValueUse"]:
+                value = "tailored"
+                if "productSpecCharacteristicValue" in val and len(val["productSpecCharacteristicValue"]) > 0:
+                    value = val["productSpecCharacteristicValue"][0]["value"]
+                conditions[val["name"].lower()] = value
+
+            found = 0
+            for option in options:
+                if option["name"].lower() in conditions:
+                    if conditions[option["name"].lower()] == "tailored":
+                        found += 1
+                        tail_value = Decimal(str(option["value"]))
+                        continue
+
+                    if str(conditions[option["name"].lower()]) == str(option["value"]):
+                        found += 1
+
+            if len(conditions) != found:
+                # The component is not processed
+                return
+
+        # keys: price, period and priceType
+        indv_price = {}
+
+        period_key = self.PERIOD_ONETIME
+        if "recurringChargePeriodType" in component and "recurringChargePeriodLength" in component:
+            period_key = "{} {}".format(
+                component["recurringChargePeriodLength"], component["recurringChargePeriodType"]
+            )
+
+        if component["priceType"].lower() == "usage":
+            period_key = self.PERIOD_MONTH
+
+        indv_price["priceType"] = component["priceType"]
+        indv_price["period"] = period_key
+
+        component_value = Decimal(str(component["price"]["value"]))
+        if component["priceType"] == "usage" and len(usage) > 0:
+            component_value = self._process_usage_value(component, usage)
+
+        if tail_value is None:
+            indv_price["price"] = component_value
+        else:
+            tailored_price = component_value * tail_value
+            indv_price["price"] = tailored_price
+        indv.append(indv_price)
 
     def _get_party_char(self, party_id):
         # Check if the party is an individual or an organization
@@ -224,8 +279,9 @@ class PriceEngine:
         else: # customer_type is an organization, checked in a previuos method
             return self._search_ue_taxes(related_party, customer_country, seller_country)
 
-    def calculate_prices(self, data: dict, usage=[]):
+    def calculate_prices(self, data: dict, usage=[], preview=True):
         aggregated = {}
+        indv = []
 
         item = data["productOrderItem"][0]
         # 1) Download the POP
@@ -249,7 +305,11 @@ class PriceEngine:
             options = item["product"]["productCharacteristic"]
 
         for component in to_process:
-            self._process_price_component(component, options, aggregated, usage)
+            if preview is True:
+                self._process_price_component(component, options, aggregated, usage)
+            else:
+                self._proccess_price_component_indv(component, options, indv, usage)
+                pass
 
         # If the POP is not a bundle check the pricing
         # If the bundle is a pop download the models
@@ -266,27 +326,30 @@ class PriceEngine:
         tax = Decimal(
             repr(self._calculate_taxes(parties, data.get("billingAccount",{}).get("resolved", None)))
         )  # Needs to repr() first because Decimal(20.1) returns 20.10000000000000142108547152020037174224853515625
-        for priceType in aggregated.keys():
-            for period in aggregated[priceType].keys():
-                result.append(
-                    {
-                        "priceType": priceType,
-                        "recurringChargePeriod": period,
-                        "price": {
-                            "taxRate": str(tax),
-                            "dutyFreeAmount": {"unit": "EUR", "value": str(aggregated[priceType][period]["value"])},
-                            "taxIncludedAmount": {
-                                "unit": "EUR",
-                                "value": str(
-                                    (
-                                        Decimal(aggregated[priceType][period]["value"])
-                                        + (Decimal(aggregated[priceType][period]["value"]) * tax / Decimal(100))
-                                    ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-                                ),
-                            },
-                        },
-                        "priceAlteration": [],
-                    }
-                )
-
+        if preview is True:
+            for priceType in aggregated.keys():
+                for period in aggregated[priceType].keys():
+                    result.append(
+                        self._build_price_result(priceType, period, Decimal(aggregated[priceType][period]["value"]), tax)
+                    )
+        else:
+            for priceComp in indv:
+                result.append(self._build_price_result(priceComp["priceType"], priceComp["period"], Decimal(priceComp["price"]), tax))
         return result
+
+    def _build_price_result(self, price_type, period, dutyFree: Decimal, taxRate: Decimal):
+      return {
+          "priceType": price_type,
+          "recurringChargePeriod": period,
+          "price": {
+              "taxRate": str(taxRate),
+              "dutyFreeAmount": {"unit": "EUR", "value": str(dutyFree)},
+              "taxIncludedAmount": {
+                  "unit": "EUR",
+                  "value": str(
+                      (dutyFree + (dutyFree * taxRate / Decimal(100))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                  ),
+              },
+          },
+          "priceAlteration": [],
+      }

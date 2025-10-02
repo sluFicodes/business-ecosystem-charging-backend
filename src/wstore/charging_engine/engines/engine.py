@@ -65,10 +65,10 @@ class Engine:
                 if len(response) > 0:
                     logger.info("Received response " + json.dumps(response))
 
-                    # Create the Billing rates as not billed
                     seller_id = None
                     curated_party = []
 
+                    logger.info("setting curated party")
                     for party in item["product"]["relatedParty"]:
                         curated_party.append({
                             "id": party["id"],
@@ -80,21 +80,38 @@ class Engine:
                         if party["role"].lower() == "seller":
                             seller_id = party["id"]
 
-                    created_rates = billing_client.create_batch_customer_rates(response, curated_party)
+                    logger.info("creating acbrs")
+                    # Create the Billing rates as not billed
+                    created_rates, unbilled_to_auth = billing_client.create_batch_customer_rates(response)
+                    if len(created_rates)==0:
+                        return None
+
+                    logger.info("creating customer bills")
+                    created_cb_list = billing_client.create_customer_bill(created_rates, raw_order["billingAccount"], curated_party)
 
                     contract.applied_rates = [ n_rate["id"] for n_rate in created_rates ]
+                    contract.customer_bills = [cb["id"] for cb in created_cb_list]
                     new_contracts.append(contract)
 
                     transactions.extend([{
                         "item": contract.item_id,
                         "provider": seller_id,
-                        "rateId": rate["id"],
-                        "price": rate["taxIncludedAmount"]["value"],
-                        "duty_free": rate["taxExcludedAmount"]["value"],
+                        "billId": cb["id"],
+                        "price": cb["taxIncludedAmount"],
+                        "duty_free": cb["taxExcludedAmount"],
                         "description": '',
-                        "currency": rate["taxIncludedAmount"]["unit"],
-                        "related_model": rate["type"].lower(),
-                    } for rate in created_rates])
+                        "currency": cb["unit"],
+                        "related_model": cb["type"].lower(),
+                    } for cb in created_cb_list])
+
+                    if unbilled_to_auth is True:
+                        transactions.append({
+                            "item": contract.item_id,
+                            "provider": seller_id,
+                            "description": '',
+                            "related_model": "recurring", # usage or postpaid are considered recurring from here
+                        })
+
 
             if len(transactions) == 0:
                 return None
@@ -123,6 +140,9 @@ class Engine:
 
             # Call the payment gateway
             client.start_redirection_payment(transactions)
+            logger.info("customer bill setting to 'sent'")
+            for cb in created_cb_list:
+                billing_client.set_customer_bill("sent", cb["id"])
 
             # Return the redirect URL to process the payment
             logger.info("Billing processed")

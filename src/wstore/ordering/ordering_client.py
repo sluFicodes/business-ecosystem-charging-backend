@@ -126,6 +126,7 @@ class OrderingClient:
 
         url = get_service_url("ordering", path)
         try:
+            logger.info("---PATCH BODY--- : %s", patch)
             response = requests.patch(url, json=patch)
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:

@@ -661,12 +661,20 @@ class OrderingManager:
 
             new_product = self.create_inventory_product(order, orderItem, offering_info, extra_char=extra_char)
 
+            logger.info("updating acbr")
             # Update the billing for automatic procurement
             for inv_id in contract.applied_rates:
                 billing_client = BillingClient()
                 billing_client.update_customer_rate(inv_id, new_product["id"])
 
-            logger.info("Rates updates")
+            logger.info("updating cb")
+            for cb_id in contract.customer_bills:
+                logger.info("for inside")
+                billing_client = BillingClient()
+                # TODO: propagate currency unit through the contract; TBD if it is needed or not
+                billing_client.set_customer_bill("settled", cb_id)
+
+            logger.info("Rates and bill updated")
             self.activate_product(order["id"], new_product)
             processed_items.append(orderItem)
 

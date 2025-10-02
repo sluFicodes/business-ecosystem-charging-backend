@@ -27,7 +27,7 @@ from mock import MagicMock, patch
 from wstore.charging_engine import pricing_engine
 
 
-SIMPLE_POP = {"isBundle": False, "priceType": "onetime", "price": {"value": 10.0, "unit": "EUR"}}
+SIMPLE_POP = {"isBundle": False, "priceType": "one time", "price": {"value": 10.0, "unit": "EUR"}}
 
 RECURRING_POP = {
     "isBundle": False,
@@ -108,6 +108,40 @@ USAGE_TAILORED_POP = {
     "prodSpecCharValueUse": [{"name": "tailored"}],
 }
 
+SIMPLE_POP_2 = {"isBundle": False, "priceType": "one time", "price": {"value": 5.0, "unit": "EUR"}}
+
+USAGE_POP_2 = {
+    "isBundle": False,
+    "priceType": "usage",
+    "price": {"value": 0.3, "unit": "EUR"},
+    "unitOfMeasure": {"units": "ram_gb"},
+    "usageSpecId": "urn:ngsi-ld:usageSpecification:1",
+}
+
+MULTIPLE_POP_SAME_TYPE = {
+    "isBundle": True,
+    "bundledPopRelationship": [
+        {
+            "id": "urn:ngsi-ld:productOfferingPrice:5",
+        },
+        {
+            "id": "urn:ngsi-ld:productOfferingPrice:6",
+        },
+    ],
+}
+
+MULTIPLE_POP_USAGE_SAME_TYPE = {
+    "isBundle": True,
+    "bundledPopRelationship": [
+        {
+            "id": "urn:ngsi-ld:productOfferingPrice:7",
+        },
+        {
+            "id": "urn:ngsi-ld:productOfferingPrice:8",
+        },
+    ],
+}
+
 BASE_DATA = {
     "productOrderItem": [
         {
@@ -143,7 +177,7 @@ DATA_WITH_OPTIONS = {
 
 RESULT_SIMPLE_POP = [
     {
-        "priceType": "onetime",
+        "priceType": "one time",
         "recurringChargePeriod": "onetime",
         "price": {
             "taxRate": "20.0",
@@ -156,7 +190,7 @@ RESULT_SIMPLE_POP = [
 
 RESULT_SIMPLE_POP_DECIMAL_TAX = [
     {
-        "priceType": "onetime",
+        "priceType": "one time",
         "recurringChargePeriod": "onetime",
         "price": {
             "taxRate": "20.1",
@@ -169,7 +203,7 @@ RESULT_SIMPLE_POP_DECIMAL_TAX = [
 
 RESULT_MULTIPLE_POP = [
     {
-        "priceType": "onetime",
+        "priceType": "one time",
         "recurringChargePeriod": "onetime",
         "price": {
             "taxRate": "0",
@@ -238,12 +272,61 @@ RESULT_MULTIPLE_USAGE_POP = [
         "priceAlteration": [],
     },
     {
-        "priceType": "onetime",
+        "priceType": "one time",
         "recurringChargePeriod": "onetime",
         "price": {
             "taxRate": "0",
             "dutyFreeAmount": {"unit": "EUR", "value": "10.0"},
             "taxIncludedAmount": {"unit": "EUR", "value": "10.00"},
+        },
+        "priceAlteration": [],
+    },
+]
+
+# Results for preview=False (individual prices without aggregation)
+# Two onetime components should return 2 separate results, not aggregated
+RESULT_MULTIPLE_ONETIME_NO_PREVIEW = [
+    {
+        "priceType": "one time",
+        "recurringChargePeriod": "onetime",
+        "price": {
+            "taxRate": "20.0",
+            "dutyFreeAmount": {"unit": "EUR", "value": "10.0"},
+            "taxIncludedAmount": {"unit": "EUR", "value": "12.00"},
+        },
+        "priceAlteration": [],
+    },
+    {
+        "priceType": "one time",
+        "recurringChargePeriod": "onetime",
+        "price": {
+            "taxRate": "20.0",
+            "dutyFreeAmount": {"unit": "EUR", "value": "5.0"},
+            "taxIncludedAmount": {"unit": "EUR", "value": "6.00"},
+        },
+        "priceAlteration": [],
+    },
+]
+
+# Two usage components should return 2 separate results, not aggregated
+RESULT_MULTIPLE_USAGE_NO_PREVIEW = [
+    {
+        "priceType": "usage",
+        "recurringChargePeriod": "month",
+        "price": {
+            "taxRate": "0",
+            "dutyFreeAmount": {"unit": "EUR", "value": "5.0"},
+            "taxIncludedAmount": {"unit": "EUR", "value": "5.00"},
+        },
+        "priceAlteration": [],
+    },
+    {
+        "priceType": "usage",
+        "recurringChargePeriod": "month",
+        "price": {
+            "taxRate": "0",
+            "dutyFreeAmount": {"unit": "EUR", "value": "3.0"},
+            "taxIncludedAmount": {"unit": "EUR", "value": "3.00"},
         },
         "priceAlteration": [],
     },
@@ -417,6 +500,32 @@ class ChargingEngineTestCase(TestCase):
 
         pricing_engine.requests.get.side_effect = [plan_call, usage_call1, usage_call2]
 
+    def _mock_multiple_onetime_pop(self):
+        pricing_engine.requests = MagicMock()
+        plan_call = MagicMock()
+        plan_call.json.return_value = MULTIPLE_POP_SAME_TYPE
+
+        onetime_call1 = MagicMock()
+        onetime_call1.json.return_value = SIMPLE_POP
+
+        onetime_call2 = MagicMock()
+        onetime_call2.json.return_value = SIMPLE_POP_2
+
+        pricing_engine.requests.get.side_effect = [plan_call, onetime_call1, onetime_call2]
+
+    def _mock_multiple_usage_same_type_pop(self):
+        pricing_engine.requests = MagicMock()
+        plan_call = MagicMock()
+        plan_call.json.return_value = MULTIPLE_POP_USAGE_SAME_TYPE
+
+        usage_call1 = MagicMock()
+        usage_call1.json.return_value = USAGE_POP
+
+        usage_call2 = MagicMock()
+        usage_call2.json.return_value = USAGE_POP_2
+
+        pricing_engine.requests.get.side_effect = [plan_call, usage_call1, usage_call2]
+
     @parameterized.expand(
         [
             ("single_component_no_options", BASE_DATA, _mock_simple_pop, RESULT_SIMPLE_POP, 20.0),
@@ -438,15 +547,17 @@ class ChargingEngineTestCase(TestCase):
                 0,
                 USAGE_1,
             ),
+            ("multiple_onetime_no_preview", BASE_DATA, _mock_multiple_onetime_pop, RESULT_MULTIPLE_ONETIME_NO_PREVIEW, 20.0, [], False),
+            ("multiple_usage_no_preview", BASE_DATA, _mock_multiple_usage_same_type_pop, RESULT_MULTIPLE_USAGE_NO_PREVIEW, 0, USAGE_1, False),
         ]
     )
-    def test_calculate_prices(self, name, data, mock_method, expected_result, tax, usage=[]):
+    def test_calculate_prices(self, name, data, mock_method, expected_result, tax, usage=[], preview=True):
         mock_method(self)
 
         to_test = pricing_engine.PriceEngine()
         to_test._calculate_taxes = MagicMock()
         to_test._calculate_taxes.return_value = tax
-        result = to_test.calculate_prices(data, usage=usage)
+        result = to_test.calculate_prices(data, usage=usage, preview=preview)
 
         self.assertEquals(result, expected_result)
 

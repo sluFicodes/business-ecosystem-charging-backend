@@ -72,6 +72,7 @@ class Contract(models.Model):
     pricing_model = models.JSONField(default={})  # Dict
     options = models.JSONField(default={})  # Dict
     applied_rates = models.JSONField(default=[]) # List
+    customer_bills = models.JSONField(default=[]) # List
 
     # Date of the last charge to the customer
     last_charge = models.DateTimeField(blank=True, null=True)
@@ -144,7 +145,8 @@ class Order(models.Model):
             suspended=contract_info["suspended"],
             terminated=contract_info["terminated"],
             options=contract_info["options"],
-            applied_rates=contract_info["applied_rates"]
+            applied_rates=contract_info["applied_rates"],
+            customer_bills = contract_info["customer_bills"]
         )
 
     def get_contracts(self):
