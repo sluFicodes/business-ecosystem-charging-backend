@@ -25,16 +25,17 @@ class DpasClient(PaymentClient):
         for t in transactions:
             payment_item = {
                 "productProviderExternalId": t["provider"], # This is the provider party ID
-                "paymentItemExternalId": t["rateId"], # this is the ID of the applied billing rate
                 "currency": t['currency'],
                 "productProviderSpecificData": {}
             }
+            if "billId" in t:
+                payment_item["paymentItemExternalId"] = t["billId"], # this is the ID of the customer bill
 
             if "recurring" in t['related_model']:
                 payment_item.update({"recurring": True})
 
                 # Recurring prepaid payment is processed now
-                if t['related_model'] == "recurring-prepaid":
+                if t["related_model"] == "recurring-prepaid":
                     payment_item.update({
                         "amount": float(t['price'])
                     })
@@ -50,6 +51,7 @@ class DpasClient(PaymentClient):
         if redirect_uri[-1] != "/":
             redirect_uri += "/"
 
+        logger.info("order reference: %s", self._order.pk)
         redirect_uri += "checkout?client=dpas"
         success_url = redirect_uri + "&action=accept&ref=" + str(self._order.pk)
         cancel_url = redirect_uri + "&action=cancel&ref=" + str(self._order.pk)
@@ -73,10 +75,13 @@ class DpasClient(PaymentClient):
 
         try:
             response = requests.post(self.api_url, json=payload, headers=headers)
+            response.raise_for_status()
             self._checkout_url = response.json()["redirectUrl"]
+            # self._checkout_url = "http://example.com"
             return self._checkout_url
-        except requests.RequestException as e:
+        except Exception as e:
             logger.debug(f"Error contacting payment API: {e}")
+            raise PaymentError(f"Failed to initiate DPAS payment: {str(e)}") from e
 
     def end_redirection_payment(self, **kwargs):
         token = kwargs.get("jwt", None)
