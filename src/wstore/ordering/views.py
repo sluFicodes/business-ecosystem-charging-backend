@@ -86,9 +86,10 @@ class OrderingCollection(Resource):
                 # Trigger the notification, the process will check the procurement mode
                 try:
                     om.notify_completed(order)
-                except:
+                except Exception as e:
                     # The order is correct so we cannot set is as failed
                     logger.error("The products for order {} could not be created".format(order["id"]))
+                    logger.error("reason: %s", e)
 
                 response = build_response(request, 200, "OK")
 

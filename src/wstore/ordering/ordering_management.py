@@ -600,12 +600,12 @@ class OrderingManager:
                     for resource in spec_info["resourceSpecification"]
                 ]
 
-            # if "serviceSpecification" in spec_info:
-            #     # Create services in the inventory
-            #     services = [
-            #         inventory_client.create_service(service["id"], customer_party)
-            #         for service in spec_info["serviceSpecification"]
-            #     ]
+            if "serviceSpecification" in spec_info:
+                # Create services in the inventory
+                services = [
+                    inventory_client.create_service(service["id"], customer_party)
+                    for service in spec_info["serviceSpecification"]
+                ]
 
         if len(resources) > 0:
             product["realizingResource"] = [{"id": resource, "href": resource} for resource in resources]
@@ -691,8 +691,9 @@ class OrderingManager:
 
         order_model = None
         if len(orders) > 0:
-            logger.info("Order not found in the database, externally processed or fully manual")
             order_model = orders[0]
+        else:
+            logger.info("Order not found in the database, externally processed or fully manual")
 
         extra_char = []
         if order_model is not None:
@@ -713,9 +714,29 @@ class OrderingManager:
 
             # Update the billing for automatic procurement
             if contract is not None:
+                logger.info("updating acbr")
                 for inv_id in contract.applied_rates:
                     billing_client = BillingClient()
                     billing_client.update_customer_rate(inv_id, new_product["id"])
+
+                logger.info("updating cb")
+                for cb_id in contract.customer_bills:
+                    logger.info("for inside")
+                    billing_client = BillingClient()
+                    # TODO: propagate currency unit through the contract; TBD if it is needed or not
+                    billing_client.set_customer_bill("settled", cb_id)
+
+                # Activate asset
+                try:
+                    on_product_acquired(order, contract)
+                except:
+                    return 400, "The asset has failed to be activated"
+
+                self.activate_product(order["id"], new_product)
+            else:
+                # Change product state to active
+                inventory_client = InventoryClient()
+                inventory_client.activate_product(new_product["id"])
 
 
     def activate_product(self, order_id, product):
