@@ -97,7 +97,7 @@ class OrderingClient:
             logger.error("Error Updating order state: " + str(e))
             raise
 
-    def update_items_state(self, order, state, items=None):
+    def update_items_state(self, order, state, items=None, root_state=None):
         """
         Change the state of a given order including its order items
         :param order: Order object as returned by the ordering API
@@ -110,6 +110,8 @@ class OrderingClient:
         patch = {
             "productOrderItem": [],
         }
+        if root_state is not None:
+            patch["state"] = root_state
 
         if items is None:
             items = order["productOrderItem"]
@@ -134,5 +136,5 @@ class OrderingClient:
             raise
 
     def update_all_states(self, order, state):
-        self.update_items_state(order, state)
-        self.update_state(order, state)
+        # Doing updates with 1 request
+        self.update_items_state(order, state, root_state=state)
