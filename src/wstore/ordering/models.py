@@ -129,6 +129,9 @@ class Order(models.Model):
     # pending_payment = models.EmbeddedField(model_container=Payment, null=True)
     pending_payment = models.JSONField(default={})
 
+    hash_key = models.BinaryField()
+    used = models.BooleanField()
+
     objects = models.DjongoManager()
 
     def _build_contract(self, contract_info):

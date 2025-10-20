@@ -19,6 +19,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import hashlib
+import hmac
 import json
 
 from copy import deepcopy
@@ -104,9 +106,35 @@ class PaymentConfirmation(Resource):
 
         if order.pending_payment["concept"] == "initial":
             # Set the order to failed in the ordering API
-            # Set all items as Failed, mark the whole order as failed
-            self.ordering_client.update_all_states(raw_order, "failed")
+            # Set all processed items as Failed, mark the whole order as failed
+            processed_items = []
+            item_states = {
+                "unchecked": 0,
+                "acknowledged": 0,
+                "cancelled": 0,
+                "completed": 0,
+                "inProgress": 0,
+                "pending": 0,
+                "failed": 0
+            }
+            for orderItem in raw_order["productOrderItem"]:
+                contracts = [ cnt for cnt in order.get_contracts() if cnt.item_id == orderItem["id"] ]
+                # filter out manual modes and custom price type
+                if len(contracts) == 0:
+                    item_states[orderItem.get("state", "unchecked")] += 1
+                    continue
+                processed_items.append(orderItem)
+            item_states["failed"] += len(processed_items)
+            self.ordering_client.update_items_state(raw_order, "failed", items=processed_items)
             order.delete()
+            if item_states["failed"] == len(raw_order["productOrderItem"]):
+                self.ordering_client.update_state(raw_order, "failed")
+            elif item_states["completed"] + item_states["cancelled"] + item_states["failed"] == len(raw_order["productOrderItem"]):
+                self.ordering_client.update_state(raw_order, "partial")
+            elif item_states["inProgress"] + item_states["completed"] + item_states["cancelled"] + item_states["failed"]> 0:
+                self.ordering_client.update_state(raw_order, "inProgress")
+            elif item_states["acknowledged"] > 0:
+                self.ordering_client.update_state(raw_order, "acknowledged")
         else:
             order.state = "paid"
             order.pending_payment = None
@@ -129,14 +157,33 @@ class PaymentConfirmation(Resource):
             raise ValueError(
                 f"Missing required field. It must contain {[*payment_client.END_PAYMENT_PARAMS, 'reference']} field(s)."
             )
+        if "client" not in request_data or "signature" not in request_data:
+            raise ValueError("Missing required fields. Client and signature must be included.")
 
         confirm_action = request_data["confirm_action"]
         reference = request_data["reference"]
+        client = request_data["client"]
+        signature = request_data["signature"]
         order = Order.objects.filter(pk=ObjectId(reference)).first()
 
         if not order:
             raise ValueError("The provided reference does not identify a valid order")
+        logger.debug(order.hash_key)
+        expected_signature = hmac.new(order.hash_key, f"client={client}&action={confirm_action}&ref={reference}".encode(), hashlib.sha256).hexdigest()
 
+        if not hmac.compare_digest(signature, expected_signature):
+            logger.debug("different signature")
+            raise ValueError("Cannot validate the order payment.")
+
+        # Atomic operation to ensure that only one transaction entered
+        db = get_database_connection()
+        updated = db.wstore_order.find_one_and_update({"_id": ObjectId(reference), "used": False}, {"$set": {"used": True}})
+
+        if not updated:
+            raise ValueError("Order already used")
+        else:
+            order.used = True
+            logger.debug("signature validated and order marked as used")
         logger.debug(f"Payment confirmation request for order {order.order_id} OK")
         return confirm_action, reference, order
 
