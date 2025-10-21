@@ -639,9 +639,20 @@ class OrderingManager:
             extra_char.append({"name": "paymentPreAuthorizationId", "value": sale_id})
 
         processed_items = []
+        item_states = {
+            "unchecked": 0,
+            "acknowledged": 0,
+            "cancelled": 0,
+            "completed": 0,
+            "inProgress": 0,
+            "pending": 0,
+            "failed": 0
+        }
         for orderItem in order["productOrderItem"]:
             contracts = [ cnt for cnt in order_model.get_contracts() if cnt.item_id == orderItem["id"] ]
+            # filter out manual modes and custom price type
             if len(contracts) == 0:
+                item_states[orderItem.get("state", "unchecked")] += 1
                 continue
 
             contract = contracts[0]
@@ -649,6 +660,7 @@ class OrderingManager:
             # Get product offering
             offering_info = self.get_offer_info(orderItem)
 
+            # filter out payment-automatic modes
             if "productOfferingTerm" in offering_info:
                 mode = 'manual'
                 for term in offering_info["productOfferingTerm"]:
@@ -657,6 +669,7 @@ class OrderingManager:
                         break
 
                 if mode != 'automatic':
+                    item_states[orderItem.get("state", "unchecked")] += 1
                     continue
 
             new_product = self.create_inventory_product(order, orderItem, offering_info, extra_char=extra_char)
@@ -680,9 +693,16 @@ class OrderingManager:
 
         ordering_client = OrderingClient()
         ordering_client.update_items_state(order, "completed", items=processed_items)
+        item_states["completed"] += len(processed_items)
 
-        if len(processed_items) == len(order["productOrderItem"]):
+        if item_states["completed"] == len(order["productOrderItem"]):
             ordering_client.update_state(order, "completed")
+        elif item_states["completed"] + item_states["cancelled"] + item_states["failed"] == len(order["productOrderItem"]):
+            ordering_client.update_state(order, "partial")
+        elif item_states["inProgress"] + item_states["completed"] + item_states["cancelled"] + item_states["failed"]  > 0:
+            ordering_client.update_state(order, "inProgress")
+        elif item_states["acknowledged"] > 0:
+            ordering_client.update_state(order, "acknowledged")
 
         logger.info("Items completed")
 

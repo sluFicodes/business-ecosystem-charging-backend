@@ -1233,13 +1233,13 @@ INVOICE_PATH = "/media/invoice/invoice1.pdf"
 
 PAYPAL_DATA_BASE = {"action": "confirm", "confirm_action": "accept", "client": "paypal"}
 
-BASIC_PAYPAL = {**PAYPAL_DATA_BASE, "reference": "111111111111111111111111", "PayerID": "payer", "paymentId": "payment"}
+BASIC_PAYPAL = {**PAYPAL_DATA_BASE, "reference": "111111111111111111111111", "PayerID": "payer", "paymentId": "payment", "signature": "sig"}
 
-MISSING_REF = {**PAYPAL_DATA_BASE, "PayerID": "payer", "paymentId": "payment"}
+MISSING_REF = {**PAYPAL_DATA_BASE, "PayerID": "payer", "paymentId": "payment", "signature": "sig"}
 
-MISSING_PAYER = {**PAYPAL_DATA_BASE, "reference": "111111111111111111111111", "paymentId": "payment"}
+MISSING_PAYER = {**PAYPAL_DATA_BASE, "reference": "111111111111111111111111", "paymentId": "payment", "signature": "sig"}
 
-MISSING_PAYMENT = {**PAYPAL_DATA_BASE, "reference": "111111111111111111111111", "PayerID": "payer"}
+MISSING_PAYMENT = {**PAYPAL_DATA_BASE, "reference": "111111111111111111111111", "PayerID": "payer", "signature": "sig"}
 
 MISSING_RESP = {
     "result": "error",
@@ -1293,6 +1293,8 @@ class PaymentConfirmationTestCase(TestCase):
         self._order_inst.owner_organization = org
         self._order_inst.customer = self.user
         self._order_inst.state = "pending"
+        self._order_inst.used = False
+        self._order_inst.hash_key = "sig"
 
         self._payment = {}
         self._payment["transactions"] = [{"item": "1"}, {"item": "2"}]
@@ -1435,10 +1437,12 @@ class PaymentConfirmationTestCase(TestCase):
         completed=None,
         side_effect=None,
         error=False,
-        to_del=False,
+        to_del=False
     ):
         if side_effect is not None:
             side_effect(self)
+
+        views.hmac = MagicMock(**{"new.return_value.hexdigest.return_value": data["signature"]})
 
         # Create request
         request = self.factory.post(
@@ -1463,9 +1467,10 @@ class PaymentConfirmationTestCase(TestCase):
         views.OrderingClient.assert_called_once_with()
 
         if not error:
-            views.get_database_connection.assert_called_once_with()
+            self.assertEquals(2, views.get_database_connection.call_count)
             self.assertEquals(
                 [
+                    call({"_id": ObjectId("111111111111111111111111"), "used": False}, {"$set": {"used": True}}),
                     call(
                         {"_id": ObjectId("111111111111111111111111")},
                         {"$set": {"_lock": True}},
@@ -1502,10 +1507,11 @@ class PaymentConfirmationTestCase(TestCase):
 
         elif to_del:
             self.assertEquals(
-                [call(self._raw_order, "failed")],
-                self._ordering_inst.update_all_states.call_args_list,
+                [call(self._raw_order, "failed", items=[])],
+                self._ordering_inst.update_items_state.call_args_list,
             )
             self._order_inst.delete.assert_called_once_with()
+            # TODO: assert global state
 
 
 MISSING_FIELD_RESP = {

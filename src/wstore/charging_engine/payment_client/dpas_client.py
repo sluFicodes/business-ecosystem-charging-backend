@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 from wstore.charging_engine.payment_client.payment_client import PaymentClient
 from wstore.ordering.errors import PaymentError
 from django.conf import settings
@@ -51,10 +53,15 @@ class DpasClient(PaymentClient):
         if redirect_uri[-1] != "/":
             redirect_uri += "/"
 
-        logger.info("order reference: %s", self._order.pk)
+        logger.debug("order reference: %s", self._order.pk)
+        success_sig = hmac.new(self._order.hash_key, f"client=dpas&action=accept&ref={str(self._order.pk)}".encode() , hashlib.sha256).hexdigest()
+        cancel_sig = hmac.new(self._order.hash_key, f"client=dpas&action=cancel&ref={str(self._order.pk)}".encode() , hashlib.sha256).hexdigest()
+        logger.debug("success signature:" + success_sig) # It is supposed that in production debug() method will not print in the logs.
+        logger.debug("cancel signature:" + cancel_sig) # It is supposed that in production debug() method will not print in the logs.
+
         redirect_uri += "checkout?client=dpas"
-        success_url = redirect_uri + "&action=accept&ref=" + str(self._order.pk)
-        cancel_url = redirect_uri + "&action=cancel&ref=" + str(self._order.pk)
+        success_url = redirect_uri + "&action=accept&ref=" + str(self._order.pk) + "&sig=" + success_sig
+        cancel_url = redirect_uri + "&action=cancel&ref=" + str(self._order.pk) + "&sig=" + cancel_sig
 
         payload = {
             "baseAttributes": {

@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import uuid
 import requests
 import json
 
@@ -126,6 +127,8 @@ class Engine:
             }
 
             self._order.pending_payment = pending_payment
+            self._order.hash_key = uuid.uuid4().hex.encode()
+            self._order.used = False
             try:
                 self._order.save()
             except DatabaseError as e:
