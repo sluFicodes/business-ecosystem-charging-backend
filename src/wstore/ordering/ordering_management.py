@@ -581,7 +581,7 @@ class OrderingManager:
         product = inventory_client.build_product_model(orderItem, order["id"], order["billingAccount"])
         customer_party = None
         for party in product["relatedParty"]:
-            if party["role"].lower() == "customer":
+            if party["role"].lower() == settings.CUSTOMER_ROLE.lower():
                 customer_party = party
                 break
 

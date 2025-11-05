@@ -54,8 +54,8 @@ STORE_NAME = "WStore"
 AUTH_PROFILE_MODULE = "wstore.models.UserProfile"
 
 ADMIN_ROLE = "admin"
-PROVIDER_ROLE = "seller"
-CUSTOMER_ROLE = "customer"
+PROVIDER_ROLE = "Seller"
+CUSTOMER_ROLE = "Buyer"
 
 LOGGING = {
     "version": 1,

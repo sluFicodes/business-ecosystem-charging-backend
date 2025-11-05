@@ -83,10 +83,10 @@ class AuthenticationMiddleware:
 
         user_roles = []
 
-        if settings.PROVIDER_ROLE in roles:
+        if settings.PROVIDER_ROLE.lower() in roles:
             user_roles.append("provider")
 
-        if settings.CUSTOMER_ROLE in roles:
+        if settings.CUSTOMER_ROLE.lower() in roles:
             user_roles.append("customer")
 
         # Get or create current organization

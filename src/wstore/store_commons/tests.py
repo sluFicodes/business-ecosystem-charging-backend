@@ -36,9 +36,9 @@ __test__ = False
 
 
 @override_settings(
-    ADMIN_ROLE="provider",
-    PROVIDER_ROLE="seller",
-    CUSTOMER_ROLE="customer",
+    ADMIN_ROLE="admin",
+    PROVIDER_ROLE="Seller",
+    CUSTOMER_ROLE="Buyer",
     PROPAGATE_TOKEN=True,
 )
 class AuthenticationMiddlewareTestCase(TestCase):
@@ -92,8 +92,8 @@ class AuthenticationMiddlewareTestCase(TestCase):
 
     @parameterized.expand(
         [
-            ("basic", "provider,seller,", True, ["provider"]),
-            ("customer", "customer", False, ["customer"]),
+            ("basic", "admin,seller,", True, ["provider"]),
+            ("customer", "buyer", False, ["customer"]),
             ("new_user", "seller", False, ["provider"], _new_user),
             ("empty", "", False, []),
             ("missing_header", "", False, [], _missing_header, False, True),
@@ -200,7 +200,7 @@ class AuthenticationMiddlewareTestCase(TestCase):
             "HTTP_X_NICK_NAME": "000000000000023",
             "HTTP_X_DISPLAY_NAME": "Test Org",
             "HTTP_X_ACTOR": "test-user",
-            "HTTP_X_ROLES": "customer",
+            "HTTP_X_ROLES": "buyer",
             "HTTP_AUTHORIZATION": "Bearer 1234567890abcdf",
             "HTTP_X_EMAIL": "org@email.com",
             "HTTP_X_EXT_NAME": "",

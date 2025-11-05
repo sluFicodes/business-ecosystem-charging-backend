@@ -78,7 +78,7 @@ class Engine:
                             "@referredType": "organization"
                         })
 
-                        if party["role"].lower() == "seller":
+                        if party["role"].lower() == settings.PROVIDER_ROLE.lower():
                             seller_id = party["id"]
 
                     logger.info("creating acbrs")

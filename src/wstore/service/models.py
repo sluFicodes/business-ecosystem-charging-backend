@@ -19,6 +19,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from djongo import models
+from django.conf import settings
 
 class Service(models.Model):
     _id = models.ObjectIdField()
@@ -41,7 +42,7 @@ class Service(models.Model):
             "relatedParty": [{
                 "id": self.party_id,
                 "href": self.party_id,
-                "role": "Customer"
+                "role": settings.CUSTOMER_ROLE,
             }],
             "serviceCharacteristic": [{
                 "name": charact["name"],
