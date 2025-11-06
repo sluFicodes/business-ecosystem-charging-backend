@@ -71,6 +71,7 @@ class PaymentConfirmation(Resource):
 
         # Notify order completed
         try:
+            logger.debug(f"Calling notify completed")
             om = OrderingManager()
             om.notify_completed(raw_order)
         except Exception as e:
@@ -184,6 +185,7 @@ class PaymentConfirmation(Resource):
         else:
             order.used = True
             logger.debug("signature validated and order marked as used")
+
         logger.debug(f"Payment confirmation request for order {order.order_id} OK")
         return confirm_action, reference, order
 
@@ -227,10 +229,14 @@ class PaymentConfirmation(Resource):
 
         transactions = pending_info["transactions"]
 
+        logger.debug(f"Transactions read for order {order.order_id}.")
+
         # build the payment client
         client = payment_client(order)
         order.sales_ids = client.end_redirection_payment(**payment_confirmation_data)
         order.save()
+
+        logger.debug(f"End redirection payment executed {order.order_id}.")
 
         charging_engine = ChargingEngine(order)
         charging_engine.end_charging(transactions, pending_info["free_contracts"], concept)
@@ -287,6 +293,7 @@ class PaymentConfirmation(Resource):
             raw_order = self.ordering_client.get_order(order.order_id)
 
             if confirm_action == "accept":
+                logger.debug(f"The confirm action is accept for order {order.order_id}.")
                 response = self._accept_confirmation_request(
                     reference, order, raw_order, request.user, payment_client, data
                 )
@@ -300,20 +307,28 @@ class PaymentConfirmation(Resource):
         except HTTPError as e:
             response = 400, f"Invalid request: {str(e)}"
         except PaymentClientError as e:
+            logger.debug(f"Payment client error: {str(e)}")
+
             self._set_order_failed(order, raw_order)
             response = 503, f"Error with payment service provider: {str(e)}"
         # Error while accepting payment, timed out.
         except PaymentTimeoutError as e:
             # order and raw order are guaranteed to be defined here.
+            logger.debug(f"Payment timeout error: {str(e)}")
+
             self._set_order_failed(order, raw_order)
             response = 403, f"The payment has timed out: {str(e)}"
         # Error while accepting payment, usually no permissions.
         except PaymentError as e:
             # order and raw order are guaranteed to be defined here.
+            logger.debug(f"Payment error: {str(e)}")
+
             self._set_order_failed(order, raw_order)
             response = 403, f"The payment has been canceled: {str(e)}"
         # Server error, catches everything.
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Error: {str(e)}")
+
             # order and raw order are guaranteed to be defined here.
             self._set_order_failed(order, raw_order)
             response = 500, "The payment has been canceled due to an unexpected error."
