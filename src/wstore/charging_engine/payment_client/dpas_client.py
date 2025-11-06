@@ -7,6 +7,7 @@ from django.conf import settings
 import os
 import requests
 import jwt
+import uuid
 
 from decimal import Decimal
 from logging import getLogger
@@ -31,7 +32,11 @@ class DpasClient(PaymentClient):
                 "productProviderSpecificData": {}
             }
             if "billId" in t:
-                payment_item["paymentItemExternalId"] = t["billId"], # this is the ID of the customer bill
+                payment_item["paymentItemExternalId"] = t["billId"] # this is the ID of the customer bill
+            else:
+                # If no bill ID we dont have a CustomerBill yet, so we generate a random UUID
+                # as the payment API requires this field to be set.
+                payment_item["paymentItemExternalId"] = str(uuid.uuid4())
 
             if "recurring" in t['related_model']:
                 payment_item.update({"recurring": True})
@@ -81,6 +86,9 @@ class DpasClient(PaymentClient):
         }
 
         try:
+            logger.debug(f"Using access token: {self._order.customer.userprofile.access_token}")
+            logger.debug(f"Contacting DPAS with payload: {payload}")
+
             response = requests.post(self.api_url, json=payload, headers=headers)
             response.raise_for_status()
             self._checkout_url = response.json()["redirectUrl"]
@@ -95,8 +103,11 @@ class DpasClient(PaymentClient):
 
         result = []
         if token is not None:
+            # TODO: We will need to be checking the different items one by one
             decoded = jwt.decode(token, options={"verify_signature": False})
-            result.append(decoded['paymentPreAuthorizationId'])
+
+            if 'paymentPreAuthorizationExternalId' in decoded:
+                result.append(decoded['paymentPreAuthorizationExternalId'])
 
         return result
 
