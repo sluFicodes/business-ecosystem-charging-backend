@@ -25,10 +25,10 @@ import datetime
 
 from decimal import Decimal
 from logging import getLogger
-from urllib.parse import urljoin, urlparse
 
 from django.conf import settings
 from wstore.store_commons.utils.url import get_service_url
+from wstore.store_commons.utils.party import get_operator_party_roles
 
 
 logger = getLogger("wstore.default_logger")
@@ -82,7 +82,7 @@ class BillingClient:
                 logger.error("Error updating customer rate: " + str(e))
                 raise
 
-    def create_customer_rate(self, rate_type, currency, tax_rate, tax, tax_included, tax_excluded, billing_account, coverage_period=None):
+    def create_customer_rate(self, rate_type, currency, tax_rate, tax, tax_included, tax_excluded, billing_account, coverage_period=None, party=[]):
         # TODO: Billing address and dates
         data = {
             # "appliedBillingRateType": rate_type,
@@ -114,9 +114,9 @@ class BillingClient:
             data["periodCoverage"] = coverage_period
 
         # Not necessary anymore; not a native attribute in tmforum
-        # if parties is not None:
-        #     data["relatedParty"] = parties
-        #     data["@schemaLocation"] = "https://raw.githubusercontent.com/DOME-Marketplace/dome-odrl-profile/refs/heads/add-related-party-ref/schemas/simplified/RelatedPartyRef.schema.json"
+        if party is not None:
+            data["relatedParty"] = party.extend(get_operator_party_roles())
+            data["@schemaLocation"] = settings.RELATED_PARTY_SCHEMA_LOCATION
 
         url = get_service_url("billing", "appliedCustomerBillingRate")
 
@@ -129,7 +129,7 @@ class BillingClient:
 
         return response.json()
 
-    def create_batch_customer_rates(self, rates):
+    def create_batch_customer_rates(self, rates, party):
         created_rates = []
         unbilled_to_auth = False
         prepaid_found = False
@@ -156,7 +156,7 @@ class BillingClient:
 
             new_rate = self.create_customer_rate(
                 rate_type, currency, tax_rate, tax, tax_included, tax_excluded,
-                billing_account, coverage_period=coverage_period)
+                billing_account, coverage_period=coverage_period, party=party)
 
             created_rates.append(new_rate)
 
@@ -214,6 +214,7 @@ class BillingClient:
 
         # resp = session.send(prepped)
         # resp.raise_for_status()
+
     def create_customer_bill(self, batch_acbr, billing_acc_ref, party):
         # bill generation time, not the period coverage
         current_time = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace('+00:00', 'Z')
@@ -236,11 +237,12 @@ class BillingClient:
             cb_aggr[acbr["type"]][period_key]["acbrRefs"].append({"id": acbr["id"]})
             unit = acbr["taxExcludedAmount"]["unit"] if unit is None else unit
 
-        for type_key , cb_type in cb_aggr.items():
+        for type_key, cb_type in cb_aggr.items():
             for cb_period in cb_type.values():
 
                 created_cb = self._create_cb_api(unit, float(cb_period["taxIncludedAmount"]), float(cb_period["taxExcludedAmount"]),
-                                    billing_acc_ref, current_time, cb_period["periodCoverage"], party)
+                                    billing_acc_ref, current_time, cb_period["periodCoverage"], party.extend(get_operator_party_roles()))
+
                 self.set_acbrs_cb(cb_period["acbrRefs"], created_cb["id"])
                 cbs.append({
                     "id": created_cb["id"],
@@ -248,7 +250,8 @@ class BillingClient:
                     "taxIncludedAmount": created_cb["taxIncludedAmount"]["value"],
                     "taxExcludedAmount": created_cb["taxExcludedAmount"]["value"],
                     "unit": unit
-                    })
+                })
+
         logger.info("---CUSTOMER BILL EXTRA DATA--- %s", cbs)
         return cbs
 

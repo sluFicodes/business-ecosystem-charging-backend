@@ -285,50 +285,6 @@ class OrderingManager:
             if offering.is_custom:
                 raise OrderingError(f"Custom pricing models are handled externally, please don't include a price in product")
 
-            # model_mapper = {
-            #     "one time": "single_payment",
-            #     "recurring": "subscription",
-            #     "usage": "pay_per_use",
-            # }
-
-            # price = self._get_effective_pricing(item["id"], item["product"]["productPrice"][0], offering_info)
-
-            # price_unit = self._parse_price(model_mapper, price)
-
-            # pricing["general_currency"] = price["price"]["taxIncludedAmount"]["unit"]
-            # pricing[model_mapper[price["priceType"].lower()]] = [price_unit]
-
-            # # Process price alterations
-            # # TODO: Current implementation of the Catalog API does not support price alterations
-            # if "productOfferPriceAlteration" in price:
-            #     alteration = price["productOfferPriceAlteration"]
-
-            #     # Check type of alteration (discount or fee)
-            #     if "discount" in alteration["name"].lower() and "fee" not in alteration["name"].lower():
-            #         # Is a discount
-            #         pricing["alteration"] = self._parse_alteration(alteration, "discount")
-
-            #     elif "discount" not in alteration["name"].lower() and "fee" in alteration["name"].lower():
-            #         # Is a fee
-            #         if "priceCondition" not in alteration or not len(alteration["priceCondition"]):
-            #             # In this case the alteration is processed as another price
-            #             price_unit = self._parse_price(model_mapper, alteration)
-
-            #             if model_mapper[alteration["priceType"].lower()] not in pricing:
-            #                 pricing[model_mapper[alteration["priceType"].lower()]] = []
-
-            #             pricing[model_mapper[alteration["priceType"].lower()]].append(price_unit)
-            #         else:
-            #             pricing["alteration"] = self._parse_alteration(alteration, "fee")
-            #     else:
-            #         logger.error("Invalid price alteration")
-            #         raise OrderingError(
-            #             "Invalid price alteration, it is not possible to determine if it is a discount or a fee"
-            #         )
-
-        # Calculate the revenue sharing class
-        # revenue_class = offering_info["serviceCandidate"]["id"]
-
         return Contract(
             item_id=item["id"],
             pricing_model=pricing,

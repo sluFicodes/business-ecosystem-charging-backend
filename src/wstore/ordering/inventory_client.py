@@ -30,6 +30,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
 from wstore.store_commons.utils.url import get_service_url
+from wstore.store_commons.utils.party import get_operator_party_roles
 
 
 class InventoryClient:
@@ -189,8 +190,8 @@ class InventoryClient:
         resource_spec = self.download_spec("resource_catalog", '/resourceSpecification', resource_id)
 
         resource = {
-            #"resourceCharacteristic": [self.build_inventory_char(char, "resourceSpecCharacteristicValue") for char in resource_spec["resourceSpecCharacteristic"]],
-            "relatedParty": [customer_party],
+            "resourceCharacteristic": [self.build_inventory_char(char, "resourceSpecCharacteristicValue") for char in resource_spec["resourceSpecCharacteristic"]],
+            "relatedParty": [customer_party].extend(get_operator_party_roles()),
             "resourceStatus": "reserved",
             "startOperatingDate": datetime.now().isoformat() + "Z"
         }
@@ -213,7 +214,7 @@ class InventoryClient:
         service_spec = self.download_spec("service_catalog", '/serviceSpecification', service_id)
         service = {
             "serviceCharacteristic": [self.build_inventory_char(char, "characteristicValueSpecification") for char in service_spec["specCharacteristic"]],
-            "relatedParty": [customer_party],
+            "relatedParty": [customer_party].extend(get_operator_party_roles()),
             "state": "reserved",
             "startDate": datetime.now().isoformat() + "Z"
         }
@@ -279,6 +280,6 @@ class InventoryClient:
                 "role": party["role"],
                 "@referredType": "organization"
             } for party in product["relatedParty"]
-        ]
+        ].extend(get_operator_party_roles())
 
         return product

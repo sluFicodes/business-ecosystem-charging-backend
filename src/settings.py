@@ -56,6 +56,9 @@ AUTH_PROFILE_MODULE = "wstore.models.UserProfile"
 ADMIN_ROLE = "admin"
 PROVIDER_ROLE = "Seller"
 CUSTOMER_ROLE = "Buyer"
+SELLER_OPERATOR_ROLE = "SellerOperator"
+BUYER_OPERATOR_ROLE = "BuyerOperator"
+
 
 LOGGING = {
     "version": 1,
@@ -216,6 +219,9 @@ NOTIF_CERT_KEY_FILE = None
 PROPAGATE_TOKEN = True
 
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
+
+OPERATOR_ID = None
+RELATED_PARTY_SCHEMA_LOCATION="https://raw.githubusercontent.com/DOME-Marketplace/dome-odrl-profile/refs/heads/add-related-party-ref/schemas/simplified/RelatedPartyRef.schema.json"
 
 # =====================================
 # ENVIRONMENT SETTINGS
