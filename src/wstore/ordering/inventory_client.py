@@ -189,9 +189,12 @@ class InventoryClient:
         # Get resource specification        
         resource_spec = self.download_spec("resource_catalog", '/resourceSpecification', resource_id)
 
+        parties = [customer_party]
+        parties.extend(get_operator_party_roles())
+
         resource = {
             "resourceCharacteristic": [self.build_inventory_char(char, "resourceSpecCharacteristicValue") for char in resource_spec["resourceSpecCharacteristic"]],
-            "relatedParty": [customer_party].extend(get_operator_party_roles()),
+            "relatedParty": parties,
             "resourceStatus": "reserved",
             "startOperatingDate": datetime.now().isoformat() + "Z"
         }
@@ -212,9 +215,13 @@ class InventoryClient:
     def create_service(self, service_id, customer_party):
         # Get service specification
         service_spec = self.download_spec("service_catalog", '/serviceSpecification', service_id)
+
+        parties = [customer_party]
+        parties.extend(get_operator_party_roles())
+
         service = {
             "serviceCharacteristic": [self.build_inventory_char(char, "characteristicValueSpecification") for char in service_spec["specCharacteristic"]],
-            "relatedParty": [customer_party].extend(get_operator_party_roles()),
+            "relatedParty": parties,
             "state": "reserved",
             "startDate": datetime.now().isoformat() + "Z"
         }
@@ -280,6 +287,8 @@ class InventoryClient:
                 "role": party["role"],
                 "@referredType": "organization"
             } for party in product["relatedParty"]
-        ].extend(get_operator_party_roles())
+        ]
+
+        product["relatedParty"].extend(get_operator_party_roles())
 
         return product

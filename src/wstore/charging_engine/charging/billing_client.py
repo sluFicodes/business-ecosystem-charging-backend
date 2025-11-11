@@ -115,7 +115,8 @@ class BillingClient:
 
         # Not necessary anymore; not a native attribute in tmforum
         if party is not None:
-            data["relatedParty"] = party.extend(get_operator_party_roles())
+            data["relatedParty"] = party
+            data["relatedParty"].extend(get_operator_party_roles())
             data["@schemaLocation"] = settings.RELATED_PARTY_SCHEMA_LOCATION
 
         url = get_service_url("billing", "appliedCustomerBillingRate")
@@ -240,8 +241,9 @@ class BillingClient:
         for type_key, cb_type in cb_aggr.items():
             for cb_period in cb_type.values():
 
+                party.extend(get_operator_party_roles())
                 created_cb = self._create_cb_api(unit, float(cb_period["taxIncludedAmount"]), float(cb_period["taxExcludedAmount"]),
-                                    billing_acc_ref, current_time, cb_period["periodCoverage"], party.extend(get_operator_party_roles()))
+                                    billing_acc_ref, current_time, cb_period["periodCoverage"], party)
 
                 self.set_acbrs_cb(cb_period["acbrRefs"], created_cb["id"])
                 cbs.append({
