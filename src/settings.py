@@ -220,8 +220,8 @@ PROPAGATE_TOKEN = True
 
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 
-OPERATOR_ID = None
-RELATED_PARTY_SCHEMA_LOCATION="https://raw.githubusercontent.com/DOME-Marketplace/dome-odrl-profile/refs/heads/add-related-party-ref/schemas/simplified/RelatedPartyRef.schema.json"
+OPERATOR_ID = ''
+RELATED_PARTY_SCHEMA_LOCATION="https://raw.githubusercontent.com/Ficodes/tmf-schemas/refs/heads/main/schemas/relatedPartyRef.schema.json"
 
 # =====================================
 # ENVIRONMENT SETTINGS
