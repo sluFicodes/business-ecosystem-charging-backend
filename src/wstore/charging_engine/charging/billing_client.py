@@ -28,7 +28,7 @@ from logging import getLogger
 
 from django.conf import settings
 from wstore.store_commons.utils.url import get_service_url
-from wstore.store_commons.utils.party import get_operator_party_roles
+from wstore.store_commons.utils.party import get_operator_party_roles, normalize_party_ref
 
 
 logger = getLogger("wstore.default_logger")
@@ -113,9 +113,8 @@ class BillingClient:
         if coverage_period is not None:
             data["periodCoverage"] = coverage_period
 
-        # Not necessary anymore; not a native attribute in tmforum
         if party is not None:
-            data["relatedParty"] = party
+            data["relatedParty"] = [normalize_party_ref(party_ref) for party_ref in party]
             data["relatedParty"].extend(get_operator_party_roles())
             data["@schemaLocation"] = settings.RELATED_PARTY_SCHEMA_LOCATION
 
@@ -241,9 +240,11 @@ class BillingClient:
         for type_key, cb_type in cb_aggr.items():
             for cb_period in cb_type.values():
 
-                party.extend(get_operator_party_roles())
+                normalized_parties = [normalize_party_ref(party_ref) for party_ref in party]
+                normalized_parties.extend(get_operator_party_roles())
+
                 created_cb = self._create_cb_api(unit, float(cb_period["taxIncludedAmount"]), float(cb_period["taxExcludedAmount"]),
-                                    billing_acc_ref, current_time, cb_period["periodCoverage"], party)
+                                    billing_acc_ref, current_time, cb_period["periodCoverage"], normalized_parties)
 
                 self.set_acbrs_cb(cb_period["acbrRefs"], created_cb["id"])
                 cbs.append({

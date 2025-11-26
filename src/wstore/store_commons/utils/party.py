@@ -27,6 +27,8 @@ from wstore.store_commons.utils.url import get_service_url
 CACHE_KEY = "operator:party_id"
 CACHE_TTL = 24 * 3600  # 1 day
 
+PARTY_TTL = 2 * 3600  # 2 hours
+
 
 class PartyClient:
 
@@ -68,6 +70,22 @@ class PartyClient:
 
         return party_id
 
+    def get_party_ext_id(self, party_id):
+        party_url = get_service_url('party', f'/organization/{party_id}')
+
+        response = requests.get(party_url)
+
+        party_ext_id = None
+        if response.status_code == 200:
+            data = response.json()
+
+            for ext_ref in data.get('externalReference', []):
+                if ext_ref['externalReferenceType'] == 'idm_id':
+                    party_ext_id = ext_ref['name']
+                    break
+
+        return party_ext_id
+
 
 def get_operator_party_id():
     party_id = cache.get(CACHE_KEY)
@@ -98,3 +116,34 @@ def get_operator_party_roles():
         }])
 
     return related_parties
+
+
+def normalize_party_ref(party_ref):
+    party_id = party_ref["id"]
+
+    cache_key = f"party_ext:{party_id}"
+    party_ext_id = cache.get(cache_key)
+    if party_ext_id is None:
+        client = PartyClient()
+        party_ext_id = client.get_party_ext_id(party_id)
+
+        if party_ext_id is not None:
+            cache.set(cache_key, party_ext_id, PARTY_TTL)
+
+    referredType = "Organization" if "organization" in party_id.lower() else "Individual"
+
+    href = party_id
+    if "href" in party_ref:
+        href = party_ref["href"]
+
+    related_party = {
+        "id": party_id,
+        "href": href,
+        "role": party_ref["role"],
+        "@referredType": referredType
+    }
+
+    if party_ext_id is not None:
+        related_party["name"] = party_ext_id
+
+    return related_party

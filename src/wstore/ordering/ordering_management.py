@@ -552,14 +552,14 @@ class OrderingManager:
             if "resourceSpecification" in spec_info:
                 # Create resources in the inventory
                 resources = [
-                    inventory_client.create_resource(resource["id"], customer_party)
+                    inventory_client.create_resource(resource["id"], product["relatedParty"])
                     for resource in spec_info["resourceSpecification"]
                 ]
 
             if "serviceSpecification" in spec_info:
                 # Create services in the inventory
                 services = [
-                    inventory_client.create_service(service["id"], customer_party)
+                    inventory_client.create_service(service["id"], product["relatedParty"])
                     for service in spec_info["serviceSpecification"]
                 ]
 
