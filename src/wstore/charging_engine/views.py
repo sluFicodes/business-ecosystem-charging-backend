@@ -270,8 +270,7 @@ class PaymentConfirmation(Resource):
         # Set the order to failed in the ordering API
         # Set all items as Failed, mark the whole order as Failed
         # client.update_state(raw_order, 'Failed')
-        self.ordering_client.update_all_states(raw_order, "failed")
-        order.delete()
+        self._set_order_failed(order, raw_order)
 
         logger.debug(f"Payment candelled for order {order.order_id}.")
         return 200, "Ok"
