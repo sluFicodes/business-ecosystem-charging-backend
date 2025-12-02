@@ -56,6 +56,7 @@ class Engine:
             transactions = []
             billing_client = BillingClient()
             for contract in self._order.contracts:
+                # TODO: In the future I will transform this _get_item that is O(n^2) to a hashmap o Dict in this case that is O(1) complexity
                 item = self._get_item(contract.item_id, raw_order)
 
                 response = self.execute_billing(item, raw_order)
@@ -92,11 +93,11 @@ class Engine:
                     transactions.append({
                         "item": contract.item_id,
                         "provider": seller_id,
-                        "billId": cb["id"],
-                        "price": cb["taxIncludedAmount"],
-                        "duty_free": cb["taxExcludedAmount"],
+                        "billId": created_cb["id"],
+                        "price": created_cb["taxIncludedAmount"],
+                        "duty_free": created_cb["taxExcludedAmount"],
                         "description": '',
-                        "currency": cb["unit"],
+                        "currency": created_cb["unit"],
                         "recurring": recurring, # related_model is not used apart from local_engine_v1 so we can replace it with recurring: Boolean
                     })
 
@@ -131,8 +132,9 @@ class Engine:
             # Call the payment gateway
             client.start_redirection_payment(transactions)
             logger.info("customer bill setting to 'sent'")
-            for cb in created_cb_list:
-                billing_client.set_customer_bill("sent", cb["id"])
+            for contract in new_contracts:
+                item_cb = contract
+                billing_client.set_customer_bill("sent", item_cb["id"])
 
             # Return the redirect URL to process the payment
             logger.info("Billing processed")
