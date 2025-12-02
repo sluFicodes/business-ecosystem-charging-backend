@@ -172,129 +172,72 @@ class BillingClientTestCase(TestCase):
         (
             "single_onetime",
             ACBR_SINGLE_ONETIME,
-            1,  # Expected number of customer bills
-            [
                 {
-                    "type": "one time",
                     "taxIncludedAmount": 12.10,
                     "taxExcludedAmount": 10.0,
                     "acbr_count": 1
                 }
-            ]
         ),
         (
             "multiple_onetime_same_period_aggregates",
             ACBR_MULTIPLE_ONETIME_SAME_PERIOD,
-            1,  # Should aggregate into 1 customer bill
-            [
-                {
-                    "type": "one time",
-                    "taxIncludedAmount": 18.15,  # 12.10 + 6.05
-                    "taxExcludedAmount": 15.0,    # 10.0 + 5.0
-                    "acbr_count": 2
-                }
-            ]
+            {
+                "taxIncludedAmount": 18.15,  # 12.10 + 6.05
+                "taxExcludedAmount": 15.0,    # 10.0 + 5.0
+                "acbr_count": 2
+            }
         ),
         (
             "multiple_recurring_same_period_aggregates",
             ACBR_MULTIPLE_RECURRING_SAME_PERIOD,
-            1,  # Should aggregate into 1 customer bill
-            [
                 {
-                    "type": "recurring",
                     "taxIncludedAmount": 30.25,  # 18.15 + 12.10
                     "taxExcludedAmount": 25.0,    # 15.0 + 10.0
                     "acbr_count": 2
                 }
-            ]
         ),
         (
             "mixed_types_same_period_no_aggregate",
             ACBR_MIXED_TYPES_SAME_PERIOD,
-            2,  # Should create 2 separate customer bills
-            [
+            
                 {
-                    "type": "one time",
-                    "taxIncludedAmount": 12.10,
-                    "taxExcludedAmount": 10.0,
-                    "acbr_count": 1
-                },
-                {
-                    "type": "recurring",
-                    "taxIncludedAmount": 18.15,
-                    "taxExcludedAmount": 15.0,
-                    "acbr_count": 1
+                    "taxIncludedAmount": 30.25, # 12.10 + 18.15
+                    "taxExcludedAmount": 25, # 10 + 15
+                    "acbr_count": 2
                 }
-            ]
         ),
         (
             "same_type_diff_period_no_aggregate",
             ACBR_SAME_TYPE_DIFF_PERIOD,
-            2,  # Should create 2 separate customer bills
-            [
+            
                 {
                     "type": "recurring",
-                    "taxIncludedAmount": 18.15,
-                    "taxExcludedAmount": 15.0,
-                    "acbr_count": 1
-                },
-                {
-                    "type": "recurring",
-                    "taxIncludedAmount": 18.15,
-                    "taxExcludedAmount": 15.0,
-                    "acbr_count": 1
+                    "taxIncludedAmount": 36.30, # 18.15 + 18.15
+                    "taxExcludedAmount": 30.0,
+                    "acbr_count": 2
                 }
-            ]
         ),
         (
             "complex_scenario",
             ACBR_COMPLEX,
-            3,  # Should create 3 customer bills: 1 onetime + 2 recurring (different periods)
-            [
                 {
                     "type": "one time",
-                    "taxIncludedAmount": 18.15,  # 12.10 + 6.05
-                    "taxExcludedAmount": 15.0,    # 10.0 + 5.0
-                    "acbr_count": 2
-                },
-                {
-                    "type": "recurring",
-                    "taxIncludedAmount": 18.15,
-                    "taxExcludedAmount": 15.0,
-                    "acbr_count": 1
-                },
-                {
-                    "type": "recurring",
-                    "taxIncludedAmount": 18.15,
-                    "taxExcludedAmount": 15.0,
-                    "acbr_count": 1
+                    "taxIncludedAmount": 54.45,  # 12.10 + 6.05 + 18.15 + 18.15
+                    "taxExcludedAmount": 45.0,    # 10.0 + 5.0 + 15 + 15
+                    "acbr_count": 4
                 }
-            ]
-        ),
+        )
     ])
-    def test_create_customer_bill_aggregation(self, name, acbrs, expected_cb_count, expected_cbs):
+    def test_create_customer_bill_aggregation(self, name, acbrs, expected_cb):
         client = BillingClient()
 
         billing_acc_ref = {"id": "billing-account-1"}
         party = [{"id": "party-1", "role": "Customer"}]
 
-        # Mock _create_cb_api to return a mock customer bill
-        mock_cb_responses = []
-        for i in range(expected_cb_count):
-            mock_cb_responses.append({
-                "id": f"cb-{i+1}",
-                "taxIncludedAmount": {"unit": "EUR", "value": 0.0},  # Will be overridden
-                "taxExcludedAmount": {"unit": "EUR", "value": 0.0}   # Will be overridden
-            })
-
-        call_index = [0]  # Use list to allow modification in nested function
-
-        def mock_create_cb_api(unit, taxIncluded, taxExcluded, billing_acc_ref, current_time, periodCoverage, party):
-            response = mock_cb_responses[call_index[0]].copy()
-            response["taxIncludedAmount"] = {"unit": unit, "value": taxIncluded}
-            response["taxExcludedAmount"] = {"unit": unit, "value": taxExcluded}
-            call_index[0] += 1
-            return response
+        def mock_create_cb_api(unit, taxIncluded, taxExcluded, billing_acc_ref, current_time, party):
+            return{
+                "id": "123"
+            }
 
         client._create_cb_api = MagicMock(side_effect=mock_create_cb_api)
         client.set_acbrs_cb = MagicMock()
@@ -302,27 +245,13 @@ class BillingClientTestCase(TestCase):
         # Execute
         result = client.create_customer_bill(acbrs, billing_acc_ref, party)
 
-        # Assertions
-        self.assertEqual(len(result), expected_cb_count,
-                        f"Expected {expected_cb_count} customer bills, got {len(result)}")
+        self.assertAlmostEqual(float(result["taxIncludedAmount"]), expected_cb["taxIncludedAmount"], places=2)
+        self.assertAlmostEqual(float(result["taxExcludedAmount"]), expected_cb["taxExcludedAmount"], places=2)
+        self.assertEqual(len(result["acbrRefs"]), expected_cb["acbr_count"])
+        self.assertEqual(result["unit"], "EUR")
 
-        # Verify each customer bill
-        for i, expected in enumerate(expected_cbs):
-            actual = result[i]
-            self.assertEqual(actual["type"], expected["type"])
-            self.assertAlmostEqual(float(actual["taxIncludedAmount"]), expected["taxIncludedAmount"], places=2)
-            self.assertAlmostEqual(float(actual["taxExcludedAmount"]), expected["taxExcludedAmount"], places=2)
-            self.assertEqual(actual["unit"], "EUR")
-
-        # Verify _create_cb_api was called the correct number of times
-        self.assertEqual(client._create_cb_api.call_count, expected_cb_count)
+        # Verify _create_cb_api was called only once
+        client._create_cb_api.assert_called_once()
 
         # Verify set_acbrs_cb was called correctly
-        total_acbr_refs = sum(expected["acbr_count"] for expected in expected_cbs)
-        self.assertEqual(client.set_acbrs_cb.call_count, expected_cb_count)
-
-        # Verify that each set_acbrs_cb call has the correct number of ACBRs
-        for i, call in enumerate(client.set_acbrs_cb.call_args_list):
-            acbr_refs = call[0][0]  # First argument is the list of ACBR refs
-            self.assertEqual(len(acbr_refs), expected_cbs[i]["acbr_count"],
-                           f"Customer bill {i} should have {expected_cbs[i]['acbr_count']} ACBRs")
+        client.set_acbrs_cb.assert_called_once()

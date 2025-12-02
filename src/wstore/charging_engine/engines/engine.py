@@ -52,9 +52,6 @@ class Engine:
     def process_initial_charging(self, raw_order):
         try:
             # The billing engine processes the products one by one
-
-            # TODO: Potentially another filter needs to be included as
-            # recurring postpaid and usage models are not paid now
             new_contracts = []
             transactions = []
             billing_client = BillingClient()
@@ -83,19 +80,16 @@ class Engine:
 
                     logger.info("creating acbrs")
                     # Create the Billing rates as not billed
-                    created_rates, unbilled_to_auth = billing_client.create_batch_customer_rates(response)
-                    # If there is no rates and no usages/postpaids
-                    if len(created_rates)==0 and not unbilled_to_auth:
-                        return None
+                    created_rates, recurring = billing_client.create_batch_customer_rates(response)
 
                     logger.info("creating customer bills")
-                    created_cb_list = billing_client.create_customer_bill(created_rates, raw_order["billingAccount"], curated_party)
+                    created_cb = billing_client.create_customer_bill(created_rates, raw_order["billingAccount"], curated_party)
 
                     contract.applied_rates = [ n_rate["id"] for n_rate in created_rates ]
-                    contract.customer_bills = [cb["id"] for cb in created_cb_list]
+                    contract.customer_bill = created_cb
                     new_contracts.append(contract)
 
-                    transactions.extend([{
+                    transactions.append({
                         "item": contract.item_id,
                         "provider": seller_id,
                         "billId": cb["id"],
@@ -103,16 +97,8 @@ class Engine:
                         "duty_free": cb["taxExcludedAmount"],
                         "description": '',
                         "currency": cb["unit"],
-                        "related_model": cb["type"].lower(),
-                    } for cb in created_cb_list])
-
-                    if unbilled_to_auth is True:
-                        transactions.append({
-                            "item": contract.item_id,
-                            "provider": seller_id,
-                            "description": '',
-                            "related_model": "recurring", # usage or postpaid are considered recurring from here
-                        })
+                        "recurring": recurring, # related_model is not used apart from local_engine_v1 so we can replace it with recurring: Boolean
+                    })
 
 
             if len(transactions) == 0:
