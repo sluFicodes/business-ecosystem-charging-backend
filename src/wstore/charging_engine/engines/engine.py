@@ -118,8 +118,12 @@ class Engine:
             self._order.hash_key = uuid.uuid4().hex.encode()
             self._order.used = False
             try:
+                logger.debug(f"Saving order {self._order.order_id}")
                 self._order.save()
+                logger.debug(f"Order {self._order.order_id} saved successfully")
             except DatabaseError as e:
+                logger.error(f"Error saving order {self._order.order_id}: {str(e)}")
+                logger.exception("Database error details:")
                 raise
 
             # Load payment client
@@ -133,7 +137,7 @@ class Engine:
             client.start_redirection_payment(transactions)
             logger.info("customer bill setting to 'sent'")
             for contract in new_contracts:
-                item_cb = contract
+                item_cb = contract.customer_bill
                 billing_client.set_customer_bill("sent", item_cb["id"])
 
             # Return the redirect URL to process the payment

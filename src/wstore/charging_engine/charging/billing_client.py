@@ -230,6 +230,9 @@ class BillingClient:
         self.set_acbrs_cb(cb["acbrRefs"], created_cb["id"])
 
         cb["id"] = created_cb["id"]
+        # Remove Decimal type
+        cb["taxIncludedAmount"] = created_cb["taxIncludedAmount"]["value"]
+        cb["taxExcludedAmount"] = created_cb["taxExcludedAmount"]["value"]
         cb["unit"] = unit
         logger.info("---CUSTOMER BILL EXTRA DATA--- %s", cb)
         return cb
