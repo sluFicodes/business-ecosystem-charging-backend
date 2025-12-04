@@ -83,6 +83,7 @@ class Engine:
                     # Create the Billing rates as not billed
                     created_rates, recurring = billing_client.create_batch_customer_rates(response)
 
+                    # created_cb is {} if there is no billable rates
                     logger.info("creating customer bills")
                     created_cb = billing_client.create_customer_bill(created_rates, raw_order["billingAccount"], curated_party)
 
@@ -93,11 +94,11 @@ class Engine:
                     transactions.append({
                         "item": contract.item_id,
                         "provider": seller_id,
-                        "billId": created_cb["id"],
-                        "price": created_cb["taxIncludedAmount"],
-                        "duty_free": created_cb["taxExcludedAmount"],
+                        "billId": created_cb.get("id", str(uuid.uuid4())),
+                        "price": created_cb.get("taxIncludedAmount", 0),
+                        "duty_free": created_cb.get("taxExcludedAmount", 0),
                         "description": '',
-                        "currency": created_cb["unit"],
+                        "currency": created_cb.get("unit", "EUR"),
                         "recurring": recurring, # related_model is not used apart from local_engine_v1 so we can replace it with recurring: Boolean
                     })
 
@@ -138,7 +139,8 @@ class Engine:
             logger.info("customer bill setting to 'sent'")
             for contract in new_contracts:
                 item_cb = contract.customer_bill
-                billing_client.set_customer_bill("sent", item_cb["id"])
+                if "id" in item_cb:
+                    billing_client.set_customer_bill("sent", item_cb["id"])
 
             # Return the redirect URL to process the payment
             logger.info("Billing processed")

@@ -211,6 +211,8 @@ class BillingClient:
         # resp = session.send(prepped)
         # resp.raise_for_status()
     def create_customer_bill(self, batch_acbr, billing_acc_ref, party):
+        if len(batch_acbr) == 0:
+            return {}
         # bill generation time, not the period coverage
         current_time = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace('+00:00', 'Z')
         unit = None
