@@ -222,6 +222,7 @@ class BillingClient:
             "acbrRefs": []
         }
         for acbr in batch_acbr: # at this point there are only one times and recurring prepaids
+            logger.info("---ACBR--- %s", acbr)
             cb["taxExcludedAmount"] += Decimal(repr(acbr["taxExcludedAmount"]["value"]))
             cb["taxIncludedAmount"] += Decimal(repr(acbr["taxIncludedAmount"]["value"])) # I need to discuss this incosistency with Fran
             cb["acbrRefs"].append({"id": acbr["id"]})
