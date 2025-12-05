@@ -221,10 +221,14 @@ class PriceEngine:
         )  # Greece in fiscal contexts uses EL as country code
         args = {"memberStates": {"isoCode": customer_country}, "situationOn": date_now}
 
-        client = Client(wsdl=WSDL_URL, settings=Settings())
+        try:
+            client = Client(wsdl=WSDL_URL, settings=Settings())
 
-        # Change endpoint manually (if the WSDL points to HTTP instead of HTTPS)
-        client.service._binding_options["address"] = ENDPOINT_URL
+            # Change endpoint manually (if the WSDL points to HTTP instead of HTTPS)
+            client.service._binding_options["address"] = ENDPOINT_URL
+        except Exception as e:
+            logger.error(f"Failed to load WSDL from EU service: {e}")
+            raise
 
         # Send the request
         try:

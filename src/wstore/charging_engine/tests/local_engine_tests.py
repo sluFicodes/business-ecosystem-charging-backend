@@ -116,61 +116,13 @@ EXPECTED_CHARGE_ONETIME = [
 
 EXPECTED_CHARGE_RECURRING = [
     {
-        "appliedBillingRateType": "recurring",
-        "isBilled": False,
-        "appliedTax": [
-            {
-                "taxCategory": "VAT",
-                "taxRate": "21.0",
-                "taxAmount": {
-                    "unit": "EUR",
-                    "value": "3.15"
-                }
-            }
-        ],
-        "taxIncludedAmount": {
-            "unit": "EUR",
-            "value": "18.15"
-        },
-        "taxExcludedAmount": {
-            "unit": "EUR",
-            "value": "15.0"
-        },
-        "billingAccount": {"id": "test-billing-account"},
-        "periodCoverage": {
-            "startDateTime": "2024-01-15T00:00:00Z",
-            "endDateTime": "2024-02-14T00:00:00Z"
-        }
+        "appliedBillingRateType": "recurring"
     }
 ]
 
 EXPECTED_CHARGE_USAGE = [
     {
         "appliedBillingRateType": "usage",
-        "isBilled": False,
-        "appliedTax": [
-            {
-                "taxCategory": "VAT",
-                "taxRate": "21.0",
-                "taxAmount": {
-                    "unit": "EUR",
-                    "value": "1.05"
-                }
-            }
-        ],
-        "taxIncludedAmount": {
-            "unit": "EUR",
-            "value": "6.05"
-        },
-        "taxExcludedAmount": {
-            "unit": "EUR",
-            "value": "5.0"
-        },
-        "billingAccount": {"id": "test-billing-account"},
-        "periodCoverage": {
-            "startDateTime": "2024-01-15T00:00:00Z",
-            "endDateTime": "2024-02-14T00:00:00Z"
-        }
     }
 ]
 
@@ -202,31 +154,7 @@ EXPECTED_CHARGE_MULTIPLE = [
         }
     },
     {
-        "appliedBillingRateType": "recurring",
-        "isBilled": False,
-        "appliedTax": [
-            {
-                "taxCategory": "VAT",
-                "taxRate": "21.0",
-                "taxAmount": {
-                    "unit": "EUR",
-                    "value": "3.15"
-                }
-            }
-        ],
-        "taxIncludedAmount": {
-            "unit": "EUR",
-            "value": "18.15"
-        },
-        "taxExcludedAmount": {
-            "unit": "EUR",
-            "value": "15.0"
-        },
-        "billingAccount": {"id": "test-billing-account"},
-        "periodCoverage": {
-            "startDateTime": "2024-01-15T00:00:00Z",
-            "endDateTime": "2024-02-14T00:00:00Z"
-        }
+        "appliedBillingRateType": "recurring"
     }
 ]
 

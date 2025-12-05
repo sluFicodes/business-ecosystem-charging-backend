@@ -52,13 +52,11 @@ class Engine:
     def process_initial_charging(self, raw_order):
         try:
             # The billing engine processes the products one by one
-
-            # TODO: Potentially another filter needs to be included as
-            # recurring postpaid and usage models are not paid now
             new_contracts = []
             transactions = []
             billing_client = BillingClient()
             for contract in self._order.contracts:
+                # TODO: In the future I will transform this _get_item that is O(n^2) to a hashmap o Dict in this case that is O(1) complexity
                 item = self._get_item(contract.item_id, raw_order)
 
                 response = self.execute_billing(item, raw_order)
@@ -83,36 +81,26 @@ class Engine:
 
                     logger.info("creating acbrs")
                     # Create the Billing rates as not billed
-                    created_rates, unbilled_to_auth = billing_client.create_batch_customer_rates(response)
-                    # If there is no rates and no usages/postpaids
-                    if len(created_rates)==0 and not unbilled_to_auth:
-                        return None
+                    created_rates, recurring = billing_client.create_batch_customer_rates(response)
 
+                    # created_cb is {} if there is no billable rates
                     logger.info("creating customer bills")
-                    created_cb_list = billing_client.create_customer_bill(created_rates, raw_order["billingAccount"], curated_party)
+                    created_cb = billing_client.create_customer_bill(created_rates, raw_order["billingAccount"], curated_party)
 
                     contract.applied_rates = [ n_rate["id"] for n_rate in created_rates ]
-                    contract.customer_bills = [cb["id"] for cb in created_cb_list]
+                    contract.customer_bill = created_cb
                     new_contracts.append(contract)
 
-                    transactions.extend([{
+                    transactions.append({
                         "item": contract.item_id,
                         "provider": seller_id,
-                        "billId": cb["id"],
-                        "price": cb["taxIncludedAmount"],
-                        "duty_free": cb["taxExcludedAmount"],
+                        "billId": created_cb.get("id", str(uuid.uuid4())),
+                        "price": created_cb.get("taxIncludedAmount", 0),
+                        "duty_free": created_cb.get("taxExcludedAmount", 0),
                         "description": '',
-                        "currency": cb["unit"],
-                        "related_model": cb["type"].lower(),
-                    } for cb in created_cb_list])
-
-                    if unbilled_to_auth is True:
-                        transactions.append({
-                            "item": contract.item_id,
-                            "provider": seller_id,
-                            "description": '',
-                            "related_model": "recurring", # usage or postpaid are considered recurring from here
-                        })
+                        "currency": created_cb.get("unit", "EUR"),
+                        "recurring": recurring, # related_model is not used apart from local_engine_v1 so we can replace it with recurring: Boolean
+                    })
 
 
             if len(transactions) == 0:
@@ -131,8 +119,12 @@ class Engine:
             self._order.hash_key = uuid.uuid4().hex.encode()
             self._order.used = False
             try:
+                logger.debug(f"Saving order {self._order.order_id}")
                 self._order.save()
+                logger.debug(f"Order {self._order.order_id} saved successfully")
             except DatabaseError as e:
+                logger.error(f"Error saving order {self._order.order_id}: {str(e)}")
+                logger.exception("Database error details:")
                 raise
 
             # Load payment client
@@ -145,8 +137,10 @@ class Engine:
             # Call the payment gateway
             client.start_redirection_payment(transactions)
             logger.info("customer bill setting to 'sent'")
-            for cb in created_cb_list:
-                billing_client.set_customer_bill("sent", cb["id"])
+            for contract in new_contracts:
+                item_cb = contract.customer_bill
+                if "id" in item_cb:
+                    billing_client.set_customer_bill("sent", item_cb["id"])
 
             # Return the redirect URL to process the payment
             logger.info("Billing processed")

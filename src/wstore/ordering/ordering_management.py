@@ -685,11 +685,11 @@ class OrderingManager:
                 billing_client.update_customer_rate(inv_id, new_product["id"])
 
             logger.info("updating cb")
-            for cb_id in contract.customer_bills:
-                logger.info("for inside")
-                billing_client = BillingClient()
-                # TODO: propagate currency unit through the contract; TBD if it is needed or not
-                billing_client.set_customer_bill("settled", cb_id)
+            billing_client = BillingClient()
+            # TODO: propagate currency unit through the contract; TBD if it is needed or not
+            item_cb = contract.customer_bill
+            if "id" in item_cb:
+                billing_client.set_customer_bill("settled", item_cb["id"])
 
             logger.info("Rates and bill updated")
             self.activate_product(order["id"], new_product)
@@ -744,11 +744,11 @@ class OrderingManager:
                     billing_client.update_customer_rate(inv_id, new_product["id"])
 
                 logger.info("updating cb")
-                for cb_id in contract.customer_bills:
-                    logger.info("for inside")
-                    billing_client = BillingClient()
-                    # TODO: propagate currency unit through the contract; TBD if it is needed or not
-                    billing_client.set_customer_bill("settled", cb_id)
+                billing_client = BillingClient()
+                # TODO: propagate currency unit through the contract; TBD if it is needed or not
+                item_cb = contract.customer_bill
+                if "id" in item_cb:
+                    billing_client.set_customer_bill("settled", item_cb["id"])
 
                 # Activate asset
                 try:

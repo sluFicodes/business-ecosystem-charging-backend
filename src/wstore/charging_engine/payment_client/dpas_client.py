@@ -31,28 +31,11 @@ class DpasClient(PaymentClient):
             payment_item = {
                 "productProviderExternalId": t["provider"], # This is the provider party ID
                 "currency": t.get("currency", "EUR"),
-                "productProviderSpecificData": {}
+                "productProviderSpecificData": {},
+                "paymentItemExternalId" : t["billId"], # this is the ID of the customer bill
+                "recurring": t["recurring"],
+                "amount": float(t['price'])
             }
-            if "billId" in t:
-                payment_item["paymentItemExternalId"] = t["billId"] # this is the ID of the customer bill
-            else:
-                # If no bill ID we dont have a CustomerBill yet, so we generate a random UUID
-                # as the payment API requires this field to be set.
-                payment_item["paymentItemExternalId"] = str(uuid.uuid4())
-
-            if "recurring" in t['related_model']:
-                payment_item.update({"recurring": True})
-
-                # Recurring prepaid payment is processed now
-                if t["related_model"] == "recurring-prepaid":
-                    payment_item.update({
-                        "amount": float(t['price'])
-                    })
-            else:
-                payment_item.update({
-                    "recurring": False,
-                    "amount": float(t['price'])
-                })
 
             payment_items.append(payment_item)
 

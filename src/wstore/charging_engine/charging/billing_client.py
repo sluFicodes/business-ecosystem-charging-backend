@@ -72,7 +72,7 @@ class BillingClient:
                 "href": customer_bill_id
             }
         }
-        # TODO: rollback for acbrs in case an error appears
+        # TODO: rollback for acbrs in case an error appears or some way to make it transactional
         for acbr in batch_acbr:
             url = get_service_url("billing", f"appliedCustomerBillingRate/{acbr['id']}")
             try:
@@ -131,21 +131,17 @@ class BillingClient:
 
     def create_batch_customer_rates(self, rates):
         created_rates = []
-        unbilled_to_auth = False
-        prepaid_found = False
+        recurring = False
         for rate in rates:
             rate_type = rate.get("appliedBillingRateType") or rate["type"] # error if rate["type"] is called and it doesn't exist
-            currency = rate["taxIncludedAmount"]["unit"]
 
-            # unbilled_to_auth is set to True only if there is no prepaid found and the rates contain usage/postpaid types
             if rate_type == "recurring-prepaid":
-                prepaid_found = True
-                unbilled_to_auth = False
+                recurring = True
             elif rate_type in ["recurring", "usage"]:
-                if not prepaid_found:
-                    unbilled_to_auth = True
+                recurring = True
                 continue
 
+            currency = rate["taxIncludedAmount"]["unit"]
             tax_rate = rate["appliedTax"][0]["taxRate"]
             tax = rate["appliedTax"][0]["taxAmount"]["value"]
             tax_included = rate["taxIncludedAmount"]["value"]
@@ -160,9 +156,9 @@ class BillingClient:
 
             created_rates.append(new_rate)
 
-        logger.info('--BATCH RATES-- %s, unbilled currency %s', created_rates, unbilled_to_auth)
+        logger.info('--BATCH RATES-- %s, unbilled currency %s', created_rates, recurring)
 
-        return created_rates, unbilled_to_auth
+        return created_rates, recurring
 
     def create_charge(self, charge_model, product_id, start_date=None, end_date=None):
         # This Object is now part of the CustomerBillManagement API, not yet integrated
@@ -215,42 +211,34 @@ class BillingClient:
         # resp = session.send(prepped)
         # resp.raise_for_status()
     def create_customer_bill(self, batch_acbr, billing_acc_ref, party):
+        if len(batch_acbr) == 0:
+            return {}
         # bill generation time, not the period coverage
         current_time = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace('+00:00', 'Z')
-        cbs = []
         unit = None
-        cb_aggr = {}
-        for acbr in batch_acbr:
-            period_key = f"{acbr['periodCoverage']['startDateTime']}-{acbr['periodCoverage'].get('endDateTime')}"
-            if acbr["type"] not in cb_aggr:
-                cb_aggr[acbr["type"]] = {}
-            if period_key not in cb_aggr[acbr["type"]]:
-                cb_aggr[acbr["type"]][period_key] = {
-                    "taxIncludedAmount" : Decimal("0"),
-                    "taxExcludedAmount" : Decimal("0"),
-                    "periodCoverage": acbr["periodCoverage"],
-                    "acbrRefs": []
-                    }
-            cb_aggr[acbr["type"]][period_key]["taxIncludedAmount"] += Decimal(repr(acbr["taxIncludedAmount"]["value"]))
-            cb_aggr[acbr["type"]][period_key]["taxExcludedAmount"] += Decimal(repr(acbr["taxExcludedAmount"]["value"]))
-            cb_aggr[acbr["type"]][period_key]["acbrRefs"].append({"id": acbr["id"]})
+        cb = {
+            "taxIncludedAmount" : Decimal("0"),
+            "taxExcludedAmount" : Decimal("0"),
+            "acbrRefs": []
+        }
+        for acbr in batch_acbr: # at this point there are only one times and recurring prepaids
+            logger.info("---ACBR--- %s", acbr)
+            cb["taxExcludedAmount"] += Decimal(repr(acbr["taxExcludedAmount"]["value"]))
+            cb["taxIncludedAmount"] += Decimal(repr(acbr["taxIncludedAmount"]["value"])) # I need to discuss this incosistency with Fran
+            cb["acbrRefs"].append({"id": acbr["id"]})
             unit = acbr["taxExcludedAmount"]["unit"] if unit is None else unit
 
-        for type_key , cb_type in cb_aggr.items():
-            for cb_period in cb_type.values():
+        created_cb = self._create_cb_api(unit, float(cb["taxIncludedAmount"]), float(cb["taxExcludedAmount"]),
+                            billing_acc_ref, current_time, party)
+        self.set_acbrs_cb(cb["acbrRefs"], created_cb["id"])
 
-                created_cb = self._create_cb_api(unit, float(cb_period["taxIncludedAmount"]), float(cb_period["taxExcludedAmount"]),
-                                    billing_acc_ref, current_time, cb_period["periodCoverage"], party)
-                self.set_acbrs_cb(cb_period["acbrRefs"], created_cb["id"])
-                cbs.append({
-                    "id": created_cb["id"],
-                    "type": type_key,
-                    "taxIncludedAmount": created_cb["taxIncludedAmount"]["value"],
-                    "taxExcludedAmount": created_cb["taxExcludedAmount"]["value"],
-                    "unit": unit
-                    })
-        logger.info("---CUSTOMER BILL EXTRA DATA--- %s", cbs)
-        return cbs
+        cb["id"] = created_cb["id"]
+        # Remove Decimal type
+        cb["taxIncludedAmount"] = created_cb["taxIncludedAmount"]["value"]
+        cb["taxExcludedAmount"] = created_cb["taxExcludedAmount"]["value"]
+        cb["unit"] = unit
+        logger.info("---CUSTOMER BILL EXTRA DATA--- %s", cb)
+        return cb
 
     def set_customer_bill(self, state, billId):
         logger.info("set_customer_bill")
@@ -268,13 +256,12 @@ class BillingClient:
             logger.error("Error patching customer bill: " + str(e) + " data:" + str(data))
             raise
 
-    def _create_cb_api(self, unit, taxIncluded, taxExcluded, billing_acc_ref, current_time, periodCoverage, party):
+    def _create_cb_api(self, unit, taxIncluded, taxExcluded, billing_acc_ref, current_time, party):
         data = {
             "appliedPayment": [],
             "billDate": current_time,
             # "billNo": "", # same as customer bill id
             "billingAccount": billing_acc_ref,
-            "billingPeriod": periodCoverage,
             "taxIncludedAmount" : {
                 "unit": unit,
                 "value": taxIncluded
