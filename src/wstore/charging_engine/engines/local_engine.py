@@ -52,8 +52,7 @@ class LocalEngine(Engine):
         # Only prices to be paid now are considered
         rates = []
         for price in prices:
-            if price["priceType"].lower() == "one time" or price["priceType"].lower() == "recurring-prepaid" \
-                    or price["priceType"].lower() == "recurring" or price["priceType"].lower() == "usage":
+            if price["priceType"].lower() == "one time" or price["priceType"].lower() == "recurring-prepaid":
 
                 currency = price["price"]["dutyFreeAmount"]["unit"]
                 inc = Decimal(price["price"]["taxIncludedAmount"]["value"])
@@ -85,7 +84,11 @@ class LocalEngine(Engine):
                     "billingAccount": billing_account,
                     "periodCoverage": self._build_period_coverage(price["recurringChargePeriod"], now)
                 })
-
+            elif price["priceType"].lower() == "recurring" or price["priceType"].lower() == "usage":
+                rate_type = price["priceType"].lower()
+                rates.append({
+                    "appliedBillingRateType": rate_type
+                })
         return rates
 
 
