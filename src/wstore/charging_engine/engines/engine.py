@@ -76,12 +76,13 @@ class Engine:
                             "@referredType": "organization"
                         })
 
-                        if party["role"].lower() == "seller":
+                        if party["role"].lower() == settings.PROVIDER_ROLE.lower():
                             seller_id = party["id"]
 
                     logger.info("creating acbrs")
                     # Create the Billing rates as not billed
-                    created_rates, recurring = billing_client.create_batch_customer_rates(response)
+
+                    created_rates, recurring = billing_client.create_batch_customer_rates(response, curated_party)
 
                     # created_cb is {} if there is no billable rates
                     logger.info("creating customer bills")

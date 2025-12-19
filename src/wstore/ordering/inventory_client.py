@@ -30,6 +30,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
 from wstore.store_commons.utils.url import get_service_url
+from wstore.store_commons.utils.party import get_operator_party_roles, normalize_party_ref
 
 
 class InventoryClient:
@@ -184,13 +185,16 @@ class InventoryClient:
             "value": value
         }
 
-    def create_resource(self, resource_id, customer_party):
+    def create_resource(self, resource_id, rel_parties):
         # Get resource specification        
         resource_spec = self.download_spec("resource_catalog", '/resourceSpecification', resource_id)
 
+        parties = [normalize_party_ref(party) for party in rel_parties]
+        parties.extend(get_operator_party_roles())
+
         resource = {
-            #"resourceCharacteristic": [self.build_inventory_char(char, "resourceSpecCharacteristicValue") for char in resource_spec["resourceSpecCharacteristic"]],
-            "relatedParty": [customer_party],
+            "resourceCharacteristic": [self.build_inventory_char(char, "resourceSpecCharacteristicValue") for char in resource_spec["resourceSpecCharacteristic"]],
+            "relatedParty": parties,
             "resourceStatus": "reserved",
             "startOperatingDate": datetime.now().isoformat() + "Z"
         }
@@ -208,12 +212,16 @@ class InventoryClient:
 
         return inv_resource["id"]
 
-    def create_service(self, service_id, customer_party):
+    def create_service(self, service_id, rel_parties):
         # Get service specification
         service_spec = self.download_spec("service_catalog", '/serviceSpecification', service_id)
+
+        parties = [normalize_party_ref(party) for party in rel_parties]
+        parties.extend(get_operator_party_roles())
+
         service = {
             "serviceCharacteristic": [self.build_inventory_char(char, "characteristicValueSpecification") for char in service_spec["specCharacteristic"]],
-            "relatedParty": [customer_party],
+            "relatedParty": parties,
             "state": "reserved",
             "startDate": datetime.now().isoformat() + "Z"
         }
@@ -273,12 +281,13 @@ class InventoryClient:
 
         # Add the referred type
         product["relatedParty"] = [
-            {
+            normalize_party_ref({
                 "id": party["id"],
                 "href": party["href"],
-                "role": party["role"],
-                "@referredType": "organization"
-            } for party in product["relatedParty"]
+                "role": party["role"]
+            }) for party in product["relatedParty"]
         ]
+
+        product["relatedParty"].extend(get_operator_party_roles())
 
         return product

@@ -54,8 +54,11 @@ STORE_NAME = "WStore"
 AUTH_PROFILE_MODULE = "wstore.models.UserProfile"
 
 ADMIN_ROLE = "admin"
-PROVIDER_ROLE = "seller"
-CUSTOMER_ROLE = "customer"
+PROVIDER_ROLE = "Seller"
+CUSTOMER_ROLE = "Buyer"
+SELLER_OPERATOR_ROLE = "SellerOperator"
+BUYER_OPERATOR_ROLE = "BuyerOperator"
+
 
 LOGGING = {
     "version": 1,
@@ -217,6 +220,9 @@ PROPAGATE_TOKEN = True
 
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 
+OPERATOR_ID = ''
+RELATED_PARTY_SCHEMA_LOCATION="https://raw.githubusercontent.com/Ficodes/tmf-schemas/refs/heads/main/schemas/relatedPartyRef.schema.json"
+
 # =====================================
 # ENVIRONMENT SETTINGS
 # =====================================
@@ -304,3 +310,6 @@ if isinstance(AWS_ENABLED, str):
 
 
 BILLING_ENGINE = 'local'
+
+OPERATOR_ID = environ.get("BAE_CB_OPERATOR_ID", OPERATOR_ID)
+RELATED_PARTY_SCHEMA_LOCATION = environ.get("BAE_CB_RELATED_PARTY_SCHEMA_LOCATION", RELATED_PARTY_SCHEMA_LOCATION)

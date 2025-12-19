@@ -20,6 +20,7 @@
 
 import datetime
 from django.test import TestCase
+from django.test.utils import override_settings
 
 from parameterized import parameterized
 from mock import MagicMock, patch
@@ -446,6 +447,11 @@ RD_VAT = {
 NOW = datetime.date(2024, 1, 1)
 
 
+@override_settings(
+    ADMIN_ROLE="provider",
+    PROVIDER_ROLE="seller",
+    CUSTOMER_ROLE="customer"
+)
 class ChargingEngineTestCase(TestCase):
     tags = ("ordering", "billing", "pricing")
     maxDiff = None
