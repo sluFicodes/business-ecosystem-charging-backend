@@ -34,7 +34,7 @@ from bson.objectid import ObjectId
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
-from wstore.models import User
+from wstore.models import User, EmailConfig
 from wstore.ordering.models import Offering
 
 logger = getLogger("wstore.default_logger")
@@ -43,14 +43,18 @@ logger = getLogger("wstore.default_logger")
 class NotificationsHandler:
     def __init__(self):
         # Read email configuration
-        self._mailuser = settings.WSTOREMAILUSER
-        self._password = settings.WSTOREMAILPASS
-        self._fromaddr = settings.WSTOREMAIL
-        self._server = settings.SMTPSERVER
-        self._port = settings.SMTPPORT
+        self._set_config()
 
-        if not len(self._mailuser) or not len(self._password) or not len(self._fromaddr) or not len(self._server):
+    def _set_config(self):
+        config = EmailConfig.objects.first()
+        if config is None:
             raise ImproperlyConfigured("Missing email configuration")
+
+        self._mailuser = config.email_user
+        self._password = config.email_password
+        self._fromaddr = config.email
+        self._server = config.smtp_server
+        self._port = config.smtp_port
 
     def _send_email(self, recipient, msg):
         logger.debug(f"Sending email with {self._server}, {self._port}, {self._mailuser}, {self._fromaddr}, {self._password}")
@@ -65,6 +69,43 @@ class NotificationsHandler:
         logger.debug("Sending email to " + ",".join(recipients) + "with subject " + subject)
 
         msg = MIMEText(text)
+        msg["Subject"] = subject
+        msg["From"] = self._fromaddr
+        msg["To"] = ",".join(recipients)
+
+        self._send_email(recipients, msg)
+
+    def _send_html_email(self, text, recipients, subject):
+        logger.debug("Sending email to " + ",".join(recipients) + "with subject " + subject)
+
+        html = f"""\
+            <!doctype html>
+            <html lang="en">
+                <body style="margin:0;padding:0;background-color:#f6f9fc;">
+                <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f6f9fc;padding:24px 0;">
+                    <tr>
+                    <td align="center">
+                    <table role="presentation" cellpadding="0" cellspacing="0" width="600"
+                        style="max-width:600px;background-color:#ffffff;border-radius:10px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;">
+                    <tr>
+                        <td style="padding:18px 22px;background-color:#2e58a7;color:#ffffff;font-size:18px;font-weight:bold;">
+                            {subject}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:22px;color:#111827;font-size:14px;line-height:1.6;">
+                            {text}
+                        </td>
+                    </tr>
+                </table>
+                </td>
+            </tr>
+            </table>
+            </body>
+            </html>
+        """
+
+        msg = MIMEText(html, "html")
         msg["Subject"] = subject
         msg["From"] = self._fromaddr
         msg["To"] = ",".join(recipients)
@@ -221,4 +262,4 @@ The error was: {}""".format(
 
     def send_custom_email(self, recipient, subject, text):
         recipients = [recipient]
-        self._send_text_email(text, recipients, subject)
+        self._send_html_email(text, recipients, subject)
