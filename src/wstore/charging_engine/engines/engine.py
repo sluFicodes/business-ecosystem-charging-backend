@@ -28,6 +28,7 @@ from logging import getLogger
 
 from wstore.charging_engine.payment_client.payment_client import PaymentClient
 from wstore.charging_engine.charging.billing_client import BillingClient
+from wstore.ordering.inventory_client import InventoryClient
 
 logger = getLogger("wstore.default_logger")
 
@@ -58,7 +59,8 @@ class Engine:
             for contract in self._order.contracts:
                 # TODO: In the future I will transform this _get_item that is O(n^2) to a hashmap o Dict in this case that is O(1) complexity
                 item = self._get_item(contract.item_id, raw_order)
-
+                inventory_client = InventoryClient()
+                product = inventory_client.build_product_model(item, contract.item_id, raw_order["billingAccount"])
                 response = self.execute_billing(item, raw_order)
 
                 if len(response) > 0:
