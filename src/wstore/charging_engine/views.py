@@ -44,6 +44,7 @@ from wstore.store_commons.database import get_database_connection
 from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import authentication_required, build_response, supported_request_mime_types
 from wstore.charging_engine.pricing_engine import PriceEngine
+from django.conf import settings
 
 logger = getLogger("wstore.default_logger")
 
@@ -76,7 +77,7 @@ class PaymentConfirmation(Resource):
             om.notify_completed(raw_order)
         except Exception as e:
             # The order is correct so we cannot set is as failed
-            logger.error("The products for order {} could not be created".format(raw_order["id"]))
+            logger.error("3. The products for order {} could not be created".format(raw_order["id"]))
             logger.error("reason: %s", e)
 
     def _set_renovation_states(self, transactions, raw_order, order):
@@ -187,7 +188,11 @@ class PaymentConfirmation(Resource):
             logger.debug("signature validated and order marked as used")
 
         if client == "dpas":
-            sig = jwt.decode(request_data["jwt"], options={"verify_signature": False})
+            logger.debug('decoding jwt')
+            unverified_header = jwt.get_unverified_header(request_data["jwt"])
+            algorithm = unverified_header['alg']
+            # decode() throws a exception, so it will not set the order as failed. This is a desired behaviour
+            sig = jwt.decode(request_data["jwt"], settings.DPAS_KEY, algorithms=[algorithm])
             state = sig['payoutList'][0]['state']
             confirm_action = "pending" if str.lower(state) == "pending" else confirm_action
         else:
