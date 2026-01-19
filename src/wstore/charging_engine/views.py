@@ -37,7 +37,7 @@ from wstore.charging_engine.charging_engine import ChargingEngine
 from wstore.charging_engine.payment_client.payment_client import PaymentClient, PaymentClientError
 from wstore.ordering.errors import PaymentError, PaymentTimeoutError
 from wstore.ordering.inventory_client import InventoryClient
-from wstore.ordering.models import Offering, Order
+from wstore.ordering.models import Contract, Offering, Order
 from wstore.ordering.ordering_client import OrderingClient
 from wstore.ordering.ordering_management import OrderingManager
 from wstore.store_commons.database import get_database_connection
@@ -48,6 +48,8 @@ from django.conf import settings
 
 logger = getLogger("wstore.default_logger")
 
+PROCESSED = "processed"
+PENDING = "pending"
 
 class PaymentConfirmation(Resource):
     def _set_initial_states(self, transactions, raw_order, order):
@@ -185,22 +187,11 @@ class PaymentConfirmation(Resource):
             raise ValueError("Order already used")
         else:
             order.used = True
-            logger.debug("signature validated and order marked as used")
-
-        if client == "dpas":
-            logger.debug('decoding jwt')
-            unverified_header = jwt.get_unverified_header(request_data["jwt"])
-            algorithm = unverified_header['alg']
-            # decode() throws a exception, so it will not set the order as failed. This is a desired behaviour
-            sig = jwt.decode(request_data["jwt"], settings.DPAS_KEY, algorithms=[algorithm])
-            state = sig['payoutList'][0]['state']
-            confirm_action = "pending" if str.lower(state) == "pending" else confirm_action
-        else:
             logger.debug(f"Payment confirmation request for order {order.order_id} OK")
         return confirm_action, reference, order
 
     def _accept_confirmation_request(
-        self, reference, order, raw_order, request_user, payment_client, payment_confirmation_data
+        self, reference, order: Order, raw_order, request_user, payment_client, payment_confirmation_data
     ):
         """Handler for 'accept' requests
 
@@ -215,16 +206,13 @@ class PaymentConfirmation(Resource):
 
         # Uses an atomic operation to get and set the _lock value in the purchase
         # document
-        pre_value = db.wstore_order.find_one_and_update({"_id": ObjectId(reference)}, {"$set": {"_lock": True}})
 
         # If the value of _lock before setting it to true was true, means
         # that the time out function has acquired it previously so the
         # view ends
-        if not pre_value or "_lock" in pre_value and pre_value["_lock"]:
-            raise PaymentTimeoutError("The timeout set to process the payment has finished")
 
-        pending_info = order.pending_payment
-        concept = pending_info["concept"]
+        # pending_info = order.pending_payment
+        # concept = pending_info["concept"]
 
         # If the order state value is different from pending means that
         # the timeout function has completely ended before acquiring the resource
@@ -237,36 +225,59 @@ class PaymentConfirmation(Resource):
         if request_user.userprofile.current_organization != order.owner_organization or request_user != order.customer:
             raise PaymentError("You are not authorized to execute the payment")
 
-        transactions = pending_info["transactions"]
+        # transactions = pending_info["transactions"]
 
         logger.debug(f"Transactions read for order {order.order_id}.")
 
         # build the payment client
-        client = payment_client(order)
-        order.sales_ids = client.end_redirection_payment(**payment_confirmation_data)
+        client: PaymentClient = payment_client(order)
+        order.sales_ids, payout_list = client.end_redirection_payment(**payment_confirmation_data)
         order.save()
-
         logger.debug(f"End redirection payment executed {order.order_id}.")
 
-        charging_engine = ChargingEngine(order)
-        charging_engine.end_charging(transactions, pending_info["free_contracts"], concept)
+        # charging_engine = ChargingEngine(order)
+        # charging_engine.end_charging(transactions, pending_info["free_contracts"], concept)
 
         # Change states of TMForum resources (orderItems, products, etc)
         # depending on the concept of the payment
 
-        states_processors = {
-            "initial": self._set_initial_states,
-            "recurring": self._set_renovation_states,
-            "usage": self._set_renovation_states,
-        }
+        # states_processors = {
+        #     "initial": self._set_initial_states,
+        #     "recurring": self._set_renovation_states,
+        #     "usage": self._set_renovation_states,
+        # }
         # Include the free contracts as transactions in order to activate them
-        ext_transactions = deepcopy(transactions)
-        ext_transactions.extend([{"item": contract.item_id} for contract in pending_info["free_contracts"]])
+        # ext_transactions = deepcopy(transactions)
+        # ext_transactions.extend([{"item": contract.item_id} for contract in pending_info["free_contracts"]])
 
-        states_processors[concept](ext_transactions, raw_order, order)
+        # states_processors[concept](ext_transactions, raw_order, order)
 
-        # _lock is set to false
-        db.wstore_order.find_one_and_update({"_id": ObjectId(reference)}, {"$set": {"_lock": False}})
+        # Instead of set_initial_states, we can call it directly
+        try:
+            logger.debug(f"Calling notify_completed()...")
+            om = OrderingManager()
+            for payout_item in payout_list:
+                if payout_item["state"].lower() == PROCESSED:
+                    cb_id = payout_item["paymentItemExternalId"]
+                    logger.debug(f"cb_id: {cb_id}")
+                    contract: Contract = order.get_contract_by_cb_id(cb_id) # throw exception for manual procs
+                    logger.debug("contract item id: "+ contract.item_id)
+
+                    if contract.processed == False:
+                        pre_value = db.wstore_order.find_one_and_update({"_id": ObjectId(reference)}, {"$set": {"_lock": True}})
+                        if not pre_value or "_lock" in pre_value and pre_value["_lock"]:
+                            raise PaymentTimeoutError("The timeout set to process the payment has finished")
+                        try:
+                            om.notify_item_completed(order, contract, raw_order)
+                        finally:
+                            db.wstore_order.find_one_and_update({"_id": ObjectId(reference)}, {"$set": {"_lock": False}})  # _lock is set to false
+
+
+        except Exception as e:
+            # The order is correct so we cannot set is as failed
+            logger.error("3.1. The products for order {} could not be created".format(raw_order["id"]))
+            logger.error("reason: %s", e)
+            raise PaymentError("Payment accepted the payment but something went wrong during the data processing")
 
         logger.debug(f"Payment accepted for order {order.order_id}.")
         return 200, "Ok"
@@ -285,50 +296,6 @@ class PaymentConfirmation(Resource):
         logger.debug(f"Payment candelled for order {order.order_id}.")
         return 200, "Ok"
 
-    def pending_confirmation_request(self, reference, order, raw_order, request_user, payment_client, payment_confirmation_data):
-        # Handler for pending orders
-        # We keep order in "created" state
-        logger.debug("order in pending state")
-        db = get_database_connection()
-
-        # Uses an atomic operation to get and set the _lock value in the purchase
-        # document
-        pre_value = db.wstore_order.find_one_and_update({"_id": ObjectId(reference)}, {"$set": {"_lock": True}})
-
-        # If the value of _lock before setting it to true was true, means
-        # that the time out function has acquired it previously so the
-        # view ends
-        if not pre_value or "_lock" in pre_value and pre_value["_lock"]:
-            raise PaymentTimeoutError("The timeout set to process the payment has finished")
-
-        pending_info = order.pending_payment
-        concept = pending_info["concept"]
-
-        # Check that the request user is authorized to end the payment
-        if request_user.userprofile.current_organization != order.owner_organization or request_user != order.customer:
-            raise PaymentError("You are not authorized to execute the payment")
-
-        transactions = pending_info["transactions"]
-
-        logger.debug(f"Transactions read for order {order.order_id}.")
-
-        # build the payment client
-        client = payment_client(order)
-        order.sales_ids = client.end_redirection_payment(**payment_confirmation_data)
-        order.save()
-
-        logger.debug(f"End redirection payment executed {order.order_id}.")
-        # Ask Fran about the utility of end_charging(), it does nothing
-        charging_engine = ChargingEngine(order)
-        charging_engine.end_charging(transactions, pending_info["free_contracts"], concept)
-
-        # TODO: handle order whenever the cb is set to settled
-
-        # _lock is set to false
-        db.wstore_order.find_one_and_update({"_id": ObjectId(reference)}, {"$set": {"_lock": False}})
-
-        return 200, "OK"
-
     # This method is used to receive the payment (Paypal, Stripe, ..) confirmation
     # when the customer is paying using his PayPal account
     # @supported_request_mime_types(("application/json",))
@@ -339,7 +306,7 @@ class PaymentConfirmation(Resource):
         try:
             # Extract payment information
             data = json.loads(request.body)
-
+            logger.debug("starting payment confirmation")
             payment_client = PaymentClient.get_payment_client_class()
 
             confirm_action, reference, order = self._check_confirmation_request(data, payment_client)
@@ -350,9 +317,8 @@ class PaymentConfirmation(Resource):
                 response = self._accept_confirmation_request(
                     reference, order, raw_order, request.user, payment_client, data
                 )
-            elif confirm_action == "pending":
-                logger.debug("confirm action is pending")
             else:
+                logger.debug("confirm action is cancel")
                 response = self._cancel_confirmation_request(order, raw_order)
 
         # Error in request (check failed)

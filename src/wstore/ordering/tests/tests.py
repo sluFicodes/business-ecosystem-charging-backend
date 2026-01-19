@@ -891,6 +891,65 @@ class OrderTestCase(TestCase):
         contracts = self._order.get_contracts()
         self.assertEquals([self._contract1, self._contract2], contracts)
 
+    def test_get_by_customer_bill_id_success(self):
+        from wstore.store_commons.database import get_database_connection
+        from bson import ObjectId
+
+        db = get_database_connection()
+
+        customer_bill_id = "urn:ngsi-ld:customer-bill:test-12345"
+
+        self._contract1.customer_bill = {"id": customer_bill_id, "href": "http://example.com"}
+        self._order.contracts = [self._contract1, self._contract2]
+        self._order.save()
+
+        found_order = Order.get_by_customer_bill_id(customer_bill_id)
+
+        self.assertIsNotNone(found_order)
+        self.assertEquals(self._order.order_id, found_order.order_id)
+        self.assertEquals(self._order.pk, found_order.pk)
+
+    def test_get_by_customer_bill_id_not_found(self):
+        customer_bill_id = "urn:ngsi-ld:customer-bill:nonexistent-99999"
+
+        error = None
+        try:
+            Order.get_by_customer_bill_id(customer_bill_id)
+        except OrderingError as e:
+            error = e
+
+        self.assertIsNotNone(error)
+        self.assertIn("Order not found", str(error))
+
+    def test_get_contract_by_cb_id_success(self):
+        from wstore.store_commons.database import get_database_connection
+
+        db = get_database_connection()
+
+        customer_bill_id = "urn:ngsi-ld:customer-bill:contract-test-456"
+
+        self._contract2.customer_bill = {"id": customer_bill_id, "href": "http://example.com"}
+        self._order.contracts = [self._contract1, self._contract2]
+        self._order.save()
+
+        found_contract = self._order.get_contract_by_cb_id(customer_bill_id)
+
+        self.assertIsNotNone(found_contract)
+        self.assertEquals(self._contract2.item_id, found_contract.item_id)
+        self.assertEquals(customer_bill_id, found_contract.customer_bill["id"])
+
+    def test_get_contract_by_cb_id_not_found(self):
+        customer_bill_id = "urn:ngsi-ld:customer-bill:nonexistent-contract"
+
+        error = None
+        try:
+            self._order.get_contract_by_cb_id(customer_bill_id)
+        except OrderingError as e:
+            error = e
+
+        self.assertIsNotNone(error)
+        self.assertIn("Order item (contract) not found", str(error))
+
 @override_settings(
     INVENTORY="http://localhost:8080",
     RESOURCE_INVENTORY="http://localhost:9090/resourceInventory",

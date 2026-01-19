@@ -91,6 +91,9 @@ class Engine:
                     # created_cb is {} if there is no billable rates
                     logger.info("creating customer bills")
                     created_cb = billing_client.create_customer_bill(created_rates, raw_order["billingAccount"], curated_party)
+                    if "id" not in created_cb:
+                        created_cb["id"] = str(uuid.uuid4())
+                        created_cb["internal"] = True
 
                     contract.applied_rates = [ n_rate["id"] for n_rate in created_rates ]
                     contract.customer_bill = created_cb
@@ -100,7 +103,7 @@ class Engine:
                     transactions.append({
                         "item": contract.item_id,
                         "provider": seller_id,
-                        "billId": created_cb.get("id", str(uuid.uuid4())),
+                        "billId": created_cb["id"],
                         "price": created_cb.get("taxIncludedAmount", 0),
                         "duty_free": created_cb.get("taxExcludedAmount", 0),
                         "description": '',
