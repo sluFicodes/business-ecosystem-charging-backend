@@ -56,7 +56,7 @@ def get_database_connection():
                 **auth_mech)
 
         elif "host" in client_info and "port" in client_info and "username" not in client_info:
-            client = MongoClient(client_info["host"], int(client_info["port"]), **auth_mech)
+            client = MongoClient(client_info["host"], int(client_info["port"]))
 
         elif "host" in client_info and "port" not in client_info and "username" in client_info:
             client = MongoClient(
@@ -67,7 +67,7 @@ def get_database_connection():
                 **auth_mech)
 
         elif "host" in client_info and "port" not in client_info and "username" not in client_info:
-            client = MongoClient(client_info["host"], **auth_mech)
+            client = MongoClient(client_info["host"])
 
         elif "host" not in client_info and "port" in client_info and "username" in client_info:
             client = MongoClient(
