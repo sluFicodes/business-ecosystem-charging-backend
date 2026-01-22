@@ -34,7 +34,7 @@ class DpasClient(PaymentClient):
                 "productProviderSpecificData": {},
                 "paymentItemExternalId" : t["billId"], # this is the ID of the customer bill
                 "recurring": t["recurring"],
-                "amount": float(t['price'])
+                **({ "amount": float(t['price'])} if t['price'] else {})
             }
 
             payment_items.append(payment_item)
