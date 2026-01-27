@@ -1280,8 +1280,8 @@ class NotifyItemCompletedTestCase(TestCase):
         (
             "no_terms",
             _offering_no_terms,
-            False,
-            None
+            True,
+            "completed"
         ),
         (
             "multiple_items_partial",
@@ -1409,7 +1409,7 @@ class NotifyItemCompletedTestCase(TestCase):
             "internal": True
         }
 
-        offering = self._offering_automatic(self)
+        offering = self._offering_automatic()
         self._response.json.return_value = offering
 
         # Setup inventory client
@@ -1443,7 +1443,7 @@ class NotifyItemCompletedTestCase(TestCase):
         # Setup contract without customer bill id
         self._contract.customer_bill = {"href": "http://cb.com/123"}
 
-        offering = self._offering_automatic(self)
+        offering = self._offering_automatic()
         self._response.json.return_value = offering
 
         # Setup inventory client
