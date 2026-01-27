@@ -704,7 +704,7 @@ class OrderingManager:
                 billing_client = BillingClient()
                 # TODO: propagate currency unit through the contract; TBD if it is needed or not
                 item_cb = contract.customer_bill
-                if "id" in item_cb and not item_cb.get("internal", False):
+                if "id" in item_cb and not item_cb.get("internal", False): # internal for cbs that are not stored in tmforum api (e.g usage/pospaid cbs)
                     billing_client.set_customer_bill("settled", item_cb["id"])
 
                 logger.info("customer bill updated")
