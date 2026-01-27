@@ -42,6 +42,9 @@ def get_database_connection():
     if 'CLIENT' in database_info:
         client_info = database_info['CLIENT']
         db_name = database_info['NAME']
+        auth_mech = {}
+        if "authMechanism" in client_info:
+            auth_mech["authMechanism"] = client_info["authMechanism"]
 
         if "host" in client_info and "port" in client_info and "username" in client_info:
             client = MongoClient(
@@ -49,7 +52,8 @@ def get_database_connection():
                 int(client_info['port']),
                 username=client_info['username'],
                 password=client_info['password'],
-                authSource=db_name)
+                authSource=db_name,
+                **auth_mech)
 
         elif "host" in client_info and "port" in client_info and "username" not in client_info:
             client = MongoClient(client_info["host"], int(client_info["port"]))
@@ -59,7 +63,8 @@ def get_database_connection():
                 client_info['host'],
                 username=client_info['username'],
                 password=client_info['password'],
-                authSource=db_name)
+                authSource=db_name,
+                **auth_mech)
 
         elif "host" in client_info and "port" not in client_info and "username" not in client_info:
             client = MongoClient(client_info["host"])
@@ -70,13 +75,14 @@ def get_database_connection():
                 int(client_info['port']),
                 username=client_info['username'],
                 password=client_info['password'],
-                authSource=db_name)
+                authSource=db_name,
+                **auth_mech)
 
         elif "host" not in client_info and "port" in client_info and "username" not in client_info:
-            client = MongoClient("localhost", int(client_info["port"]))
+            client = MongoClient("localhost", int(client_info["port"]), **auth_mech)
 
         else:
-            client = MongoClient()
+            client = MongoClient(**auth_mech)
     else:
         client = MongoClient()
 
