@@ -48,7 +48,7 @@ FORMATTERS = {
 
 
 def build_response(request, status_code, msg, extra_formats=None, headers=None):
-    logger.debug(f"Building response for {request.method} {request.path}")
+    logger.debug(f"Building response for {request.method} {request.path}. Message: {msg}")
     if extra_formats is not None:
         formatters = extra_formats.copy()
         formatters.update(FORMATTERS)
