@@ -122,9 +122,9 @@ class OfferingValidator(CatalogValidator):
                     anti_collision[value_use_id]= {
                         "total_range": prd_char_value # record total range of the product spec char
                     }
-                if not anti_collision[value_use_id].get(f"from-{value_use_value_item["valueFrom"]}", False):
-                    anti_collision[value_use_id][f"from-{value_use_value_item["valueFrom"]}"] = []
-                anti_collision[value_use_id][f"from-{value_use_value_item["valueFrom"]}"].append(value_use_value_item["valueTo"])
+                if not anti_collision[value_use_id].get(f"from-{value_use_value_item['valueFrom']}", False):
+                    anti_collision[value_use_id][f"from-{value_use_value_item['valueFrom']}"] = []
+                anti_collision[value_use_id][f"from-{value_use_value_item['valueFrom']}"].append(value_use_value_item["valueTo"])
         else:
             is_same = value_use_value_item["value"] == prd_char_value["value"] and \
             use_unit == prd_unit
@@ -160,7 +160,7 @@ class OfferingValidator(CatalogValidator):
                         else:
                             raise ValueError("ProductSpecValueUse refers to non-existing product characteristic value")
 
-    def _validate_price_component(self, price_component, product_spec, anti_collision: dict):
+    def _validate_price_component(self, price_component, product_spec, anti_collision=None):
         recurringKey = "recurringChargePeriodType"
         recurring_pricing = ["recurring", "recurring-prepaid", "recurring-postpaid"]
         valid_pricing = ["one time", "usage"]
