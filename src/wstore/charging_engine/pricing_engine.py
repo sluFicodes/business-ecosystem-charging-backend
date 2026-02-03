@@ -56,27 +56,47 @@ class PriceEngine:
 
         return Decimal("0")
 
-    def _process_price_component(self, component, options, aggregated, usage):
+    def _process_price_component(self, component, spec_chars, aggregated, usage):
         # Check if the component needs to be applied
         tail_value = None
         if "prodSpecCharValueUse" in component:
             conditions = {}
+            logger.debug(f"prodSpecCharValueUse:{component['prodSpecCharValueUse']}")
 
             for val in component["prodSpecCharValueUse"]:
-                value = "tailored"
+                value = None
+                # CHECK
                 if "productSpecCharacteristicValue" in val and len(val["productSpecCharacteristicValue"]) > 0:
-                    value = val["productSpecCharacteristicValue"][0]["value"]
+                    if val["productSpecCharacteristicValue"][0].get("value") != None:
+                        logger.debug("normal")
+                        value = {
+                            "name": "normal", 
+                            "value": val["productSpecCharacteristicValue"][0]["value"]}
+                    elif val["productSpecCharacteristicValue"][0].get("valueFrom") != None and val["productSpecCharacteristicValue"][0].get("valueTo") !=None:
+                        logger.debug("tailored")
+                        value = {
+                            "name": "tailored",
+                            "valueFrom": val["productSpecCharacteristicValue"][0]["valueFrom"],
+                            "valueTo": val["productSpecCharacteristicValue"][0]["valueTo"]
+                            }
+
                 conditions[val["name"].lower()] = value
 
+            if value == None: # invalid price component, every price component should have value or (valueFrom, valueTo)
+                return
+
             found = 0
-            for option in options:
-                if option["name"].lower() in conditions:
-                    if conditions[option["name"].lower()] == "tailored":
+            for spec_char in spec_chars:
+                if spec_char["name"].lower() in conditions:
+                    condition = conditions[spec_char["name"].lower()]
+                    if condition["name"] == "tailored" and spec_char["value"] >= condition["valueFrom"] and spec_char["value"] <= condition["valueTo"]: # integer numbers
+                        logger.debug("found tailored")
                         found += 1
-                        tail_value = Decimal(str(option["value"]))
+                        tail_value = Decimal(str(spec_char["value"]))
                         continue
 
-                    if str(conditions[option["name"].lower()]) == str(option["value"]):
+                    if condition["name"] == "normal" and str(condition["value"]) == str(spec_char["value"]):
+                        logger.debug("found tailored")
                         found += 1
 
             if len(conditions) != found:
@@ -108,26 +128,46 @@ class PriceEngine:
             tailored_price = component_value * tail_value
             aggregated[component["priceType"]][period_key]["value"] += tailored_price
 
-    def _proccess_price_component_indv(self, component, options, indv: list, usage):
+    def _proccess_price_component_indv(self, component, spec_chars, indv: list, usage):
         tail_value = None
         if "prodSpecCharValueUse" in component:
             conditions = {}
+            logger.debug(f"prodSpecCharValueUse:{component['prodSpecCharValueUse']}")
 
             for val in component["prodSpecCharValueUse"]:
-                value = "tailored"
+                value = None
+                # CHECK
                 if "productSpecCharacteristicValue" in val and len(val["productSpecCharacteristicValue"]) > 0:
-                    value = val["productSpecCharacteristicValue"][0]["value"]
+                    if val["productSpecCharacteristicValue"][0].get("value") != None:
+                        logger.debug("normal")
+                        value = {
+                            "name": "normal",
+                            "value": val["productSpecCharacteristicValue"][0]["value"]}
+                    elif val["productSpecCharacteristicValue"][0].get("valueFrom") != None and val["productSpecCharacteristicValue"][0].get("valueTo") !=None:
+                        logger.debug("tailored")
+                        value = {
+                            "name": "tailored",
+                            "valueFrom": val["productSpecCharacteristicValue"][0]["valueFrom"],
+                            "valueTo": val["productSpecCharacteristicValue"][0]["valueTo"]
+                            }
+
                 conditions[val["name"].lower()] = value
 
+            if value == None: # invalid price component, every price component should have value or (valueFrom, valueTo)
+                return
+
             found = 0
-            for option in options:
-                if option["name"].lower() in conditions:
-                    if conditions[option["name"].lower()] == "tailored":
+            for spec_char in spec_chars:
+                if spec_char["name"].lower() in conditions:
+                    condition = conditions[spec_char["name"].lower()]
+                    if condition["name"] == "tailored" and spec_char["value"] >= condition["valueFrom"] and spec_char["value"] <= condition["valueTo"]: # integer numbers
+                        logger.debug("found tailored")
                         found += 1
-                        tail_value = Decimal(str(option["value"]))
+                        tail_value = Decimal(str(spec_char["value"]))
                         continue
 
-                    if str(conditions[option["name"].lower()]) == str(option["value"]):
+                    if condition["name"] == "normal" and str(condition["value"]) == str(spec_char["value"]):
+                        logger.debug("found normal")
                         found += 1
 
             if len(conditions) != found:
@@ -286,6 +326,7 @@ class PriceEngine:
     def calculate_prices(self, data: dict, usage=[], preview=True):
         aggregated = {}
         indv = []
+        logger.debug("calculate prices")
 
         item = data["productOrderItem"][0]
         # 1) Download the POP
@@ -293,7 +334,7 @@ class PriceEngine:
             # The item has no price, it is free
             return []
 
-        pop_id = item["itemTotalPrice"][0]["productOfferingPrice"]["id"]
+        pop_id = item["itemTotalPrice"][0]["productOfferingPrice"]["id"] # always 1 (price plan)
 
         pricing = self._download_pricing(pop_id)
 
@@ -304,15 +345,15 @@ class PriceEngine:
         else:
             to_process = [pricing]
 
-        options = []
+        spec_chars = []
         if "product" in item and "productCharacteristic" in item["product"]:
-            options = item["product"]["productCharacteristic"]
+            spec_chars = item["product"]["productCharacteristic"]
 
         for component in to_process:
             if preview is True:
-                self._process_price_component(component, options, aggregated, usage)
+                self._process_price_component(component, spec_chars, aggregated, usage)
             else:
-                self._proccess_price_component_indv(component, options, indv, usage)
+                self._proccess_price_component_indv(component, spec_chars, indv, usage)
                 pass
 
         # If the POP is not a bundle check the pricing
@@ -320,6 +361,7 @@ class PriceEngine:
 
         # If a characteristic has been defined check if the component have to be applied
         # If the charactristic is tailored apply the value
+        logger.debug(f"aggregation: {aggregated}")
 
         result = []
         parties = None

@@ -44,7 +44,7 @@ TAILORED_POP = {
     "recurringChargePeriodType": "month",
     "recurringChargePeriodLength": 1,
     "price": {"value": 0.01, "unit": "EUR"},
-    "prodSpecCharValueUse": [{"name": "tailored"}],
+    "prodSpecCharValueUse": [{"name": "tailored", "productSpecCharacteristicValue": [{"valueFrom": 0, "valueTo": 100}]}],
 }
 
 MULTIPLE_POP = {
@@ -106,7 +106,7 @@ USAGE_TAILORED_POP = {
     "price": {"value": 0.01, "unit": "EUR"},
     "unitOfMeasure": {"units": "ram_gb"},
     "usageSpecId": "urn:ngsi-ld:usageSpecification:1",
-    "prodSpecCharValueUse": [{"name": "tailored"}],
+    "prodSpecCharValueUse": [{"name": "tailored", "productSpecCharacteristicValue": [{"valueFrom": 0, "valueTo": 100}]}],
 }
 
 SIMPLE_POP_2 = {"isBundle": False, "priceType": "one time", "price": {"value": 5.0, "unit": "EUR"}}
