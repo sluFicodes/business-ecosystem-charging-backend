@@ -115,6 +115,8 @@ class OfferingValidator(CatalogValidator):
         # Check if we have a range
         is_same = False
         if not "value" in prd_char_value and "valueFrom" in prd_char_value and "valueTo" in prd_char_value:
+            if value_use_value_item["valueFrom"] >= value_use_value_item["valueTo"]:
+                raise ValueError("valueFrom should not be equal or greater than valueTo")
             is_same = value_use_value_item["valueFrom"] >= prd_char_value["valueFrom"] and \
                 value_use_value_item["valueTo"] <= prd_char_value["valueTo"]
             if anti_collision is not None:
