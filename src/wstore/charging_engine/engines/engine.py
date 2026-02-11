@@ -50,19 +50,25 @@ class Engine:
     def execute_billing(self, item, raw_order):
         pass
 
-    def process_initial_charging(self, raw_order):
+    def process_initial_charging(self, raw_order, related_contract= None):
         try:
             # The billing engine processes the products one by one
-            new_contracts = []
             transactions = []
             billing_client = BillingClient()
             inventory_client = InventoryClient()
+            modify_contract = None if related_contract is None else related_contract.get(0, None)
             for contract in self._order.contracts:
                 # TODO: In the future I will transform this _get_item that is O(n^2) to a hashmap o Dict in this case that is O(1) complexity
                 item = self._get_item(contract.item_id, raw_order)
 
+                if modify_contract is not None and modify_contract.product_id != contract.product_id:
+                    continue
+
                 product = inventory_client.build_product_model(item, raw_order["id"], raw_order["billingAccount"])
-                new_product = inventory_client.create_product(product)
+                # attributes that needs to be set after the payments
+                contract.prd_after_paid = {"product_price": product.pop("productPrice", None), "product_characteristic": product.pop("productCharacteristic", None)}
+                # TODO: reset product to created and before this method, terminate cb and acbrs (I think it is not needed based on what Stefania said in dc).
+                new_product = inventory_client.create_product(product) if modify_contract is None else inventory_client.get_product(modify_contract.product_id)
 
                 response = self.execute_billing(item, raw_order)
                 if len(response) > 0:
@@ -98,7 +104,6 @@ class Engine:
                     contract.applied_rates = [ n_rate["id"] for n_rate in created_rates ]
                     contract.customer_bill = created_cb
                     contract.product_id = new_product["id"]
-                    new_contracts.append(contract)
 
                     transactions.append({
                         "item": contract.item_id,
@@ -117,7 +122,6 @@ class Engine:
                 return None
 
             # Update the order with the new contracts
-            self._order.contracts = new_contracts
             pending_payment = {  # Payment model
                 "transactions": transactions,
                 "concept": 'initial',
@@ -160,4 +164,4 @@ class Engine:
 
         # TODO: Process other types of charging, renewal, usage, etc.
         if type_ == "initial":
-            return self.process_initial_charging(raw_order)
+            return self.process_initial_charging(raw_order, related_contracts)

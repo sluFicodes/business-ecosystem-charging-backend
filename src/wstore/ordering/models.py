@@ -67,6 +67,7 @@ class Contract(models.Model):
 
     offering = models.CharField(max_length=50)  # Offering.pk as Foreing Key is not working for EmbeddedFields
     # offering = models.ForeignKey(Offering, on_delete=models.DO_NOTHING)
+    prd_after_paid = models.JSONField(default = {})
 
     # Parsed version of the pricing model used to calculate charges
     pricing_model = models.JSONField(default={})  # Dict
@@ -151,7 +152,8 @@ class Order(models.Model):
             options=contract_info["options"],
             applied_rates=contract_info["applied_rates"],
             customer_bill = contract_info["customer_bill"],
-            processed = contract_info["processed"]
+            processed = contract_info["processed"],
+            prd_after_paid = contract_info["prd_after_paid"]
         )
 
     def get_contracts(self):

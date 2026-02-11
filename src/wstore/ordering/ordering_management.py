@@ -391,23 +391,24 @@ class OrderingManager:
         raw_product = inv_client.get_product(product_id)
 
         # Get related order
-        order = Order.objects.get(order_id=raw_product["name"].split("=")[1])
+        order = Order.objects.get(order_id=raw_product["name"].split("-")[1])
 
         # Get the existing contract
         contract = order.get_product_contract(product_id)
 
         # TODO: Process pay per use case
-        if "subscription" in contract.pricing_model:
-            # Check if there are a pending subscription
-            now = datetime.utcnow()
+        # TODO: uncomment this snippet when recurring support is needed. SRS
+        # if "subscription" in contract.pricing_model:
+        #     # Check if there are a pending subscription (pending recurring)
+        #     now = datetime.utcnow()
 
-            for subs in contract.pricing_model["subscription"]:
-                timedelta = subs["renovation_date"] - now
-                if timedelta.days > 0:
-                    logger.error(f"Subscription for {product_id} has not expired yet")
-                    raise OrderingError(
-                        "You cannot modify a product with a recurring payment until the subscription expires"
-                    )
+        #     for subs in contract.pricing_model["subscription"]:
+        #         timedelta = subs["renovation_date"] - now
+        #         if timedelta.days > 0:
+        #             logger.error(f"Subscription for {product_id} has not expired yet")
+        #             raise OrderingError(
+        #                 "You cannot modify a product with a recurring payment until the subscription expires"
+        #             )
 
         return order, contract
 
@@ -430,11 +431,20 @@ class OrderingManager:
         client = InventoryClient()
         order, contract = self._get_existing_contract(client, product["id"])
 
+        # To prevent modification before paying the product-add action first
+        if not contract.processed:
+            logger.error("Only activated products are modifiable")
+            raise OrderingError("Only activated products are modifiable")
+
+        # To let the new initial charge to be committed
+        contract.processed = False
+
         # Build the new contract
-        new_contract = self._build_contract(item)
-        if new_contract.pricing_model != {}:
-            contract.pricing_model = new_contract.pricing_model
-            contract.revenue_class = new_contract.revenue_class
+        # TODO: Maybe needed in the future. SRS
+        # new_contract = self._build_contract(item)
+        # if new_contract.pricing_model != {}:
+        #     contract.pricing_model = new_contract.pricing_model
+        #     contract.revenue_class = new_contract.revenue_class
 
         order.save()
 
@@ -576,8 +586,17 @@ class OrderingManager:
         # This cannot work until the Service Intentory API is published
         # product["productCharacteristic"].extend([{"name": "service", "value": service}] for service in services)
 
+        # ready to overwrite product characteristic
+        product["productCharacteristic"] = []
+        product["productPrice"] = []
+        logger.debug("product characteristic treatment")
+
         if extra_char is not None:
             product["productCharacteristic"].extend(extra_char)
+
+        if contract.prd_after_paid is not None:
+            product["productCharacteristic"].extend(contract.prd_after_paid["product_characteristic"])
+            product["productPrice"].extend(contract.prd_after_paid["product_price"])
 
         logger.info("Creating/updating product in the inventory")
         new_product = inventory_client.create_product(product) if contract == None\
