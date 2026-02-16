@@ -21,6 +21,12 @@
 from copy import deepcopy
 
 
+BASIC_PROD_SPEC = {
+    "id": "urn:ProductSpecification:12345",
+    "name": "Basic Product",
+    "productSpecCharacteristic": []
+}
+
 BASE_OFFERING = {
     "id": "3",
     "href": "http://catalog.com/offerin3",
@@ -60,6 +66,16 @@ OT_OFFERING_PRICE = {
     }
 }
 
+OT_OFFERING_PRICE_2 = {
+    "id": "urn:product-offering-price:4567",
+    "name": "plan",
+    "priceType": "one time",
+    "price": {
+        "unit": "EUR",
+        "value": "1.0"
+    }
+}
+
 OPEN_OFFERING_PRICE = {
     "id": "urn:product-offering-price:1234",
     "name": "open",
@@ -83,12 +99,14 @@ FREE_OFFERING = {
 }
 
 CUSTOM_OFFERING_PRICING = {
+    "id": "urn:product-offering-price:1234",
     "name": "The custom pricing",
     "priceType": "custom",
     "description": "Custom pricing description"
 }
 
 CUSTOM_OFFERING_PRICING_2 = {
+    "id": "urn:product-offering-price:4567",
     "name": "The custom pricing 2",
     "priceType": "custom",
     "description": "Custom pricing description"
@@ -248,19 +266,21 @@ OPEN_MIXED = {
     "isBundle": False,
     "name": "TestOffering",
     "version": "1.0",
-    "productSpecification": {"id": "20", "href": "http://catalog.com/products/20"},
+    "productSpecification": {"id": "urn:ProductSpecification:12345", "href": "http://catalog.com/products/20"},
     "productOfferingPrice": [
-        {"id": "urn:price:1234", "name": "open", "description": "Open offering"},
-        {
-            "name": "single",
-            "priceType": "one time",
-            "price": {
-                "taxIncludedAmount": {
-                    "unit": "EUR",
-                    "value": "1.0"
-                }},
-        },
+        {"id": "urn:price:1234", "href": "urn:price:1234"},
+        {"id": "urn:price:5678", "href": "urn:price:5678"}
     ],
+}
+
+OPEN_MIXED_PRICE = {
+    "id": "urn:price:5678",
+    "name": "single",
+    "priceType": "one time",
+    "price": {
+        "unit": "EUR",
+        "value": "1.0"
+    }
 }
 
 PROFILE_PROD_SPEC = {
@@ -576,6 +596,12 @@ PRICE_COMPONENT_4 = {
     }]
 }
 
+INVALID_PROD_SPEC = {
+    "id": "urn:ProductSpecification:20",
+    "name": "Invalid Product Spec",
+    "productSpecCharacteristic": []
+}
+
 INVALID_SPEC = deepcopy(BASE_OFFERING)
 INVALID_SPEC["productSpecification"] =  {"id": "urn:ProductSpecification:20"}
 
@@ -614,3 +640,144 @@ INVALID_USE_VALUE["prodSpecCharValueUse"] = [{
         "href": "urn:ProductSpecification:12345"
     }
 }]
+
+# Anti-collision test data for range collision tests
+ANTICOLLISION_CONTINUOUS_SINGLE = {
+    "urn:Characteristic:1234": {
+        "total_range": {
+            "valueFrom": 1,
+            "valueTo": 100
+        },
+        "from-1": [50],
+        "from-51": [100]
+    }
+}
+
+ANTICOLLISION_CONTINUOUS_MULTIPLE_SEGMENTS = {
+    "urn:Characteristic:5678": {
+        "total_range": {
+            "valueFrom": 0,
+            "valueTo": 1000
+        },
+        "from-0": [250],
+        "from-251": [500],
+        "from-501": [750],
+        "from-751": [1000]
+    }
+}
+
+ANTICOLLISION_CONTINUOUS_WITH_MULTIPLE_VALUES = {
+    "urn:Characteristic:7777": {
+        "total_range": {
+            "valueFrom": 1,
+            "valueTo": 100
+        },
+        "from-1": [25, 30, 50],
+        "from-26": [40],
+        "from-31": [45],
+        "from-51": [75],
+        "from-76": [100]
+    }
+}
+
+ANTICOLLISION_CONTINUOUS_WITH_DUPLICATES = {
+    "urn:Characteristic:8888": {
+        "total_range": {
+            "valueFrom": 1,
+            "valueTo": 50
+        },
+        "from-1": [10, 15],
+        "from-11": [20],
+        "from-16": [25],
+        "from-21": [30],
+        "from-26": [35],
+        "from-31": [40],
+        "from-36": [45],
+        "from-41": [50],
+        "from-46": [50]
+    }
+}
+
+ANTICOLLISION_NON_CONTINUOUS_GAP = {
+    "urn:Characteristic:9999": {
+        "total_range": {
+            "valueFrom": 1,
+            "valueTo": 100
+        },
+        "from-1": [50],
+        "from-60": [100]
+    }
+}
+
+ANTICOLLISION_MULTIPLE_CHARS_ALL_CONTINUOUS = {
+    "urn:Characteristic:1111": {
+        "total_range": {
+            "valueFrom": 1,
+            "valueTo": 50
+        },
+        "from-1": [25],
+        "from-26": [50]
+    },
+    "urn:Characteristic:2222": {
+        "total_range": {
+            "valueFrom": 100,
+            "valueTo": 200
+        },
+        "from-100": [150],
+        "from-151": [200]
+    }
+}
+
+ANTICOLLISION_MULTIPLE_CHARS_ONE_NON_CONTINUOUS = {
+    "urn:Characteristic:3333": {
+        "total_range": {
+            "valueFrom": 1,
+            "valueTo": 50
+        },
+        "from-1": [25],
+        "from-26": [50]
+    },
+    "urn:Characteristic:4444": {
+        "total_range": {
+            "valueFrom": 100,
+            "valueTo": 200
+        },
+        "from-100": [150],
+        "from-160": [200]
+    }
+}
+
+ANTICOLLISION_EXACT_BOUNDARIES = {
+    "urn:Characteristic:6666": {
+        "total_range": {
+            "valueFrom": 10,
+            "valueTo": 20
+        },
+        "from-10": [20]
+    }
+}
+
+ANTICOLLISION_COMPLEX_BRANCHES = {
+    "urn:Characteristic:5555": {
+        "total_range": {
+            "valueFrom": 0,
+            "valueTo": 100
+        },
+        "from-0": [20, 30, 40],
+        "from-21": [35, 50],
+        "from-31": [45],
+        "from-36": [60],
+        "from-41": [55],
+        "from-46": [70],
+        "from-51": [65],
+        "from-56": [75],
+        "from-61": [80],
+        "from-66": [85],
+        "from-71": [90],
+        "from-76": [95],
+        "from-81": [100],
+        "from-86": [100],
+        "from-91": [100],
+        "from-96": [100]
+    }
+}

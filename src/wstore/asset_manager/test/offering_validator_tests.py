@@ -109,9 +109,10 @@ class OfferingValidatorTestCase(TestCase):
         )
 
     def _validate_single_offering_calls(self, offering):
-        offering_validator.requests.get.assert_called_once_with(
-            "{}/productOfferingPrice/{}".format('https://tmf-catalog.com', 'urn:product-offering-price:1234')
-        )
+        self.assertEquals([
+            call("{}/productOfferingPrice/{}".format('https://tmf-catalog.com', 'urn:product-offering-price:1234')),
+            call("{}/productSpecification/{}".format('https://tmf-catalog.com', 'urn:ProductSpecification:12345'))
+        ], offering_validator.requests.get.call_args_list)
         self._validate_offering_calls(offering, self._asset_instance, True)
 
     def _validate_physical_offering_calls(self, offering):
@@ -189,8 +190,8 @@ class OfferingValidatorTestCase(TestCase):
     def _validate_component_multiple(self, offering):
         self.assertEquals([
             call("{}/productOfferingPrice/{}".format('https://tmf-catalog.com', 'urn:product-offering-price:1234')),
-            call("{}/productOfferingPrice/{}".format('https://tmf-catalog.com', 'urn:ProductOfferingPrice:1111')),
             call("{}/productSpecification/{}".format('https://tmf-catalog.com', 'urn:ProductSpecification:12345')),
+            call("{}/productOfferingPrice/{}".format('https://tmf-catalog.com', 'urn:ProductOfferingPrice:1111')),
             call("{}/productOfferingPrice/{}".format('https://tmf-catalog.com', 'urn:ProductOfferingPrice:1112'))
         ], offering_validator.requests.get.call_args_list)
 
@@ -232,7 +233,7 @@ class OfferingValidatorTestCase(TestCase):
                 bundle.is_open = False
 
     @parameterized.expand([
-        ("onetime_pricing", BASE_OFFERING, [OT_OFFERING_PRICE], _validate_single_offering_calls),
+        ("onetime_pricing", BASE_OFFERING, [OT_OFFERING_PRICE, BASIC_PROD_SPEC], _validate_single_offering_calls),
         ("free_offering", FREE_OFFERING, [], _validate_physical_offering_calls, _non_digital_offering),
         ("bundle_offering", BUNDLE_OFFERING, [], _validate_bundle_digital_offering_calls),
         ("bundle_offering_non_digital", BUNDLE_OFFERING, [], _validate_bundle_physical_offering_calls, _non_digital_bundle),
@@ -242,7 +243,7 @@ class OfferingValidatorTestCase(TestCase):
         ("custom_pricing_multiple", BASE_OFFERING_MULTIPLE, [CUSTOM_OFFERING_PRICING, CUSTOM_OFFERING_PRICING_2], _validate_custom_pricing_calls_multiple),
         ("profile_plan_single", BASE_OFFERING, [PROFILE_PLAN, PROFILE_PROD_SPEC], _validate_profile_plan),
         ("profile_plan_multiple", BASE_OFFERING, [PROFILE_PLAN_MULTIPLE, PROFILE_PROD_SPEC, PRICE_COMPONENT_1, PRICE_COMPONENT_2], _validate_profile_multiple),
-        ("component_char_plan", BASE_OFFERING, [COMPONENT_PLAN, PRICE_COMPONENT_3, PROFILE_PROD_SPEC, PRICE_COMPONENT_4], _validate_component_multiple)
+        ("component_char_plan", BASE_OFFERING, [COMPONENT_PLAN, PROFILE_PROD_SPEC, PRICE_COMPONENT_3, PRICE_COMPONENT_4], _validate_component_multiple)
     ])
     def test_create_offering_validation(self, name, offering, requests, checker, side_effect=None):
         # Mock requests
@@ -258,26 +259,26 @@ class OfferingValidatorTestCase(TestCase):
         checker(self, offering)
 
     @parameterized.expand([
-        ("zero_offering", BASE_OFFERING, [ZERO_PRICING], "Invalid price, it must be greater than zero."),
-        ("missing_type", BASE_OFFERING, [MISSING_PRICETYPE], "Missing required field priceType in productOfferingPrice component"),
-        ("invalid_type", BASE_OFFERING, [INVALID_PRICETYPE], "Invalid priceType, it must be one time, recurring, or usage"),
-        ("missing_charge_period", BASE_OFFERING, [MISSING_PERIOD], "Missing required field recurringChargePeriodType for recurring priceType"),
-        ("invalid_period", BASE_OFFERING, [INVALID_PERIOD], "Unrecognized recurringChargePeriodType: invalid"),
-        ("missing_price", BASE_OFFERING, [MISSING_PRICE], "Missing required field price in productOfferingPrice",),
-        ("missing_currency", BASE_OFFERING, [MISSING_CURRENCY], "Missing currency code in price"),
-        ("invalid_currency", BASE_OFFERING, [INVALID_CURRENCY], "Unrecognized currency: invalid"),
+        ("zero_offering", BASE_OFFERING, [ZERO_PRICING, BASIC_PROD_SPEC], "Invalid price, it must be greater than zero."),
+        ("missing_type", BASE_OFFERING, [MISSING_PRICETYPE, BASIC_PROD_SPEC], "Missing required field priceType in productOfferingPrice component"),
+        ("invalid_type", BASE_OFFERING, [INVALID_PRICETYPE, BASIC_PROD_SPEC], "Invalid priceType, it must be one time, recurring, or usage"),
+        ("missing_charge_period", BASE_OFFERING, [MISSING_PERIOD, BASIC_PROD_SPEC], "Missing required field recurringChargePeriodType for recurring priceType"),
+        ("invalid_period", BASE_OFFERING, [INVALID_PERIOD, BASIC_PROD_SPEC], "Unrecognized recurringChargePeriodType: invalid"),
+        ("missing_price", BASE_OFFERING, [MISSING_PRICE, BASIC_PROD_SPEC], "Missing required field price in productOfferingPrice",),
+        ("missing_currency", BASE_OFFERING, [MISSING_CURRENCY, BASIC_PROD_SPEC], "Missing currency code in price"),
+        ("invalid_currency", BASE_OFFERING, [INVALID_CURRENCY, BASIC_PROD_SPEC], "Unrecognized currency: invalid"),
         ("missing_name", BASE_OFFERING, [MISSING_NAME], "Missing required field name in productOfferingPrice"),
-        ("multiple_names", BASE_OFFERING_MULTIPLE, [OT_OFFERING_PRICE, OT_OFFERING_PRICE], "Price plans names must be unique (plan)"),
+        ("multiple_names", BASE_OFFERING_MULTIPLE, [OT_OFFERING_PRICE, BASIC_PROD_SPEC, OT_OFFERING_PRICE_2], "Price plans names must be unique (plan)"),
         ("bundle_missing", BUNDLE_MISSING_FIELD, [], "Offering bundles must contain a bundledProductOffering field"),
         ("bundle_invalid_number", BUNDLE_MISSING_ELEMS, [], "Offering bundles must contain at least two bundled offerings"),
-        ("open_mixed", BASE_OFFERING_MULTIPLE, [OPEN_OFFERING_PRICE, OT_OFFERING_PRICE], "Open offerings cannot include price plans"),
-        ("custom_pricing_error", BASE_OFFERING_MULTIPLE, [CUSTOM_OFFERING_PRICING, OT_OFFERING_PRICE], "Custom pricing offerings cannot include processed price plans"),
+        ("open_mixed", OPEN_MIXED, [OPEN_OFFERING_PRICE, OPEN_MIXED_PRICE, BASIC_PROD_SPEC], "Open offerings cannot include price plans"),
+        ("custom_pricing_error", BASE_OFFERING_MULTIPLE, [CUSTOM_OFFERING_PRICING, OT_OFFERING_PRICE_2, BASIC_PROD_SPEC], "Custom pricing offerings cannot include processed price plans"),
         ("bundle_inv_bundled", BUNDLE_OFFERING, [], "The bundled offering 6 is not registered", _invalid_bundled),
         ("bundle_mixed", BUNDLE_OFFERING, [], "Mixed bundle offerings are not allowed. All bundled offerings must be digital or physical", _mixed_bundled_offerings),
         ("open_multiple_offers", BASE_OFFERING, [OPEN_OFFERING_PRICE], "Assets of open offerings cannot be monetized in other offerings", _open_existing),
         ("open_non_digital", BASE_OFFERING, [OPEN_OFFERING_PRICE], "Non digital products cannot be open", _non_digital_offering),
         ("open_bundle_mixed", OPEN_BUNDLE, [OPEN_OFFERING_PRICE], "If a bundle is open all the bundled offerings must be open", _non_open_bundled),
-        ("invalid_spec", INVALID_SPEC, [PROFILE_PLAN, PROFILE_PROD_SPEC], "The productSpecValueUse point to an invalid product specification"),
+        ("invalid_spec", INVALID_SPEC, [PROFILE_PLAN, INVALID_PROD_SPEC], "The productSpecValueUse point to an invalid product specification"),
         ("invalid_char_use", BASE_OFFERING, [INVALID_USE, PROFILE_PROD_SPEC], "ProductSpecValueUse refers to non-existing product characteristic"),
         ("invalid_char_use_value", BASE_OFFERING, [INVALID_USE_VALUE, PROFILE_PROD_SPEC], "ProductSpecValueUse refers to non-existing product characteristic value")
     ])
@@ -333,7 +334,7 @@ class OfferingValidatorTestCase(TestCase):
         offering_validator.Offering.objects.filter.return_value = []
 
     def test_update_offering_validator(self):
-        self._mock_offering_update([OT_OFFERING_PRICE])
+        self._mock_offering_update([OT_OFFERING_PRICE, BASIC_PROD_SPEC])
 
         validator = offering_validator.OfferingValidator()
         validator.validate("update", self._provider, BASE_OFFERING)
@@ -373,3 +374,102 @@ class OfferingValidatorTestCase(TestCase):
             str(error),
             "Assets of open offerings cannot be monetized in other offerings",
         )
+
+    @parameterized.expand([
+        ("continuous_single_char", ANTICOLLISION_CONTINUOUS_SINGLE),
+        ("continuous_multiple_segments", ANTICOLLISION_CONTINUOUS_MULTIPLE_SEGMENTS),
+        ("continuous_with_multiple_values", ANTICOLLISION_CONTINUOUS_WITH_MULTIPLE_VALUES),
+        ("continuous_with_duplicates", ANTICOLLISION_CONTINUOUS_WITH_DUPLICATES),
+        ("multiple_chars_all_continuous", ANTICOLLISION_MULTIPLE_CHARS_ALL_CONTINUOUS),
+        ("exact_boundaries", ANTICOLLISION_EXACT_BOUNDARIES),
+        ("complex_branches", ANTICOLLISION_COMPLEX_BRANCHES)
+    ])
+    def test_check_range_collision_continuous(self, name, anti_collision_data):
+        from copy import deepcopy
+        validator = offering_validator.OfferingValidator()
+
+        # deepcopy to avoid modifying the test data (method pops total_range)
+        test_data = deepcopy(anti_collision_data)
+
+        # Should not raise any exception
+        result = validator._check_range_collision(test_data)
+        self.assertIsNone(result)
+
+    @parameterized.expand([
+        ("non_continuous_gap", ANTICOLLISION_NON_CONTINUOUS_GAP, "urn:Characteristic:9999"),
+        ("multiple_chars_one_non_continuous", ANTICOLLISION_MULTIPLE_CHARS_ONE_NON_CONTINUOUS, "urn:Characteristic:4444")
+    ])
+    def test_check_range_collision_non_continuous(self, name, anti_collision_data, expected_char_id):
+        from copy import deepcopy
+        validator = offering_validator.OfferingValidator()
+
+        # deepcopy to avoid modifying the test data
+        test_data = deepcopy(anti_collision_data)
+
+        error = None
+        try:
+            validator._check_range_collision(test_data)
+        except ValueError as e:
+            error = e
+
+        self.assertIsNotNone(error)
+        self.assertIn(expected_char_id, str(error))
+        self.assertIn("doesn't have continous subranges", str(error))
+
+    def test_recursive_anti_collision_basic(self):
+        validator = offering_validator.OfferingValidator()
+
+        record = {
+            "from-1": [10],
+            "from-11": [20]
+        }
+
+        # Should find path from 1 to 20
+        result = validator._recursive_anti_collision(1, 20, record)
+        self.assertTrue(result)
+
+        # Should not find path from 1 to 30
+        result = validator._recursive_anti_collision(1, 30, record)
+        self.assertFalse(result)
+
+    def test_recursive_anti_collision_multiple_paths(self):
+        validator = offering_validator.OfferingValidator()
+
+        record = {
+            "from-1": [10, 15, 20],
+            "from-11": [25],
+            "from-16": [30],
+            "from-21": [35],
+            "from-26": [40],
+            "from-31": [45],
+            "from-36": [50]
+        }
+
+        # Should find path from 1 to 50 through multiple branches
+        result = validator._recursive_anti_collision(1, 50, record)
+        self.assertTrue(result)
+
+        # Should find path from 1 to 40
+        result = validator._recursive_anti_collision(1, 40, record)
+        self.assertTrue(result)
+
+    def test_recursive_anti_collision_empty_record(self):
+        validator = offering_validator.OfferingValidator()
+
+        record = {}
+
+        # Should return False for empty record
+        result = validator._recursive_anti_collision(1, 100, record)
+        self.assertFalse(result)
+
+    def test_recursive_anti_collision_no_path(self):
+        validator = offering_validator.OfferingValidator()
+
+        record = {
+            "from-1": [50],
+            "from-60": [100]
+        }
+
+        # Should not find path from 1 to 100 due to gap
+        result = validator._recursive_anti_collision(1, 100, record)
+        self.assertFalse(result)

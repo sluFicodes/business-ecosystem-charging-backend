@@ -32,7 +32,10 @@ from wstore.ordering.models import Offering
 from wstore.store_commons.utils.units import ChargePeriod, CurrencyCode
 from wstore.store_commons.utils.url import get_service_url
 
+from logging import getLogger
 
+
+logger = getLogger("wstore.default_logger")
 class OfferingValidator(CatalogValidator):
     def _get_bundled_offerings(self, product_offering):
         bundled_offerings = []
@@ -100,10 +103,10 @@ class OfferingValidator(CatalogValidator):
         if Decimal(price["value"]) <= Decimal("0"):
             raise ValueError("Invalid price, it must be greater than zero.")
 
-    def _is_same_value(self, use_val, prd_char_value):
+    def _is_same_value(self, value_use_value_item, value_use_id, prd_char_value, anti_collision: dict):
         use_unit = None
-        if "unitOfMeasure" in use_val:
-            use_unit = use_val["unitOfMeasure"].lower()
+        if "unitOfMeasure" in value_use_value_item:
+            use_unit = value_use_value_item["unitOfMeasure"].lower()
 
         prd_unit = None
         if "unitOfMeasure" in prd_char_value:
@@ -112,25 +115,32 @@ class OfferingValidator(CatalogValidator):
         # Check if we have a range
         is_same = False
         if not "value" in prd_char_value and "valueFrom" in prd_char_value and "valueTo" in prd_char_value:
-            is_same = use_val["value"] >= prd_char_value["valueFrom"] and \
-                use_val["value"] <= prd_char_value["valueTo"] and \
-                use_unit == prd_unit
+            if value_use_value_item["valueFrom"] > value_use_value_item["valueTo"]:
+                raise ValueError("valueFrom should not be greater than valueTo")
+            is_same = value_use_value_item["valueFrom"] >= prd_char_value["valueFrom"] and \
+                value_use_value_item["valueTo"] <= prd_char_value["valueTo"]
+            if anti_collision is not None:
+                if not anti_collision.get(value_use_id, False): # if the characteristic is not recorded
+                    anti_collision[value_use_id]= {
+                        "total_range": prd_char_value # record total range of the product spec char
+                    }
+                if not anti_collision[value_use_id].get(f"from-{value_use_value_item['valueFrom']}", False):
+                    anti_collision[value_use_id][f"from-{value_use_value_item['valueFrom']}"] = []
+                anti_collision[value_use_id][f"from-{value_use_value_item['valueFrom']}"].append(value_use_value_item["valueTo"])
         else:
-            is_same = use_val["value"] == prd_char_value["value"] and \
+            is_same = value_use_value_item["value"] == prd_char_value["value"] and \
             use_unit == prd_unit
 
         return is_same
 
-    def _validate_char_value_use(self, price_component, prod_spec_id):
+    def _validate_char_value_use(self, price_component, product_spec, anti_collision_record = None):
         # Check if a configuration profile has been provided
         if "prodSpecCharValueUse" in price_component:
-            # Get the product spec
-            product_spec = self._get_product_spec(prod_spec_id)
 
             # Check that the characteristics exists
             for value_use in price_component["prodSpecCharValueUse"]:
                 # Check the product spec ID
-                if "productSpecification" in value_use and value_use["productSpecification"]["id"] != prod_spec_id:
+                if "productSpecification" in value_use and value_use["productSpecification"]["id"] != product_spec["id"]:
                     raise ValueError("The productSpecValueUse point to an invalid product specification")
 
                 # Check that the characteristic exists
@@ -145,14 +155,14 @@ class OfferingValidator(CatalogValidator):
 
                 # Check that the value is valid
                 if "productSpecCharacteristicValue" in value_use:
-                    for use_val in value_use["productSpecCharacteristicValue"]:
+                    for value_use_value_item in value_use["productSpecCharacteristicValue"]:
                         for prd_char_value in prd_char["productSpecCharacteristicValue"]:
-                            if self._is_same_value(use_val, prd_char_value):
+                            if self._is_same_value(value_use_value_item, value_use["id"], prd_char_value, anti_collision_record):
                                 break
                         else:
                             raise ValueError("ProductSpecValueUse refers to non-existing product characteristic value")
 
-    def _validate_price_component(self, price_component, prod_spec_id):
+    def _validate_price_component(self, price_component, product_spec, anti_collision=None):
         recurringKey = "recurringChargePeriodType"
         recurring_pricing = ["recurring", "recurring-prepaid", "recurring-postpaid"]
         valid_pricing = ["one time", "usage"]
@@ -180,7 +190,7 @@ class OfferingValidator(CatalogValidator):
             raise ValueError("Missing required field price in productOfferingPrice")
 
         self._validate_value_price(price_component["price"])
-        self._validate_char_value_use(price_component, prod_spec_id)
+        self._validate_char_value_use(price_component, product_spec, anti_collision_record=anti_collision)
 
     @on_product_offering_validation
     def _validate_offering_pricing(self, provider, product_offering, bundled_offerings):
@@ -225,18 +235,25 @@ class OfferingValidator(CatalogValidator):
                     customs += 1
                     continue
 
+                # Get the product spec
+                product_spec = self._get_product_spec(product_offering['productSpecification']['id'])
+
                 # Validate price components
                 if "isBundle" in price_model and price_model["isBundle"]:
+
+                    anti_collision = {}
                     # The plan may include a configuration profile
-                    self._validate_char_value_use(price_model, product_offering['productSpecification']['id'])
+                    self._validate_char_value_use(price_model, product_spec)
 
                     # The price plan has the price components linked
-                    [self._validate_price_component(self._get_price(price_comp["id"]), product_offering['productSpecification']['id'])
+                    [self._validate_price_component(self._get_price(price_comp["id"]), product_spec, anti_collision)
                         for price_comp in price_model["bundledPopRelationship"]]
+                    if len(anti_collision) != 0:
+                        self._check_range_collision(anti_collision) #TODO: desarrollar esto
 
                 else:
                     # The price plan has 1 single price component attached
-                    self._validate_price_component(price_model, product_offering['productSpecification']['id'])
+                    self._validate_price_component(price_model, product_spec)
 
             if is_open and len(names) > 1:
                 raise ValueError("Open offerings cannot include price plans")
@@ -245,6 +262,36 @@ class OfferingValidator(CatalogValidator):
                 raise ValueError("Custom pricing offerings cannot include processed price plans")
 
         return is_open, is_custom
+
+    def _recursive_anti_collision(self, value_search, value_end, record):
+        value_nexts = record.get(f"from-{value_search}", None)
+        if value_nexts is None or len(value_nexts) == 0:
+            return False
+
+        for value_next in value_nexts:
+            if value_next == value_end:
+                return True
+            else:
+                reached = self._recursive_anti_collision(value_next + 1, value_end, record)
+                if reached:
+                    return reached
+
+        return False
+
+
+
+    def _check_range_collision(self, anti_collision: dict):
+        for k, char_range_record in anti_collision.items():
+            total_range = char_range_record.pop("total_range")
+            value_init = total_range["valueFrom"]
+            value_end = total_range["valueTo"]
+            continous = self._recursive_anti_collision(value_init, value_end, char_range_record)
+            if not continous:
+                logger.error(f"Offering price linked to Characteristic with key: {k} doesn't have continous subranges")
+                raise ValueError(f"Offering price linked to Characteristic with key: {k} doesn't have continous subranges")
+
+
+        return None
 
     def _download(self, url):
         r = requests.get(url)
