@@ -387,11 +387,15 @@ class OrderingManager:
         return charging_engine.resolve_charging(raw_order=order)
 
     def _get_existing_contract(self, inv_client, product_id):
+        logger.debug("get existing contract")
         # Get product info
         raw_product = inv_client.get_product(product_id)
+        if raw_product["status"].lower() != "active":
+            raise OrderingError("It is not possible no modify a product without been activated previously")
+        logger.debug(f"raw product name: {raw_product['name']}")
 
         # Get related order
-        order = Order.objects.get(order_id=raw_product["name"].split("-")[1])
+        order = Order.get_by_product_id(product_id)
 
         # Get the existing contract
         contract = order.get_product_contract(product_id)
@@ -410,9 +414,10 @@ class OrderingManager:
         #                 "You cannot modify a product with a recurring payment until the subscription expires"
         #             )
 
+        logger.debug("get existing contract end")
         return order, contract
 
-    def _process_modify_items(self, items):
+    def _process_modify_items(self, items, raw_order):
         if len(items) > 1:
             logger.error("Only a modify item is supported per order item")
             raise OrderingError("Only a modify item is supported per order item")
@@ -436,8 +441,13 @@ class OrderingManager:
             logger.error("Only activated products are modifiable")
             raise OrderingError("Only activated products are modifiable")
 
+        # Rebuild contracts as proper Contract objects so the engine can access attributes and modify them in-place
+        order.contracts = order.get_contracts()
+        contract = next(c for c in order.contracts if c.product_id == product["id"])
+
         # To let the new initial charge to be committed
         contract.processed = False
+        logger.debug(f"contract product id: {contract.product_id}")
 
         # Build the new contract
         # TODO: Maybe needed in the future. SRS
@@ -446,11 +456,16 @@ class OrderingManager:
         #     contract.pricing_model = new_contract.pricing_model
         #     contract.revenue_class = new_contract.revenue_class
 
+        order.order_id = raw_order["id"]
         order.save()
+
+        self.ordering_client.update_items_state(raw_order, "inProgress", root_state="inProgress", items=items)
+
+        mod_order = {**raw_order, "productOrderItem": items}
 
         # The modified item is treated as an initial payment
         charging_engine = ChargingEngine(order)
-        return charging_engine.resolve_charging(type_="initial", related_contracts=[contract])
+        return charging_engine.resolve_charging(type_="initial", related_contracts=[contract], raw_order=mod_order)
 
     def _process_delete_items(self, items):
         for item in items:
@@ -503,7 +518,7 @@ class OrderingManager:
 
         redirection_url = None
         if len(items["modify"]):
-            redirection_url = self._process_modify_items(items["modify"])
+            redirection_url = self._process_modify_items(items["modify"], order)
 
         # Process add items
         if len(items["add"]):
@@ -556,7 +571,7 @@ class OrderingManager:
             else inventory_client.get_product_for_patch(contract.product_id)
 
         # Instantiate services and resources if needed
-        if "productSpecification" in offering_info:
+        if "productSpecification" in offering_info and f"oid-{order['id']}" == product["name"]:
 
             spec_id = offering_info["productSpecification"]["id"]
             spec_url = get_service_url("catalog", f"/productSpecification/{spec_id}")

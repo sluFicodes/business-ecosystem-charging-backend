@@ -229,5 +229,22 @@ class Order(models.Model):
             raise OrderingError("Order not found.")
 
         return Order.objects.get(pk=result["_id"])
+
+    @classmethod
+    def get_by_product_id(_, prd_id):
+        db = get_database_connection()
+        result = db.wstore_order.find_one({
+            "contracts": {
+                "$elemMatch": {
+                    "product_id": prd_id
+                }
+            }
+        })
+
+        if result is None:
+            raise OrderingError("Order with the specific product id not found.")
+
+        return Order.objects.get(pk=result["_id"])
+
     class Meta:
         app_label = "wstore"

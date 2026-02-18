@@ -22,7 +22,7 @@
 
 import requests
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 from urllib.parse import urljoin, urlparse
 
@@ -136,7 +136,7 @@ class InventoryClient:
         """
         patch_body = {
             "status": "active",
-            "startDate": datetime.utcnow().isoformat() + "Z",
+            "startDate": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         }
         self.patch_product(product_id, patch_body)
 
@@ -162,7 +162,7 @@ class InventoryClient:
 
         patch_body = {
             "status": "terminated",
-            "terminationDate": datetime.utcnow().isoformat() + "Z",
+            "terminationDate": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         }
         self.patch_product(product_id, patch_body)
 
@@ -210,7 +210,7 @@ class InventoryClient:
             "resourceCharacteristic": [self.build_inventory_char(char, "resourceSpecCharacteristicValue") for char in resource_spec["resourceSpecCharacteristic"]],
             "relatedParty": parties,
             "resourceStatus": "reserved",
-            "startOperatingDate": datetime.now().isoformat() + "Z"
+            "startOperatingDate": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         }
 
         if "name" in resource_spec:
@@ -237,7 +237,7 @@ class InventoryClient:
             "serviceCharacteristic": [self.build_inventory_char(char, "characteristicValueSpecification") for char in service_spec["specCharacteristic"]],
             "relatedParty": parties,
             "state": "reserved",
-            "startDate": datetime.now().isoformat() + "Z"
+            "startDate": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         }
         if "name" in service_spec:
             service["name"] = service_spec["name"]
