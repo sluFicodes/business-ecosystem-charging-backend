@@ -92,7 +92,7 @@ class BillingClient:
             "date": datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
             "appliedTax": [{
                 "taxCategory": "VAT",
-                "taxRate": tax_rate,
+                "taxRate": decimal_rate,
                 "taxAmount": {
                     "unit": currency,
                     "value": tax
