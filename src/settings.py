@@ -229,6 +229,10 @@ RELATED_PARTY_SCHEMA_LOCATION="https://raw.githubusercontent.com/Ficodes/tmf-sch
 
 DATABASES["default"]["NAME"] = environ.get("BAE_CB_MONGO_DB", DATABASES["default"]["NAME"])
 
+env_auth_mechanism = environ.get("BAE_CB_MONGO_AUTH_MECHANISM", None)
+if env_auth_mechanism is not None:
+    DATABASES["default"]["CLIENT"]["authMechanism"] = env_auth_mechanism
+
 env_user = environ.get("BAE_CB_MONGO_USER", None)
 if env_user is not None:
     DATABASES["default"]["CLIENT"]["username"] = env_user
