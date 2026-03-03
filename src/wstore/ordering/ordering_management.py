@@ -609,7 +609,7 @@ class OrderingManager:
         if extra_char is not None:
             product["productCharacteristic"].extend(extra_char)
 
-        if contract.prd_after_paid is not None:
+        if contract and contract.prd_after_paid is not None:
             product["productCharacteristic"].extend(contract.prd_after_paid["product_characteristic"])
             product["productPrice"].extend(contract.prd_after_paid["product_price"])
 
