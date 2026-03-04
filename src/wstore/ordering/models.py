@@ -196,6 +196,48 @@ class Order(models.Model):
 
       return self._build_contract(doc["contracts"][0])
 
+    def claim_contract_for_termination(self, product_id):
+        db = get_database_connection()
+        result = db.wstore_order.find_one_and_update(
+            {
+                "_id": self._id,
+                "contracts": {
+                    "$elemMatch": {
+                        "product_id": product_id,
+                        "processed": True,
+                        "terminated": False
+                    }
+                }
+            },
+            {
+                "$set": {
+                    "contracts.$.terminated": True
+                }
+            }
+        )
+        return result is not None
+
+    def claim_contract_for_modification(self, product_id):
+        db = get_database_connection()
+        result = db.wstore_order.find_one_and_update(
+            {
+                "_id": self._id,
+                "contracts": {
+                    "$elemMatch": {
+                        "product_id": product_id,
+                        "processed": True,
+                        "terminated": False
+                    }
+                }
+            },
+            {
+                "$set": {
+                    "contracts.$.processed": False
+                }
+            }
+        )
+        return result is not None
+
     def mark_contract_as_processed(self, item_id):
         db = get_database_connection()
         result = db.wstore_order.update_one(

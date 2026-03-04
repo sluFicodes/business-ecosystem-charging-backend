@@ -155,10 +155,10 @@ class InventoryClient:
         """
 
         # Activate the product since it must be in active state to be terminated
-        try:
-            self.activate_product(product_id)
-        except:
-            pass
+        # try:
+        #     self.activate_product(product_id)
+        # except:
+        #     pass
 
         patch_body = {
             "status": "terminated",

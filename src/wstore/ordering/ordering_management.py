@@ -391,7 +391,7 @@ class OrderingManager:
         # Get product info
         raw_product = inv_client.get_product(product_id)
         if raw_product["status"].lower() != "active":
-            raise OrderingError("It is not possible no modify a product without been activated previously")
+            raise OrderingError("It is not possible to modify a product without been activated previously")
         logger.debug(f"raw product name: {raw_product['name']}")
 
         # Get related order
@@ -436,17 +436,15 @@ class OrderingManager:
         client = InventoryClient()
         order, contract = self._get_existing_contract(client, product["id"])
 
-        # To prevent modification before paying the product-add action first
-        if not contract.processed:
+        # Atomically verify processed=True and set to False (prevents race conditions)
+        if not order.claim_contract_for_modification(product["id"]):
             logger.error("Only activated products are modifiable")
             raise OrderingError("Only activated products are modifiable")
 
-        # Rebuild contracts as proper Contract objects so the engine can access attributes and modify them in-place
+        # Refresh and rebuild contracts to reflect the atomic update
+        order.refresh_from_db()
         order.contracts = order.get_contracts()
         contract = next(c for c in order.contracts if c.product_id == product["id"])
-
-        # To let the new initial charge to be committed
-        contract.processed = False
         logger.debug(f"contract product id: {contract.product_id}")
 
         # Build the new contract
@@ -483,11 +481,12 @@ class OrderingManager:
             client = InventoryClient()
             order, contract = self._get_existing_contract(client, product["id"])
 
+            if not order.claim_contract_for_termination(product["id"]):
+                logger.error("Only activated products are deletable")
+                raise OrderingError("Only activated products are deletable")
+
             # Suspend the access to the service
             on_product_suspended(order, contract)
-
-            contract.terminated = True
-            order.save()
 
             # Terminate product in the inventory
             client.terminate_product(product["id"])
