@@ -457,8 +457,6 @@ class OrderingManager:
         order.order_id = raw_order["id"]
         order.save()
 
-        self.ordering_client.update_items_state(raw_order, "inProgress", root_state="inProgress", items=items)
-
         mod_order = {**raw_order, "productOrderItem": items}
 
         # The modified item is treated as an initial payment
@@ -537,12 +535,16 @@ class OrderingManager:
                 return None
 
             # Update status of items to be processed
-            self.ordering_client.update_items_state(order, "inProgress", items=[item["item"] for item in process_items])
-            self.ordering_client.update_state(order, "inProgress")
+            self.ordering_client.update_items_state(order, "inProgress", root_state="inProgress", items=[item["item"] for item in process_items])
 
             logger.info("Status of orders and items set to inProgress")
 
             redirection_url = self._process_add_items(process_items, order, description, terms_accepted)
+        if len(items["modify"]):
+            self.ordering_client.update_items_state(order, "inProgress", root_state="inProgress", items=items["modify"])
+        if len(items["delete"]):
+            deleteState = "completed" if len(items["delete"]) == len(order["productOrderItem"]) else "inProgress"
+            self.ordering_client.update_items_state(order, "completed", root_state=deleteState, items=items["delete"])
 
         return redirection_url
 

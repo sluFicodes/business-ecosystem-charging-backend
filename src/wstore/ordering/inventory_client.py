@@ -160,6 +160,17 @@ class InventoryClient:
         # except:
         #     pass
 
+        # TODO: Create a rollback system (probably saving in mongo rollback pendings) in case the apis are shut down
+        product = self.get_product(product_id)
+
+        for resource in product.get("realizingResource", []):
+            resource_url = get_service_url("resource_inventory", "/resource/" + str(resource["id"]))
+            requests.patch(resource_url, json={"resourceStatus": "suspended"}, verify=settings.VERIFY_REQUESTS)
+
+        for service in product.get("realizingService", []):
+            service_url = get_service_url("service_inventory", "/service/" + str(service["id"]))
+            requests.patch(service_url, json={"state": "terminated"}, verify=settings.VERIFY_REQUESTS)
+
         patch_body = {
             "status": "terminated",
             "terminationDate": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
