@@ -505,7 +505,7 @@ class OrderingManager:
         for item in order["productOrderItem"]:
             items[item["action"].lower()].append(item)
 
-        total_len= order["productOrderItem"]
+        total_len= len(order["productOrderItem"])
 
         if len(items["add"]) != total_len and len(items["modify"]) != total_len and len(items["delete"]) != total_len :
             logger.error("It is not possible to process mixed actions in the same order")
