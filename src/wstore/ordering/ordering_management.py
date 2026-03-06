@@ -505,9 +505,11 @@ class OrderingManager:
         for item in order["productOrderItem"]:
             items[item["action"].lower()].append(item)
 
-        if len(items["add"]) and len(items["modify"]):
-            logger.error("It is not possible to process add and modify items in the same order")
-            raise OrderingError("It is not possible to process add and modify items in the same order")
+        total_len= order["productOrderItem"]
+
+        if len(items["add"]) != total_len and len(items["modify"]) != total_len and len(items["delete"]) != total_len :
+            logger.error("It is not possible to process mixed actions in the same order")
+            raise OrderingError("It is not possible to process mixed actions in the same order")
 
         # Process order items separately depending on its action. no_change items are not processed
         if len(items["delete"]):
