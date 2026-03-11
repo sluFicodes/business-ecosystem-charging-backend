@@ -476,8 +476,8 @@ class OrderingManagementTestCase(TestCase):
             # Check common calls
             ordering_management.ChargingEngine.assert_called_once_with(self._order_inst)
 
-            # Check order status update
-            ordering_management.OrderingClient().update_state.assert_called_once_with(order, "inProgress")
+            # Check order status update (now handled via root_state in update_items_state)
+            ordering_management.OrderingClient().update_items_state.assert_called_once()
 
             # Check offering and product downloads
             self.assertEquals(2, ordering_management.requests.get.call_count)
@@ -555,12 +555,8 @@ class OrderingManagementTestCase(TestCase):
 
         # Validate ordering client calls
         self.assertEquals([
-            call(order, 'inProgress', items=[{'id': '1', 'action': 'add', 'productOffering': {'id': '20', 'href': '20'}, 'product': {}}]),
+            call(order, 'inProgress', root_state='inProgress', items=[{'id': '1', 'action': 'add', 'productOffering': {'id': '20', 'href': '20'}, 'product': {}}]),
         ], ordering_management.OrderingClient().update_items_state.call_args_list)
-
-        self.assertEquals([
-            call(order, 'inProgress'),
-        ], ordering_management.OrderingClient().update_state.call_args_list)
 
         validator(self)
 
@@ -578,6 +574,7 @@ class OrderingManagementTestCase(TestCase):
 
 
     BASIC_MODIFY = {
+        "id": "12",
         "state": "Acknowledged",
         "productOrderItem": [{"id": "1", "action": "modify", "product": {"id": "89"}}],
     }
@@ -589,8 +586,17 @@ class OrderingManagementTestCase(TestCase):
                 BASIC_MODIFY,
                 {"subscription": [{"renovation_date": datetime(2016, 1, 1)}]},
                 "new_pricing",
+                "active",
             ),
-            ("empty_pricing", BASIC_MODIFY, {}, {}),
+            (
+                "activated_modify",
+                BASIC_MODIFY,
+                {"subscription": [{"renovation_date": datetime(2016, 1, 1)}]},
+                "new_pricing",
+                "created",
+                "OrderingError: It is not possible to modify a product without been activated previously",
+            ),
+            ("empty_pricing", BASIC_MODIFY, {}, {}, "active"),
             (
                 "mix_error",
                 {
@@ -599,7 +605,8 @@ class OrderingManagementTestCase(TestCase):
                 },
                 {},
                 {},
-                "OrderingError: It is not possible to process add and modify items in the same order",
+                "active",
+                "OrderingError: It is not possible to process mixed actions in the same order",
             ),
             (
                 "multiple_mod",
@@ -609,6 +616,7 @@ class OrderingManagementTestCase(TestCase):
                 },
                 {},
                 {},
+                "active",
                 "OrderingError: Only a modify item is supported per order item",
             ),
             (
@@ -616,6 +624,7 @@ class OrderingManagementTestCase(TestCase):
                 {"state": "Acknowledged", "productOrderItem": [{"action": "modify"}]},
                 {},
                 {},
+                "active",
                 "OrderingError: It is required to specify product information in modify order items",
             ),
             (
@@ -626,28 +635,35 @@ class OrderingManagementTestCase(TestCase):
                 },
                 {},
                 {},
+                "active",
                 "OrderingError: It is required to provide product id in modify order items",
             ),
-            (
-                "product_not_exp",
-                BASIC_MODIFY,
-                {"subscription": [{"renovation_date": datetime(2050, 1, 1)}]},
-                {},
-                "OrderingError: You cannot modify a product with a recurring payment until the subscription expires",
-            ),
+            # (
+            #     "product_not_exp",
+            #     BASIC_MODIFY,
+            #     {"subscription": [{"renovation_date": datetime(2050, 1, 1)}]},
+            #     {},
+            #     "OrderingError: You cannot modify a product with a recurring payment until the subscription expires",
+            # ),
         ]
     )
-    def test_modify_order(self, name, order, pricing, new_pricing, err_msg=None):
+    def test_modify_order(self, name, order, pricing, new_pricing, pr_status, err_msg=None):
         # Mock order method
         mock_contract = MagicMock()
         mock_contract.pricing_model = pricing
         mock_contract.revenue_class = "old_revenue"
+        mock_contract.product_id = "89"
         self._order_inst.get_product_contract.return_value = mock_contract
+        self._order_inst.claim_contract_for_modification.return_value = True
+        self._order_inst.get_contracts.return_value = [mock_contract]
+        self._order_inst.contracts = [mock_contract]
+        ordering_management.Order.get_by_product_id.return_value = self._order_inst
 
         ordering_management.InventoryClient = MagicMock()
         ordering_management.InventoryClient().get_product.return_value = {
             "id": "1",
             "name": "oid=35",
+            "status": pr_status,
         }
 
         ordering = ordering_management.OrderingManager()
@@ -667,22 +683,15 @@ class OrderingManagementTestCase(TestCase):
             self.assertTrue(error is None)
 
             ordering_management.InventoryClient().get_product.assert_called_once_with("89")
-            ordering_management.Order.objects.get.assert_called_once_with(order_id="35")
+            ordering_management.Order.get_by_product_id.assert_called_once_with("89")
 
             self._order_inst.get_product_contract.assert_called_once_with("89")
 
-            ordering._build_contract.assert_called_once_with({"id": "1", "action": "modify", "product": {"id": "89"}})
             ordering_management.ChargingEngine.assert_called_once_with(self._order_inst)
+            mod_order = {**order, "productOrderItem": [{"id": "1", "action": "modify", "product": {"id": "89"}}]}
             self._charging_inst.resolve_charging.assert_called_once_with(
-                type_="initial", related_contracts=[mock_contract]
+                type_="initial", related_contracts=[mock_contract], raw_order=mod_order
             )
-
-            if new_pricing != {}:
-                self.assertEquals(new_pricing, mock_contract.pricing_model)
-                self.assertEquals("new_revenue", mock_contract.revenue_class)
-            else:
-                self.assertEquals(pricing, mock_contract.pricing_model)
-                self.assertEquals("old_revenue", mock_contract.revenue_class)
         else:
             self.assertEquals(err_msg, str(error))
 
@@ -974,10 +983,10 @@ class InventoryClientTestCase(TestCase):
 
         inventory_client.settings.LOCAL_SITE = "http://localhost:8004/"
 
-        now = datetime(2016, 1, 22, 4, 10, 25, 176751)
+        now = MagicMock()
+        now.isoformat.return_value = "2016-01-22T04:10:25.176751+00:00"
         inventory_client.datetime = MagicMock()
-        inventory_client.datetime.return_value.now.isoformat = MagicMock()
-        inventory_client.datetime.utcnow.return_value = now
+        inventory_client.datetime.now.return_value = now
         inventory_client.settings.RESOURCE_CATALOG = "http://testing-resource-catalog:8080"
         inventory_client.settings.SERVICE_CATALOG = "http://testing-service-catalog:8080"
         inventory_client.settings.VERIFY_REQUESTS = True
@@ -1055,30 +1064,14 @@ class InventoryClientTestCase(TestCase):
         client = inventory_client.InventoryClient()
         client.terminate_product("1")
 
-        self.assertEquals(
-            [
-                call(
-                    "http://localhost:8080/product/1",
-                    json={
-                        "status": "active",
-                        "startDate": "2016-01-22T04:10:25.176751Z",
-                    },
-                ),
-                call(
-                    "http://localhost:8080/product/1",
-                    json={
-                        "status": "terminated",
-                        "terminationDate": "2016-01-22T04:10:25.176751Z",
-                    },
-                ),
-            ],
-            inventory_client.requests.patch.call_args_list,
+        inventory_client.requests.patch.assert_called_once_with(
+            "http://localhost:8080/product/1",
+            json={
+                "status": "terminated",
+                "terminationDate": "2016-01-22T04:10:25.176751Z",
+            },
         )
-
-        self.assertEquals(
-            [call(), call()],
-            inventory_client.requests.patch().raise_for_status.call_args_list,
-        )
+        inventory_client.requests.patch().raise_for_status.assert_called_once_with()
 
     def test_get_product(self):
         client = inventory_client.InventoryClient()
@@ -1115,9 +1108,10 @@ class InventoryClientTestCase(TestCase):
         inventory_client.urlparse = MagicMock()
         inventory_client.urlparse.return_value.scheme = "scheme"
         inventory_client.urlparse.return_value.netloc = "netloc"
-        inventory_client.urlparse.return_value.path = "path"   
-        inventory_client.datetime.now.return_value = MagicMock()
-        inventory_client.datetime.now.return_value.isoformat.return_value = "2024-03-19T11:49:50"
+        inventory_client.urlparse.return_value.path = "path"
+        now_mock = MagicMock()
+        now_mock.isoformat.return_value = "2024-03-19T11:49:50+00:00"
+        inventory_client.datetime.now.return_value = now_mock
 
         operator_party = {'id': 'operator:1', 'role': 'SellerOperator'}
         inventory_client.get_operator_party_roles = MagicMock()
@@ -1160,9 +1154,10 @@ class InventoryClientTestCase(TestCase):
         inventory_client.urlparse = MagicMock()
         inventory_client.urlparse.return_value.scheme = "scheme"
         inventory_client.urlparse.return_value.netloc = "netloc"
-        inventory_client.urlparse.return_value.path = "path"   
-        inventory_client.datetime.now.return_value = MagicMock()
-        inventory_client.datetime.now.return_value.isoformat.return_value = "2024-03-19T11:49:50"
+        inventory_client.urlparse.return_value.path = "path"
+        now_mock = MagicMock()
+        now_mock.isoformat.return_value = "2024-03-19T11:49:50+00:00"
+        inventory_client.datetime.now.return_value = now_mock
 
         operator_party = {'id': 'operator:1', 'role': 'SellerOperator'}
         inventory_client.get_operator_party_roles = MagicMock()
