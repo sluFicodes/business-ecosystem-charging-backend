@@ -162,7 +162,11 @@ class OfferingValidator(CatalogValidator):
                         else:
                             raise ValueError("ProductSpecValueUse refers to non-existing product characteristic value")
 
-    def _validate_price_component(self, price_component, product_spec, anti_collision=None):
+    def _validate_price_component(self, price_component, product_spec, anti_collision=None, has_profile= False):
+        #validate config profile
+        if has_profile and "prodSpecCharValueUse" in price_component and len(price_component["prodSpecCharValueUse"]):
+            raise ValueError("A price plan with a configuration profile cannot contain pricing components with characteristics")
+
         recurringKey = "recurringChargePeriodType"
         recurring_pricing = ["recurring", "recurring-prepaid", "recurring-postpaid"]
         valid_pricing = ["one time", "usage"]
@@ -240,16 +244,17 @@ class OfferingValidator(CatalogValidator):
 
                 # Validate price components
                 if "isBundle" in price_model and price_model["isBundle"]:
+                    has_profile = "prodSpecCharValueUse" in price_model and len(price_model["prodSpecCharValueUse"]) > 0 
 
                     anti_collision = {}
                     # The plan may include a configuration profile
                     self._validate_char_value_use(price_model, product_spec)
 
                     # The price plan has the price components linked
-                    [self._validate_price_component(self._get_price(price_comp["id"]), product_spec, anti_collision)
+                    [self._validate_price_component(self._get_price(price_comp["id"]), product_spec, anti_collision, has_profile)
                         for price_comp in price_model["bundledPopRelationship"]]
                     if len(anti_collision) != 0:
-                        self._check_range_collision(anti_collision) #TODO: desarrollar esto
+                        self._check_range_collision(anti_collision)
 
                 else:
                     # The price plan has 1 single price component attached
