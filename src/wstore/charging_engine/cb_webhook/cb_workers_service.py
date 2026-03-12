@@ -45,11 +45,19 @@ class CBWorkersService:
             "callback": f"{settings.LOCAL_SITE}charging/webhook/customerBill/notify",
             "query": "eventType=CustomerBillStateChangeEvent"
         }
-        result = requests.post(f"{settings.BILLING}/hub", json=payload, verify=settings.VERIFY_REQUESTS)
-        if result.status_code ==201 or result.status_code == 409:
-            logger.info(f"start listening to {settings.BILLING}")
-        else:
-            logger.warning("customer bill api is not available, charging will not be able to listen the webhook")
+        max_retries = 10
+        for attempt in range(1, max_retries + 1):
+            try:
+                result = requests.post(f"{settings.BILLING}/hub", json=payload, verify=settings.VERIFY_REQUESTS)
+                if result.status_code == 201 or result.status_code == 409:
+                    logger.info(f"start listening to {settings.BILLING}")
+                    return
+                logger.warning(f"Attempt {attempt}/{max_retries}: customerBill API returned {result.status_code}")
+            except requests.exceptions.RequestException as e:
+                logger.warning(f"Attempt {attempt}/{max_retries}: customerBill API not reachable: {e}")
+            if attempt < max_retries:
+                time.sleep(5)
+        raise RuntimeError("customerBill API is not available after 10 attempts, charging cannot start")
 
     def _worker_loop(self):
         while True:

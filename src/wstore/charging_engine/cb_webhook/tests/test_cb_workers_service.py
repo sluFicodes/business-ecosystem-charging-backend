@@ -32,13 +32,13 @@ class CBWorkersServiceTestCase(TestCase):
     @patch('wstore.charging_engine.cb_webhook.cb_workers_service.OrderingManager')
     @patch('wstore.charging_engine.cb_webhook.cb_workers_service.requests.post')
     def test_listen_registers_webhook(self, mock_post, mock_om, mock_db):
-        mock_post.return_value = MagicMock(status_code=200)
+        mock_post.return_value = MagicMock(status_code=201)
 
         service = CBWorkersService()
         service.listen()
 
         mock_post.assert_called_once()
-        call_kwargs = mock_post.call_args[1]
+        call_kwargs = mock_post.call_args.kwargs
 
         self.assertIn('callback', call_kwargs['json'])
         self.assertIn('customerBill/notify', call_kwargs['json']['callback'])
