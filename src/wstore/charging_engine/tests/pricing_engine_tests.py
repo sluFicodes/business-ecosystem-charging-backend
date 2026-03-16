@@ -28,7 +28,7 @@ from mock import MagicMock, patch
 from wstore.charging_engine import pricing_engine
 
 
-SIMPLE_POP = {"isBundle": False, "priceType": "one time", "price": {"value": 10.0, "unit": "EUR"}}
+SIMPLE_POP = {"isBundle": False, "name": "Simple POP", "description": "Simple POP description", "priceType": "one time", "price": {"value": 10.0, "unit": "EUR"}}
 
 RECURRING_POP = {
     "isBundle": False,
@@ -94,6 +94,8 @@ MULTIPLE_POP_FILTER = {
 
 USAGE_POP = {
     "isBundle": False,
+    "name": "Usage POP",
+    "description": "Usage POP description",
     "priceType": "usage",
     "price": {"value": 0.5, "unit": "EUR"},
     "unitOfMeasure": {"units": "ram_gb"},
@@ -109,10 +111,12 @@ USAGE_TAILORED_POP = {
     "prodSpecCharValueUse": [{"name": "tailored", "productSpecCharacteristicValue": [{"valueFrom": 0, "valueTo": 100}]}],
 }
 
-SIMPLE_POP_2 = {"isBundle": False, "priceType": "one time", "price": {"value": 5.0, "unit": "EUR"}}
+SIMPLE_POP_2 = {"isBundle": False, "name": "Simple POP 2", "description": "Simple POP 2 description", "priceType": "one time", "price": {"value": 5.0, "unit": "EUR"}}
 
 USAGE_POP_2 = {
     "isBundle": False,
+    "name": "Usage POP 2",
+    "description": "Usage POP 2 description",
     "priceType": "usage",
     "price": {"value": 0.3, "unit": "EUR"},
     "unitOfMeasure": {"units": "ram_gb"},
@@ -288,6 +292,8 @@ RESULT_MULTIPLE_USAGE_POP = [
 # Two onetime components should return 2 separate results, not aggregated
 RESULT_MULTIPLE_ONETIME_NO_PREVIEW = [
     {
+        "name": "Simple POP",
+        "description": "Simple POP description",
         "priceType": "one time",
         "recurringChargePeriod": "onetime",
         "price": {
@@ -298,6 +304,8 @@ RESULT_MULTIPLE_ONETIME_NO_PREVIEW = [
         "priceAlteration": [],
     },
     {
+        "name": "Simple POP 2",
+        "description": "Simple POP 2 description",
         "priceType": "one time",
         "recurringChargePeriod": "onetime",
         "price": {
@@ -312,6 +320,8 @@ RESULT_MULTIPLE_ONETIME_NO_PREVIEW = [
 # Two usage components should return 2 separate results, not aggregated
 RESULT_MULTIPLE_USAGE_NO_PREVIEW = [
     {
+        "name": "Usage POP",
+        "description": "Usage POP description",
         "priceType": "usage",
         "recurringChargePeriod": "month",
         "price": {
@@ -322,12 +332,31 @@ RESULT_MULTIPLE_USAGE_NO_PREVIEW = [
         "priceAlteration": [],
     },
     {
+        "name": "Usage POP 2",
+        "description": "Usage POP 2 description",
         "priceType": "usage",
         "recurringChargePeriod": "month",
         "price": {
             "taxRate": "0",
             "dutyFreeAmount": {"unit": "EUR", "value": "3.0"},
             "taxIncludedAmount": {"unit": "EUR", "value": "3.00"},
+        },
+        "priceAlteration": [],
+    },
+]
+
+SIMPLE_POP_NO_NAME = {"isBundle": False, "priceType": "one time", "price": {"value": 10.0, "unit": "EUR"}}
+
+RESULT_ONETIME_NO_PREVIEW_DEFAULT_NAME = [
+    {
+        "name": "empty name",
+        "description": "empty description",
+        "priceType": "one time",
+        "recurringChargePeriod": "onetime",
+        "price": {
+            "taxRate": "20.0",
+            "dutyFreeAmount": {"unit": "EUR", "value": "10.0"},
+            "taxIncludedAmount": {"unit": "EUR", "value": "12.00"},
         },
         "priceAlteration": [],
     },
@@ -519,6 +548,10 @@ class ChargingEngineTestCase(TestCase):
 
         pricing_engine.requests.get.side_effect = [plan_call, onetime_call1, onetime_call2]
 
+    def _mock_simple_pop_no_name(self):
+        pricing_engine.requests = MagicMock()
+        pricing_engine.requests.get.return_value.json.return_value = SIMPLE_POP_NO_NAME
+
     def _mock_multiple_usage_same_type_pop(self):
         pricing_engine.requests = MagicMock()
         plan_call = MagicMock()
@@ -553,6 +586,7 @@ class ChargingEngineTestCase(TestCase):
                 0,
                 USAGE_1,
             ),
+            ("onetime_no_preview_default_name", BASE_DATA, _mock_simple_pop_no_name, RESULT_ONETIME_NO_PREVIEW_DEFAULT_NAME, 20.0, [], False),
             ("multiple_onetime_no_preview", BASE_DATA, _mock_multiple_onetime_pop, RESULT_MULTIPLE_ONETIME_NO_PREVIEW, 20.0, [], False),
             ("multiple_usage_no_preview", BASE_DATA, _mock_multiple_usage_same_type_pop, RESULT_MULTIPLE_USAGE_NO_PREVIEW, 0, USAGE_1, False),
         ]

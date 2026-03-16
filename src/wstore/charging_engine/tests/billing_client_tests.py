@@ -201,6 +201,8 @@ class BillingClientTestCase(TestCase):
 
         client = billing_client.BillingClient()
         result = client.create_customer_rate(
+            name="Test Rate",
+            description="Test rate description",
             rate_type="one time",
             currency="EUR",
             tax_rate=input_tax_rate,

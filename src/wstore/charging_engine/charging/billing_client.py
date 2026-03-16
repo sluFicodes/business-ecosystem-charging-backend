@@ -82,13 +82,13 @@ class BillingClient:
                 logger.error("Error updating customer rate: " + str(e))
                 raise
 
-    def create_customer_rate(self, rate_type, currency, tax_rate, tax, tax_included, tax_excluded, billing_account, product_id, coverage_period=None, party=[], message= None):
+    def create_customer_rate(self, name, description, rate_type, currency, tax_rate, tax, tax_included, tax_excluded, billing_account, product_id, coverage_period=None, party=[], message= None):
         raw_rate = Decimal(str(tax_rate))
         decimal_rate = raw_rate / Decimal("100") if raw_rate > Decimal("1") else raw_rate
         data = {
             # "appliedBillingRateType": rate_type,
-            "name": "INITIAL PAYMENT" if message is None else message,
-            "description": "the initial payment required for product acquisition",
+            "name": f"INITIAL PAYMENT - {name}" if message is None else message,
+            "description": description,
             "type": rate_type,
             "isBilled": False,
             "date": datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
@@ -156,6 +156,7 @@ class BillingClient:
             coverage_period = rate["periodCoverage"] if "periodCoverage" in rate else None
 
             new_rate = self.create_customer_rate(
+                rate["name"], rate["description"],
                 rate_type, currency, tax_rate, tax, tax_included, tax_excluded,
                 billing_account, product["id"], coverage_period=coverage_period, party=party, message= message)
 

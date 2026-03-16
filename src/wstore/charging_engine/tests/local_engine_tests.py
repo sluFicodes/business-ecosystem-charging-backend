@@ -29,6 +29,8 @@ from wstore.charging_engine.engines.local_engine import LocalEngine
 # Mock prices returned by PriceEngine
 PRICE_ONETIME = [
     {
+        "name": "One Time Price",
+        "description": "One time price description",
         "priceType": "one time",
         "recurringChargePeriod": "onetime",
         "price": {
@@ -65,6 +67,8 @@ PRICE_USAGE = [
 
 PRICE_MULTIPLE = [
     {
+        "name": "One Time Price",
+        "description": "One time price description",
         "priceType": "one time",
         "recurringChargePeriod": "onetime",
         "price": {
@@ -87,6 +91,8 @@ PRICE_MULTIPLE = [
 # Expected results for _build_charges
 EXPECTED_CHARGE_ONETIME = [
     {
+        "name": "One Time Price",
+        "description": "One time price description",
         "appliedBillingRateType": "one time",
         "isBilled": False,
         "appliedTax": [
@@ -128,6 +134,8 @@ EXPECTED_CHARGE_USAGE = [
 
 EXPECTED_CHARGE_MULTIPLE = [
     {
+        "name": "One Time Price",
+        "description": "One time price description",
         "appliedBillingRateType": "one time",
         "isBilled": False,
         "appliedTax": [
