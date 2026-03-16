@@ -32,6 +32,7 @@ from django.core.exceptions import ImproperlyConfigured
 
 from wstore.store_commons.utils.url import get_service_url
 from wstore.store_commons.utils.party import get_operator_party_roles, normalize_party_ref
+from wstore.ordering.models import PendingTermination
 
 logger = logging.getLogger(__name__)
 
@@ -162,8 +163,6 @@ class InventoryClient:
         #     self.activate_product(product_id)
         # except:
         #     pass
-
-        from wstore.ordering.models import PendingTermination
 
         product = self.get_product(product_id)
 
