@@ -155,30 +155,30 @@ class BillingClientTestCase(TestCase):
 
         client = billing_client.BillingClient()
 
-        billing_acc_ref = {"id": "billing-account-1"}
-        party = [{"id": "party-1", "role": "Customer"}]
+        cb_model = {
+            "taxIncludedAmount": {"value": 0, "unit": "EUR"},
+            "taxExcludedAmount": {"value": 0, "unit": "EUR"},
+            "billingAccount": {"id": "billing-account-1"},
+            "relatedParty": [{"id": "party-1", "role": "Customer"}]
+        }
 
-        def mock_create_cb_api(unit, taxIncluded, taxExcluded, billing_acc_ref, current_time, party):
-            return{
+        def mock_create_cb_api(cb_model):
+            return {
                 "id": "123",
-                "taxIncludedAmount":{
-                    "value": expected_cb.get("taxIncludedAmount", 0),
-                },
-                "taxExcludedAmount": {
-                    "value":expected_cb.get("taxExcludedAmount", 0)
-                }
+                "taxIncludedAmount": {"value": expected_cb.get("taxIncludedAmount", 0)},
+                "taxExcludedAmount": {"value": expected_cb.get("taxExcludedAmount", 0)}
             }
 
         client._create_cb_api = MagicMock(side_effect=mock_create_cb_api)
         client.set_acbrs_cb = MagicMock()
 
         # Execute
-        result = client.create_customer_bill(acbrs, billing_acc_ref, party)
+        result = client.create_customer_bill(acbrs, cb_model)
         if expected_cb["acbr_count"] != 0:
             self.assertEqual(result["taxIncludedAmount"], expected_cb["taxIncludedAmount"])
             self.assertEqual(result["taxExcludedAmount"], expected_cb["taxExcludedAmount"])
             self.assertEqual(result["unit"], "EUR")
-        self.assertEqual(len(result["acbrRefs"]), expected_cb["acbr_count"])
+            client.set_acbrs_cb.assert_called_once_with(acbrs, "123")
 
         # Verify _create_cb_api was called only once
         client._create_cb_api.assert_called_once()

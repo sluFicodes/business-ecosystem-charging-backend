@@ -174,7 +174,7 @@ class LocalEngine(Engine):
         inventory = InventoryClient()
 
         product = inventory.build_product_model(
-                    item, raw_order["id"], raw_order["billingAccount"], datetime.now(datetime.timezone.utc).isoformat())
+                    item, raw_order["id"], raw_order["billingAccount"], datetime.datetime.now(datetime.timezone.utc).isoformat())
         rates = self._build_charges(item, raw_order["billingAccount"])
         cb = self._build_customer_bill(rates, raw_order["billingAccount"], product["relatedParty"])
         return rates, cb, product
