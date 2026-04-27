@@ -183,6 +183,35 @@ class BillingClientTestCase(TestCase):
         # Verify _create_cb_api was called only once
         client._create_cb_api.assert_called_once()
 
+    def test_create_customer_bill_empty_acbrs_returns_empty(self):
+        client = billing_client.BillingClient()
+        cb_model = {"taxIncludedAmount": {"value": 0, "unit": "EUR"}}
+        result = client.create_customer_bill([], cb_model)
+        self.assertEqual(result, {})
+
+    def test_set_customer_bill_invalid_state_raises(self):
+        client = billing_client.BillingClient()
+        with self.assertRaises(ValueError):
+            client.set_customer_bill("invalid_state", "bill-123")
+
+    @patch("wstore.charging_engine.charging.billing_client.get_service_url")
+    def test_set_customer_bill_valid_state(self, mock_url):
+        mock_url.return_value = "http://billing/customerBill/bill-123"
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+
+        client = billing_client.BillingClient()
+        client._session = MagicMock()
+        billing_client.requests = MagicMock()
+        billing_client.requests.patch.return_value = mock_response
+
+        client.set_customer_bill("settled", "bill-123")
+
+        call_kwargs = billing_client.requests.patch.call_args
+        self.assertEqual(call_kwargs[0][0], "http://billing/customerBill/bill-123")
+        self.assertEqual(call_kwargs[1]["json"], {"state": "settled"})
+        mock_response.raise_for_status.assert_called_once()
+
         # Verify set_acbrs_cb was called correctly
         client.set_acbrs_cb.assert_called_once()
 
