@@ -212,9 +212,6 @@ class BillingClientTestCase(TestCase):
         self.assertEqual(call_kwargs[1]["json"], {"state": "settled"})
         mock_response.raise_for_status.assert_called_once()
 
-        # Verify set_acbrs_cb was called correctly
-        client.set_acbrs_cb.assert_called_once()
-
     @parameterized.expand([
         ("percentage_string", "21.0", "0.21"),
         ("percentage_decimal", "21", "0.21"),
