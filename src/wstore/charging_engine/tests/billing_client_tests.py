@@ -19,6 +19,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import datetime
+import requests
 from decimal import Decimal
 from django.test import TestCase
 from parameterized import parameterized
@@ -211,6 +212,20 @@ class BillingClientTestCase(TestCase):
         self.assertEqual(call_kwargs[0][0], "http://billing/customerBill/bill-123")
         self.assertEqual(call_kwargs[1]["json"], {"state": "settled"})
         mock_response.raise_for_status.assert_called_once()
+
+    @patch("wstore.charging_engine.charging.billing_client.get_service_url")
+    def test_set_customer_bill_http_error_raises(self, mock_url):
+        mock_url.return_value = "http://billing/customerBill/bill-123"
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("500")
+
+        client = billing_client.BillingClient()
+        billing_client.requests = MagicMock()
+        billing_client.requests.patch.return_value = mock_response
+        billing_client.requests.exceptions.HTTPError = requests.exceptions.HTTPError
+
+        with self.assertRaises(requests.exceptions.HTTPError):
+            client.set_customer_bill("settled", "bill-123")
 
     @parameterized.expand([
         ("percentage_string", "21.0", "0.21"),
