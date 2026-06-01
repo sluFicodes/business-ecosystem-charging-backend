@@ -29,6 +29,7 @@ from logging import getLogger
 from django.conf import settings
 from wstore.store_commons.utils.url import get_service_url
 from wstore.store_commons.utils.party import get_operator_party_roles, normalize_party_ref
+from wstore.charging_engine.utils import to_utc_z, utc_z_to_dt
 
 
 logger = getLogger("wstore.default_logger")
@@ -36,6 +37,28 @@ logger = getLogger("wstore.default_logger")
 class BillingClient:
     def __init__(self):
         pass
+
+    def get_acbrs(self, product_id, pop_id, limit=100):
+        url = get_service_url("billing", "appliedCustomerBillingRate")
+        params = {
+            "product.id": product_id,
+            "product.name": f"popid-{pop_id}",
+            "isBilled": "true",
+            "limit": limit,
+            "offset": 0,
+        }
+        acbrs = []
+        while True:
+            response = requests.get(url, params=params, verify=settings.VERIFY_REQUESTS)
+            response.raise_for_status()
+            page = response.json()
+            if not page:
+                break
+            acbrs.extend(page)
+            if len(page) < limit:
+                break
+            params["offset"] += limit
+        return sorted(acbrs, key=lambda x: utc_z_to_dt(x["date"]))
 
     def get_billing_account(self, account_id):
         url = get_service_url("account", f"billingAccount/{account_id}")
@@ -82,7 +105,10 @@ class BillingClient:
                 logger.error("Error updating customer rate: " + str(e))
                 raise
 
-    def create_customer_rate(self, name, description, rate_type, currency, tax_rate, tax, tax_included, tax_excluded, billing_account, product_id, coverage_period=None, party=[], message= None):
+    def create_customer_rate(self, name, description, rate_type, currency, tax_rate, tax, tax_included,
+                             tax_excluded, billing_account, product_id, coverage_period=None, party=[], message= None, priceId=None):
+        if settings.PENDING_CHARGE_ENABLED is True and  priceId is None:
+            raise ValueError("priceId is required to link the ACBR to a POP via product.name")
         raw_rate = Decimal(str(tax_rate))
         decimal_rate = raw_rate / Decimal("100") if raw_rate > Decimal("1") else raw_rate
         data = {
@@ -91,7 +117,7 @@ class BillingClient:
             "description": description,
             "type": rate_type,
             "isBilled": False,
-            "date": datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
+            "date": to_utc_z(datetime.datetime.now(datetime.timezone.utc)),
             "appliedTax": [{
                 "taxCategory": "VAT",
                 "taxRate": decimal_rate,
@@ -111,7 +137,8 @@ class BillingClient:
             "billingAccount": billing_account,
             "product": {
                 "id": product_id,
-                "href": product_id
+                "href": product_id,
+                **{"name": f"popid-{priceId}" if priceId else {}}
             }
         }
 
@@ -158,7 +185,7 @@ class BillingClient:
             new_rate = self.create_customer_rate(
                 acbr_model["name"], acbr_model["description"],
                 rate_type, currency, tax_rate, tax, tax_included, tax_excluded,
-                billing_account, product["id"], coverage_period=coverage_period, party=party, message= message)
+                billing_account, product["id"], coverage_period=coverage_period, party=party, message= message, priceId=acbr_model.get("priceId"))
 
             created_rates.append(new_rate)
 
@@ -217,11 +244,11 @@ class BillingClient:
         # resp = session.send(prepped)
         # resp.raise_for_status()
 
-    def create_customer_bill(self, created_acbrs, cb_model):
+    def create_customer_bill(self, created_acbrs, cb_model, cb_state=None):
         if len(created_acbrs) == 0:
             return {}
 
-        created_cb = self._create_cb_api(cb_model)
+        created_cb = self._create_cb_api(cb_model, cb_state=cb_state)
         self.set_acbrs_cb(created_acbrs, created_cb["id"])
 
         cb = {}
@@ -249,8 +276,8 @@ class BillingClient:
             logger.error("Error patching customer bill: " + str(e) + " data:" + str(data))
             raise
 
-    def _create_cb_api(self, cb_model):
-        cb_model["state"] = "sent"
+    def _create_cb_api(self, cb_model, cb_state=None):
+        cb_model["state"] = cb_state if cb_state is not None else "sent"
         url = get_service_url("billing", "customerBill")
 
         try:

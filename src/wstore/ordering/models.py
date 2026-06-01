@@ -151,8 +151,8 @@ class Order(models.Model):
             terminated=contract_info["terminated"],
             options=contract_info["options"],
             applied_rates=contract_info["applied_rates"],
-            customer_bill = contract_info["customer_bill"],
-            processed = contract_info["processed"],
+            customer_bill=contract_info["customer_bill"],
+            processed=contract_info["processed"],
             prd_after_paid = contract_info["prd_after_paid"]
         )
 
@@ -286,6 +286,45 @@ class Order(models.Model):
             raise OrderingError("Order with the specific product id not found.")
 
         return Order.objects.get(pk=result["_id"])
+
+    class Meta:
+        app_label = "wstore"
+
+
+class PaymentRecord(models.Model):
+    PENDING = "PENDING"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+
+    _id = models.ObjectIdField()
+    customerBill_id = models.CharField(max_length=100)
+    status = models.CharField(max_length=10, default=PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    payment_type = models.CharField(max_length=50)
+
+    objects = models.DjongoManager()
+
+    @classmethod
+    def create(cls, customerBill_id, status, payment_type):
+        if status not in [cls.PENDING, cls.SUCCESS, cls.FAILED]:
+            raise ValueError(f"Invalid status: {status}")
+        payment = cls(customerBill_id=customerBill_id, status=status, payment_type=payment_type)
+        payment.save()
+        return payment
+
+    @classmethod
+    def get_by_customer_bill_id(cls, customerBill_id):
+        return cls.objects.get(customerBill_id=customerBill_id)
+
+    @classmethod
+    def get_all_pending(cls):
+        return cls.objects.filter(status=cls.PENDING)
+
+    @classmethod
+    def update_status(cls, customerBill_id, status):
+        if status not in [cls.PENDING, cls.SUCCESS, cls.FAILED]:
+            raise ValueError(f"Invalid status: {status}")
+        cls.objects.filter(customerBill_id=customerBill_id).update(status=status)
 
     class Meta:
         app_label = "wstore"

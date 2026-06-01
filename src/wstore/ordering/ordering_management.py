@@ -570,7 +570,7 @@ class OrderingManager:
         inventory_client = InventoryClient()
 
         # Check if automatical payment mode is enabled
-        product = inventory_client.build_product_model(orderItem, order["id"], order["billingAccount"], datetime.datetime.now(datetime.timezone.utc).isoformat()) if contract == None\
+        product = inventory_client.build_product_model(orderItem, order["id"], order["billingAccount"], order["orderDate"]) if contract == None\
             else inventory_client.get_product_for_patch(contract.product_id)
 
         # Instantiate services and resources if needed
@@ -784,6 +784,7 @@ class OrderingManager:
                 self.notify_item_completed(order_model, contract, order)
         except Exception as e:
             logger.error(f"Error processing customer bill {customer_bill_id}: {e}")
+            logger.info("Probably automatic recurring/usage customer bills")
         finally:
             if order_model is not None:
                 db.wstore_order.find_one_and_update({"_id": order_model.pk}, {"$set": {"_lock": False}})

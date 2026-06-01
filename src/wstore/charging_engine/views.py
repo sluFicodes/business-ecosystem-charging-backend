@@ -37,7 +37,7 @@ from wstore.charging_engine.charging_engine import ChargingEngine
 from wstore.charging_engine.payment_client.payment_client import PaymentClient, PaymentClientError
 from wstore.ordering.errors import PaymentError, PaymentTimeoutError
 from wstore.ordering.inventory_client import InventoryClient
-from wstore.ordering.models import Contract, Offering, Order
+from wstore.ordering.models import Contract, Offering, Order, PaymentRecord
 from wstore.ordering.ordering_client import OrderingClient
 from wstore.ordering.ordering_management import OrderingManager
 from wstore.store_commons.database import get_database_connection
@@ -257,8 +257,8 @@ class PaymentConfirmation(Resource):
             logger.debug(f"Calling notify_completed()...")
             om = OrderingManager()
             for payout_item in payout_list:
+                cb_id = payout_item["paymentItemExternalId"]
                 if payout_item["state"].lower() == PROCESSED:
-                    cb_id = payout_item["paymentItemExternalId"]
                     logger.debug(f"cb_id: {cb_id}")
                     contract: Contract = order.get_contract_by_cb_id(cb_id) # throw exception for manual procs
                     logger.debug("contract item id: "+ contract.item_id)
@@ -270,7 +270,18 @@ class PaymentConfirmation(Resource):
                         try:
                             om.notify_item_completed(order, contract, raw_order)
                         finally:
-                            db.wstore_order.find_one_and_update({"_id": ObjectId(reference)}, {"$set": {"_lock": False}})  # _lock is set to false
+                            db.wstore_order.find_one_and_update({"_id": ObjectId(reference)}, {"$set": {"_lock": False}}) # _lock is set to false
+                    record_status = PaymentRecord.SUCCESS
+                    logger.info("processed transaction")
+                elif payout_item["state"].lower() == PENDING:
+                    record_status = PaymentRecord.PENDING
+                    logger.info("pending transaction")
+                else:
+                    record_status = PaymentRecord.FAILED
+                    logger.info("failed transaction")
+
+                if settings.PENDING_CHARGE_ENABLED:
+                    PaymentRecord.create(cb_id, status=record_status)
 
 
         except Exception as e:
