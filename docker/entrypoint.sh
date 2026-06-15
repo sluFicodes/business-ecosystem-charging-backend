@@ -69,9 +69,12 @@ echo "Starting charging server"
 
 python3 manage.py migrate
 
-# Register and start the billing/payment scheduler cron jobs (settings.CRONJOBS)
-python3 manage.py crontab remove
-python3 manage.py crontab add
-service cron start
+# Register and start the billing/payment scheduler cron jobs (settings.CRONJOBS),
+# only when this backend owns the billing engine
+if [ "${BAE_CB_BILLING_ENGINE}" = "local" ]; then
+    python3 manage.py crontab remove
+    python3 manage.py crontab add
+    service cron start
+fi
 
 gunicorn wsgi:application --workers 1 --forwarded-allow-ips "*" --log-file - --bind 0.0.0.0:8006 --log-level ${LOGLEVEL}
