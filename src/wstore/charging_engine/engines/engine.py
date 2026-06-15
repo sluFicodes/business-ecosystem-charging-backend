@@ -68,9 +68,10 @@ class Engine:
                 acbr_models, cb_model, product_model = self.execute_billing(item, raw_order)
                 logger.info("triple s")
                 # attributes that needs to be set after the payments
-                contract.prd_after_paid = {"product_price": product_model.pop("productPrice", None), "product_characteristic": product_model.pop("productCharacteristic", None)}
+                contract.prd_after_paid = {"product_price": product_model.pop("productPrice", []), "product_characteristic": product_model.pop("productCharacteristic", [])}
                 # TODO: reset product to created and before this method, terminate cb and acbrs (I think it is not needed based on what Stefania said in dc).
                 created_product = inventory_client.create_product(product_model) if related_contract is None else inventory_client.get_product(contract.product_id)
+                contract.product_id = created_product["id"]
 
                 if len(acbr_models) > 0:
                     logger.info("Received acbr models " + json.dumps(acbr_models))
@@ -97,7 +98,6 @@ class Engine:
 
                     contract.applied_rates = [ n_rate["id"] for n_rate in created_acbrs ]
                     contract.customer_bill = created_cb
-                    contract.product_id = created_product["id"]
 
                     transactions.append({
                         "item": contract.item_id,
@@ -113,6 +113,7 @@ class Engine:
 
             if len(transactions) == 0:
                 logger.info("No transactions to process")
+                self._order.save()
                 return None
 
             # Update the order with the new contracts
