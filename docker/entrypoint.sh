@@ -68,4 +68,10 @@ test_connection "MongoDB" ${MONGO_HOST} ${MONGO_PORT}
 echo "Starting charging server"
 
 python3 manage.py migrate
+
+# Register and start the billing/payment scheduler cron jobs (settings.CRONJOBS)
+python3 manage.py crontab remove
+python3 manage.py crontab add
+service cron start
+
 gunicorn wsgi:application --workers 1 --forwarded-allow-ips "*" --log-file - --bind 0.0.0.0:8006 --log-level ${LOGLEVEL}

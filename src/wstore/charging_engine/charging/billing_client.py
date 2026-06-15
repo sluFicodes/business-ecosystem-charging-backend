@@ -38,6 +38,21 @@ class BillingClient:
     def __init__(self):
         pass
 
+    def get_customer_bills_by_state(self, state, limit=100, offset=0):
+        url = get_service_url("billing", "customerBill")
+        response = requests.get(url, params={"state": state, "limit": limit, "offset": offset}, verify=settings.VERIFY_REQUESTS)
+        response.raise_for_status()
+        return response.json()
+
+    def get_product_id_by_cb(self, bill_id):
+        url = get_service_url("billing", "appliedCustomerBillingRate")
+        response = requests.get(url, params={"bill.id": bill_id}, verify=settings.VERIFY_REQUESTS)
+        response.raise_for_status()
+        acbrs = response.json()
+        if not acbrs:
+            return None
+        return acbrs[0].get("product", {}).get("id")
+
     def get_acbrs(self, product_id, pop_id, limit=100):
         url = get_service_url("billing", "appliedCustomerBillingRate")
         params = {
@@ -107,7 +122,7 @@ class BillingClient:
 
     def create_customer_rate(self, name, description, rate_type, currency, tax_rate, tax, tax_included,
                              tax_excluded, billing_account, product_id, coverage_period=None, party=[], message= None, priceId=None):
-        if settings.PENDING_CHARGE_ENABLED is True and  priceId is None:
+        if settings.BILLING_ENGINE == "local" and priceId is None:
             raise ValueError("priceId is required to link the ACBR to a POP via product.name")
         raw_rate = Decimal(str(tax_rate))
         decimal_rate = raw_rate / Decimal("100") if raw_rate > Decimal("1") else raw_rate

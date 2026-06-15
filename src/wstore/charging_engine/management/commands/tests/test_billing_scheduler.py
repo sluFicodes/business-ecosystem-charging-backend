@@ -114,7 +114,7 @@ PRICE = {
     },
 }
 
-TODAY = datetime.date(2026, 5, 27)
+TODAY = datetime.datetime(2026, 5, 31, tzinfo=datetime.timezone.utc)
 
 
 class BillingSchedulerGetPopComponentsTestCase(TestCase):
@@ -213,7 +213,7 @@ class BillingSchedulerGetPopsToBillTestCase(TestCase):
         self.assertEqual(pops_to_process, [])
 
     def test_includes_expired_recurring_pop(self):
-        next_period = {"startDateTime": "2026-05-01T00:00:01Z", "endDateTime": "2026-05-31T23:59:59Z"}
+        next_period = {"startDateTime": "2026-05-01T00:00:01Z", "endDateTime": "2026-05-30T23:59:59Z"}
         self.command._local_engine._build_period_coverage.return_value = next_period
         self.command._billing_client.get_acbrs.return_value = [ACBR_EXPIRED]
 
@@ -229,7 +229,7 @@ class BillingSchedulerGetPopsToBillTestCase(TestCase):
         self.command._local_engine._build_period_coverage.assert_called_once_with("1 month", ANY)
 
     def test_sets_usage_period_for_usage_pop(self):
-        next_period = {"startDateTime": "2026-05-01T00:00:01Z", "endDateTime": "2026-05-31T23:59:59Z"}
+        next_period = {"startDateTime": "2026-05-01T00:00:01Z", "endDateTime": "2026-05-30T23:59:59Z"}
         self.command._local_engine._build_period_coverage.return_value = next_period
         self.command._billing_client.get_acbrs.return_value = [ACBR_EXPIRED]
 
@@ -242,6 +242,10 @@ class BillingSchedulerGetPopsToBillTestCase(TestCase):
         self.assertEqual(pops_to_process, [USAGE_POP])
 
     def test_multiple_pops_some_expired(self):
+        self.command._local_engine._build_period_coverage.return_value = {
+            "startDateTime": "2026-05-01T00:00:01Z",
+            "endDateTime": "2026-05-30T23:59:59Z",
+        }
         self.command._billing_client.get_acbrs.side_effect = [
             [ACBR_EXPIRED],
             [ACBR_NOT_EXPIRED],
@@ -266,7 +270,7 @@ class BillingSchedulerProcessProductTestCase(TestCase):
         self.command._usage_client = MagicMock()
         self.command._local_engine = MagicMock()
 
-        self.next_period = {"startDateTime": "2026-05-01T00:00:01Z", "endDateTime": "2026-05-31T23:59:59Z"}
+        self.next_period = {"startDateTime": "2026-05-01T00:00:01Z", "endDateTime": "2026-05-30T23:59:59Z"}
         self.command._local_engine._build_period_coverage.return_value = self.next_period
         self.command._inventory_client.get_price_component.side_effect = [BUNDLE_POP, RECURRING_POP]
         self.command._billing_client.get_acbrs.return_value = [ACBR_EXPIRED]
@@ -464,8 +468,8 @@ class BillingSchedulerFullFlowTestCase(TestCase):
         period = call_kwargs["coverage_period"]
         self.assertIn("startDateTime", period)
         self.assertIn("endDateTime", period)
-        # next period starts 1 second after ACBR_EXPIRED endDateTime
-        self.assertEqual(period["startDateTime"], "2026-05-01T00:00:00Z")
+        # next period starts exactly at ACBR_EXPIRED endDateTime (no +1s adjustment)
+        self.assertEqual(period["startDateTime"], "2026-04-30T23:59:59Z")
 
 
 

@@ -105,7 +105,7 @@ class LocalEngine(Engine):
         if chargePeriod == PriceEngine.PERIOD_ONETIME:
             pass
         elif chargePeriod == PriceEngine.PERIOD_MONTH or chargePeriod == "1 month":
-            end_time = now + relativedelta(months=1) - datetime.timedelta(seconds=1)
+            end_time = now + relativedelta(months=1)
             end_datetime = to_utc_z(end_time)
         else:
             parts = chargePeriod.split()
@@ -114,13 +114,13 @@ class LocalEngine(Engine):
                 unit = parts[1].lower()
 
                 if unit in ["month", "months"]:
-                    end_time = now + relativedelta(months=amount) - datetime.timedelta(seconds=1)
+                    end_time = now + relativedelta(months=amount)
                 elif unit in ["week", "weeks"]:
-                    end_time = now + datetime.timedelta(weeks=amount) - datetime.timedelta(seconds=1)
+                    end_time = now + datetime.timedelta(weeks=amount)
                 elif unit in ["day", "days"]:
-                    end_time = now + datetime.timedelta(days=amount) - datetime.timedelta(seconds=1)
+                    end_time = now + datetime.timedelta(days=amount)
                 elif unit in ["year", "years"]:
-                    end_time = now + relativedelta(years=amount) - datetime.timedelta(seconds=1)
+                    end_time = now + relativedelta(years=amount)
                 else:
                     raise ValueError("Invalid charge period")
                 end_datetime = to_utc_z(end_time)

@@ -171,4 +171,8 @@ urlpatterns = [
         r"^charging/api/test/billingScheduler/?$",
         billing_http_views.BillingSchedulerTrigger(permitted_methods=("POST",)),
     ),
+    url(
+        r"^charging/api/test/paymentScheduler/?$",
+        billing_http_views.PaymentSchedulerTrigger(permitted_methods=("POST",)),
+    ),
 ]

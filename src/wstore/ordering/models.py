@@ -292,23 +292,18 @@ class Order(models.Model):
 
 
 class PaymentRecord(models.Model):
-    PENDING = "PENDING"
-    SUCCESS = "SUCCESS"
-    FAILED = "FAILED"
-
     _id = models.ObjectIdField()
     customerBill_id = models.CharField(max_length=100)
-    status = models.CharField(max_length=10, default=PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
     payment_type = models.CharField(max_length=50)
+    payment_reference = models.CharField(max_length=255)
+    retry_count = models.IntegerField(default=0)
 
     objects = models.DjongoManager()
 
     @classmethod
-    def create(cls, customerBill_id, status, payment_type):
-        if status not in [cls.PENDING, cls.SUCCESS, cls.FAILED]:
-            raise ValueError(f"Invalid status: {status}")
-        payment = cls(customerBill_id=customerBill_id, status=status, payment_type=payment_type)
+    def create(cls, customerBill_id, payment_type, payment_reference):
+        payment = cls(customerBill_id=customerBill_id, payment_type=payment_type, payment_reference=payment_reference)
         payment.save()
         return payment
 
@@ -317,14 +312,14 @@ class PaymentRecord(models.Model):
         return cls.objects.get(customerBill_id=customerBill_id)
 
     @classmethod
-    def get_all_pending(cls):
-        return cls.objects.filter(status=cls.PENDING)
+    def update_payment_reference(cls, customerBill_id, payment_reference):
+        cls.objects.filter(customerBill_id=customerBill_id).update(payment_reference=payment_reference)
 
     @classmethod
-    def update_status(cls, customerBill_id, status):
-        if status not in [cls.PENDING, cls.SUCCESS, cls.FAILED]:
-            raise ValueError(f"Invalid status: {status}")
-        cls.objects.filter(customerBill_id=customerBill_id).update(status=status)
+    def increment_retry_count(cls, customerBill_id):
+        record = cls.objects.get(customerBill_id=customerBill_id)
+        record.retry_count += 1
+        record.save()
 
     class Meta:
         app_label = "wstore"

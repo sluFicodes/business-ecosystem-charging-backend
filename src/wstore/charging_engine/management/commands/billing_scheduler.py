@@ -83,19 +83,19 @@ class Command(BaseCommand):
                     charge_period, utc_z_to_dt(product_start_date)
                 )
                 end_str = first_period.get("endDateTime")
-                if not end_str or utc_z_to_dt(end_str) >= now:
+                if not end_str or utc_z_to_dt(end_str) > now:
                     continue
                 next_period = first_period
             else:
                 last_acbr = acbrs[-1]
                 end_str = last_acbr.get("periodCoverage", {}).get("endDateTime")
-                if not end_str or utc_z_to_dt(end_str) >= now:
+                if not end_str or utc_z_to_dt(end_str) > now:
                     continue
-                next_start = utc_z_to_dt(end_str) + datetime.timedelta(seconds=1)
+                next_start = utc_z_to_dt(end_str)
                 next_period = self._local_engine._build_period_coverage(charge_period, next_start)
                 if pop_type in (RECURRING, USAGE):
                     next_end_str = next_period.get("endDateTime")
-                    if not next_end_str or utc_z_to_dt(next_end_str) >= now:
+                    if not next_end_str or utc_z_to_dt(next_end_str) > now:
                         continue
 
             pops_to_bill[pop_id] = {

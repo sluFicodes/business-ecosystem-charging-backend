@@ -121,15 +121,11 @@ class UsageClient:
         :param start_datetime: period start (datetime)
         :param end_datetime: period end (datetime)
         :param page_size: number of results per page (default 100)
-        :return: List of usage documents whose usageDate falls within [start_datetime, end_datetime+1s)
+        :return: List of usage documents whose usageDate falls within [start_datetime, end_datetime)
         """
-        from wstore.charging_engine.utils import utc_z_to_dt, to_utc_z
-        import datetime
-        end_exclusive = to_utc_z(utc_z_to_dt(end_datetime) + datetime.timedelta(seconds=1))
-
         result = []
         offset = 0
-        base_url = get_service_url("usage", f"usage?usageDate.gte={start_datetime}&usageDate.lt={end_exclusive}")
+        base_url = get_service_url("usage", f"usage?usageDate.gte={start_datetime}&usageDate.lt={end_datetime}")
 
         while True:
             url = f"{base_url}&limit={page_size}&offset={offset}"

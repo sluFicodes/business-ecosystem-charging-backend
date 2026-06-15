@@ -26,8 +26,6 @@ import json
 from copy import deepcopy
 from logging import getLogger
 from requests.exceptions import HTTPError
-
-from bson import ObjectId
 import jwt
 from django.http import HttpResponse
 
@@ -37,7 +35,7 @@ from wstore.charging_engine.charging_engine import ChargingEngine
 from wstore.charging_engine.payment_client.payment_client import PaymentClient, PaymentClientError
 from wstore.ordering.errors import PaymentError, PaymentTimeoutError
 from wstore.ordering.inventory_client import InventoryClient
-from wstore.ordering.models import Contract, Offering, Order, PaymentRecord
+from wstore.ordering.models import Contract, Offering, Order
 from wstore.ordering.ordering_client import OrderingClient
 from wstore.ordering.ordering_management import OrderingManager
 from wstore.store_commons.database import get_database_connection
@@ -52,6 +50,8 @@ PROCESSED = "processed"
 PENDING = "pending"
 
 class PaymentConfirmation(Resource):
+
+    # @deprecated
     def _set_initial_states(self, transactions, raw_order, order):
         def is_digital_contract(contract):
             # off = Offering.objects.get(pk=ObjectId(contract.offering))
@@ -144,13 +144,17 @@ class PaymentConfirmation(Resource):
             order.pending_payment = None
             order.save()
 
-    def _check_confirmation_request(self, request_data, payment_client):
+    def _check_confirmation_request(self, request_data):
         """Checks if the request data is valid an returns the action, the order reference and object.
 
         Args:
             request_data (dict): The parsed json data of the request
             payment_client (PaymentClient): A payment_client object instance
         """
+        logger.info("check payment confirmation")
+        client= request_data["client"]
+        payment_client = PaymentClient.get_payment_client_class(client=client)
+        logger.info(f"payment Client: {payment_client}")
 
         if "confirm_action" not in request_data or request_data["confirm_action"] not in ("accept", "cancel"):
             raise ValueError("No valid action provided.")
@@ -166,9 +170,8 @@ class PaymentConfirmation(Resource):
 
         confirm_action = request_data["confirm_action"]
         reference = request_data["reference"]
-        client = request_data["client"]
         signature = request_data["signature"]
-        order = Order.objects.filter(pk=ObjectId(reference)).first()
+        order = Order.objects.filter(order_id=reference).first()
 
         if not order:
             raise ValueError("The provided reference does not identify a valid order")
@@ -181,14 +184,14 @@ class PaymentConfirmation(Resource):
 
         # Atomic operation to ensure that only one transaction entered
         db = get_database_connection()
-        updated = db.wstore_order.find_one_and_update({"_id": ObjectId(reference), "used": False}, {"$set": {"used": True}})
+        updated = db.wstore_order.find_one_and_update({"order_id": reference, "used": False}, {"$set": {"used": True}})
 
         if not updated:
             raise ValueError("Order already used")
         else:
             order.used = True
             logger.debug(f"Payment confirmation request for order {order.order_id} OK")
-        return confirm_action, reference, order
+        return confirm_action, reference, order, payment_client
 
     def _accept_confirmation_request(
         self, reference, order: Order, raw_order, request_user, payment_client, payment_confirmation_data
@@ -264,24 +267,18 @@ class PaymentConfirmation(Resource):
                     logger.debug("contract item id: "+ contract.item_id)
 
                     if contract.processed == False:
-                        pre_value = db.wstore_order.find_one_and_update({"_id": ObjectId(reference)}, {"$set": {"_lock": True}})
+                        pre_value = db.wstore_order.find_one_and_update({"order_id": reference}, {"$set": {"_lock": True}})
                         if not pre_value or "_lock" in pre_value and pre_value["_lock"]:
                             raise PaymentTimeoutError("The timeout set to process the payment has finished")
                         try:
                             om.notify_item_completed(order, contract, raw_order)
                         finally:
-                            db.wstore_order.find_one_and_update({"_id": ObjectId(reference)}, {"$set": {"_lock": False}}) # _lock is set to false
-                    record_status = PaymentRecord.SUCCESS
+                            db.wstore_order.find_one_and_update({"order_id": reference}, {"$set": {"_lock": False}}) # _lock is set to false
                     logger.info("processed transaction")
                 elif payout_item["state"].lower() == PENDING:
-                    record_status = PaymentRecord.PENDING
                     logger.info("pending transaction")
                 else:
-                    record_status = PaymentRecord.FAILED
                     logger.info("failed transaction")
-
-                if settings.PENDING_CHARGE_ENABLED:
-                    PaymentRecord.create(cb_id, status=record_status)
 
 
         except Exception as e:
@@ -318,9 +315,8 @@ class PaymentConfirmation(Resource):
             # Extract payment information
             data = json.loads(request.body)
             logger.debug("starting payment confirmation")
-            payment_client = PaymentClient.get_payment_client_class()
 
-            confirm_action, reference, order = self._check_confirmation_request(data, payment_client)
+            confirm_action, reference, order, payment_client = self._check_confirmation_request(data)
             raw_order = self.ordering_client.get_order(order.order_id)
 
             if confirm_action == "accept":

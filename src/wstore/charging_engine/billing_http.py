@@ -22,7 +22,7 @@ class BillingSchedulerTrigger(Resource):
 
     def create(self, request):
         if not settings.BILLING_HTTP_ENABLED:
-            return build_response(request, 403, "Not available in production")
+            return build_response(request, 403, "Not available")
 
         try:
             data = json.loads(request.body)
@@ -43,3 +43,19 @@ class BillingSchedulerTrigger(Resource):
             return build_response(request, 500, str(e))
 
         return build_response(request, 200, "Billing scheduler executed for date: " + date)
+
+
+class PaymentSchedulerTrigger(Resource):
+
+    def create(self, request):
+        if not settings.BILLING_HTTP_ENABLED:
+            return build_response(request, 403, "Not available")
+
+        try:
+            from wstore.charging_engine.management.commands.payment_scheduler import Command
+            cmd = Command()
+            cmd.handle()
+        except Exception as e:
+            return build_response(request, 500, str(e))
+
+        return build_response(request, 200, "Payment scheduler executed")
