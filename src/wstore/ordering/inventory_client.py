@@ -33,6 +33,7 @@ from django.core.exceptions import ImproperlyConfigured
 from wstore.store_commons.utils.url import get_service_url
 from wstore.store_commons.utils.party import get_operator_party_roles, normalize_party_ref
 from wstore.ordering.models import PendingTermination
+from wstore.ordering.errors import InventoryError
 
 logger = logging.getLogger(__name__)
 
@@ -186,19 +187,40 @@ class InventoryClient:
         pending.delete()
 
     def _do_terminate(self, product_id, resource_ids, service_ids):
-        for resource_id in resource_ids:
-            resource_url = get_service_url("resource_inventory", "/resource/" + str(resource_id))
-            requests.patch(resource_url, json={"resourceStatus": "suspended"}, verify=settings.VERIFY_REQUESTS)
+        # Keep track of the resources/services already patched so they can be
+        # rolled back if a later patch fails
+        patched_resources = []
+        patched_services = []
 
-        for service_id in service_ids:
-            service_url = get_service_url("service_inventory", "/service/" + str(service_id))
-            requests.patch(service_url, json={"state": "terminated"}, verify=settings.VERIFY_REQUESTS)
+        try:
+            for resource_id in resource_ids:
+                resource_url = get_service_url("resource_inventory", "/resource/" + str(resource_id))
+                response = requests.patch(resource_url, json={"resourceStatus": "suspended"}, verify=settings.VERIFY_REQUESTS)
+                response.raise_for_status()
+                patched_resources.append(resource_id)
 
-        patch_body = {
-            "status": "terminated",
-            "terminationDate": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        }
-        self.patch_product(product_id, patch_body)
+            for service_id in service_ids:
+                service_url = get_service_url("service_inventory", "/service/" + str(service_id))
+                response = requests.patch(service_url, json={"state": "terminated"}, verify=settings.VERIFY_REQUESTS)
+                response.raise_for_status()
+                patched_services.append(service_id)
+
+            patch_body = {
+                "status": "terminated",
+                "terminationDate": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            }
+            self.patch_product(product_id, patch_body)
+        except Exception as e:
+            # Roll back every resource/service already moved to its termination state
+            for resource_id in patched_resources:
+                resource_url = get_service_url("resource_inventory", "/resource/" + str(resource_id))
+                requests.patch(resource_url, json={"resourceStatus": "reserved"}, verify=settings.VERIFY_REQUESTS)
+
+            for service_id in patched_services:
+                service_url = get_service_url("service_inventory", "/service/" + str(service_id))
+                requests.patch(service_url, json={"state": "reserved"}, verify=settings.VERIFY_REQUESTS)
+
+            raise InventoryError(f"TMF api error - {e}")
 
     def create_product(self, product):
         url = get_service_url("inventory", "/product")
@@ -312,9 +334,10 @@ class InventoryClient:
 
         return result
 
-    def build_product_model(self, order_item, order_id, billing_account):
+    def build_product_model(self, order_item, order_id, billing_account, start_date):
         product = deepcopy(order_item["product"])
 
+        product["startDate"] = start_date
         product["name"] = "oid-{}".format(order_id)
         product["status"] = "created"
         product["productOffering"] = order_item["productOffering"]
