@@ -87,6 +87,10 @@ urlpatterns = [
         admin_views.CurrencyCodeCollection(permitted_methods=("GET",)),
     ),
     url(
+        r"^charging/api/health/?$",
+        admin_views.HealthCollection(permitted_methods=("GET",)),
+    ),
+    url(
         r"^charging/api/orderManagement/orders/?$",
         ordering_views.OrderingCollection(permitted_methods=("POST",)),
     ),
@@ -153,6 +157,10 @@ urlpatterns = [
     url(
         r"^charging/api/orderManagement/notify/?$",
         admin_views.NotificationCollection(permitted_methods=("POST",)),
+    ),
+    url(
+        r"^charging/api/orderManagement/notify/configured/?$",
+        admin_views.ConfiguredNotificationCollection(permitted_methods=("POST",)),
     ),
     url(
         r"^charging/api/orderManagement/notify/config/?$",

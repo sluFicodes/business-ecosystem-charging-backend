@@ -36,7 +36,7 @@ class PriceEngine:
     # Period constants
     PERIOD_ONETIME = "onetime"
     PERIOD_MONTH = "month"
-    def _download_pricing(self, pop_id):
+    def download_pricing(self, pop_id):
         price_url = get_service_url("catalog", "/productOfferingPrice/{}".format(pop_id))
         request = requests.get(price_url, verify=settings.VERIFY_REQUESTS)
         pricing = request.json()
@@ -198,6 +198,8 @@ class PriceEngine:
         else:
             tailored_price = component_value * tail_value
             indv_price["price"] = tailored_price
+        indv_price["description"] = component["description"] if "description" in component else "empty description"
+        indv_price["name"] = component["name"] if "name" in component else "empty name"
         indv.append(indv_price)
 
     def _get_party_char(self, party_id):
@@ -336,12 +338,12 @@ class PriceEngine:
 
         pop_id = item["itemTotalPrice"][0]["productOfferingPrice"]["id"] # always 1 (price plan)
 
-        pricing = self._download_pricing(pop_id)
+        pricing = self.download_pricing(pop_id)
 
         # If the price is a bundle download the components
         to_process = []
         if pricing["isBundle"]:
-            to_process = [self._download_pricing(pop["id"]) for pop in pricing["bundledPopRelationship"]]
+            to_process = [self.download_pricing(pop["id"]) for pop in pricing["bundledPopRelationship"]]
         else:
             to_process = [pricing]
 
@@ -379,20 +381,22 @@ class PriceEngine:
                     )
         else:
             for priceComp in indv:
-                result.append(self._build_price_result(priceComp["priceType"], priceComp["period"], Decimal(priceComp["price"]), tax))
+                result.append(self._build_price_result(priceComp["priceType"], priceComp["period"], Decimal(priceComp["price"]), tax, name=priceComp["name"], description=priceComp.get("description")))
         return result
 
-    def _build_price_result(self, price_type, period, dutyFree: Decimal, taxRate: Decimal):
+    def _build_price_result(self, price_type, period, duty_free: Decimal, tax_rate: Decimal, name = None, description = None):
       return {
+          **({"name": name} if name else {}),
+          **({"description": description} if description else {}),
           "priceType": price_type,
           "recurringChargePeriod": period,
           "price": {
-              "taxRate": str(taxRate),
-              "dutyFreeAmount": {"unit": "EUR", "value": str(dutyFree)},
+              "taxRate": str(tax_rate),
+              "dutyFreeAmount": {"unit": "EUR", "value": str(duty_free)},
               "taxIncludedAmount": {
                   "unit": "EUR",
                   "value": str(
-                      (dutyFree + (dutyFree * taxRate / Decimal(100))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+                      (duty_free + (duty_free * tax_rate / Decimal(100))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
                   ),
               },
           },
