@@ -211,7 +211,10 @@ CRONJOBS = [
     # Payment scheduler: charges/settles 'new' CustomerBills, ~1h after billing runs
     ("0 23 * * *", "django.core.management.call_command", ["payment_scheduler"]),
     ("0 6 * * *", "django.core.management.call_command", ["payment_scheduler"]),
-] if environ.get("BAE_CB_BILLING_ENGINE") == "local" else []
+    ("0 3 * * *", "django.core.management.call_command", ["retry_pending_terminations"]),
+] if environ.get("BAE_CB_BILLING_ENGINE") == "local" else [
+    ("0 3 * * *", "django.core.management.call_command", ["retry_pending_terminations"]),
+]
 
 CLIENTS = {
     "paypal": "wstore.charging_engine.payment_client.paypal_client.PayPalClient",

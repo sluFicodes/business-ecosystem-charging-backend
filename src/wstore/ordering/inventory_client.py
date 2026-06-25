@@ -20,6 +20,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import logging
 import requests
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -28,11 +29,14 @@ from urllib.parse import urljoin, urlparse
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-from wstore.ordering.errors import InventoryError
 
 from wstore.store_commons.utils.url import get_service_url
 from wstore.store_commons.utils.party import get_operator_party_roles, normalize_party_ref
 from wstore.charging_engine.utils import to_utc_z
+from wstore.ordering.models import PendingTermination
+from wstore.ordering.errors import InventoryError
+
+logger = logging.getLogger(__name__)
 
 
 class InventoryClient:
@@ -162,20 +166,45 @@ class InventoryClient:
         # except:
         #     pass
 
-        # TODO: Create a rollback system (probably saving in mongo rollback pendings) in case the apis are shut down
         product = self.get_product(product_id)
 
-        resource_url=None
-        service_url=None
+        resource_ids = [r["id"] for r in product.get("realizingResource", [])]
+        service_ids = [s["id"] for s in product.get("realizingService", [])]
+
+        pending = PendingTermination(
+            product_id=product_id,
+            realizing_resources=resource_ids,
+            realizing_services=service_ids,
+            created_at=datetime.now(timezone.utc),
+        )
+        pending.save()
+
         try:
-            for resource in product.get("realizingResource", []):
-                resource_url = get_service_url("resource_inventory", "/resource/" + str(resource["id"]))
-                requests.patch(resource_url, json={"resourceStatus": "suspended"}, verify=settings.VERIFY_REQUESTS)
+            self._do_terminate(product_id, resource_ids, service_ids)
+        except Exception:
+            logger.exception("terminate_product failed for product %s; PendingTermination kept for recovery", product_id)
+            raise
 
+        pending.delete()
 
-            for service in product.get("realizingService", []):
-                service_url = get_service_url("service_inventory", "/service/" + str(service["id"]))
-                requests.patch(service_url, json={"state": "terminated"}, verify=settings.VERIFY_REQUESTS)
+    def _do_terminate(self, product_id, resource_ids, service_ids):
+        # Keep track of the resources/services already patched so they can be
+        # rolled back if a later patch fails
+        patched_resources = []
+        patched_services = []
+
+        try:
+            for resource_id in resource_ids:
+                resource_url = get_service_url("resource_inventory", "/resource/" + str(resource_id))
+                response = requests.patch(resource_url, json={"resourceStatus": "suspended"}, verify=settings.VERIFY_REQUESTS)
+                response.raise_for_status()
+                patched_resources.append(resource_id)
+
+            for service_id in service_ids:
+                service_url = get_service_url("service_inventory", "/service/" + str(service_id))
+                response = requests.patch(service_url, json={"state": "terminated"}, verify=settings.VERIFY_REQUESTS)
+                response.raise_for_status()
+                patched_services.append(service_id)
 
             patch_body = {
                 "status": "terminated",
@@ -183,11 +212,15 @@ class InventoryClient:
             }
             self.patch_product(product_id, patch_body)
         except Exception as e:
-
-            if resource_url != None:
+            # Roll back every resource/service already moved to its termination state
+            for resource_id in patched_resources:
+                resource_url = get_service_url("resource_inventory", "/resource/" + str(resource_id))
                 requests.patch(resource_url, json={"resourceStatus": "reserved"}, verify=settings.VERIFY_REQUESTS)
-            if service_url != None:
+
+            for service_id in patched_services:
+                service_url = get_service_url("service_inventory", "/service/" + str(service_id))
                 requests.patch(service_url, json={"state": "reserved"}, verify=settings.VERIFY_REQUESTS)
+
             raise InventoryError(f"TMF api error - {e}")
 
     def create_product(self, product):

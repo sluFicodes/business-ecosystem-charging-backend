@@ -321,5 +321,14 @@ class PaymentRecord(models.Model):
         record.retry_count += 1
         record.save()
 
+class PendingTermination(models.Model):
+    _id = models.ObjectIdField()
+    product_id = models.CharField(max_length=200)
+    realizing_resources = models.JSONField(default=[])  # List of resource ids
+    realizing_services = models.JSONField(default=[])   # List of service ids
+    created_at = models.DateTimeField()
+
+    objects = models.DjongoManager()
+
     class Meta:
         app_label = "wstore"
