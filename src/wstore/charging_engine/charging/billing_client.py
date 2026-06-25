@@ -57,7 +57,8 @@ class BillingClient:
         url = get_service_url("billing", "appliedCustomerBillingRate")
         params = {
             "product.id": product_id,
-            "product.name": f"popid-{pop_id}",
+            "characteristic.tmfValue": pop_id,
+            "characteristic.name": "popid",
             "isBilled": "true",
             "limit": limit,
             "offset": 0,
@@ -152,9 +153,9 @@ class BillingClient:
             "billingAccount": billing_account,
             "product": {
                 "id": product_id,
-                "href": product_id,
-                **{"name": f"popid-{priceId}" if priceId else {}}
-            }
+                "href": product_id
+            },
+            **{"characteristic": {"name": "popid", "value": priceId} if priceId else {}}
         }
 
         if coverage_period is not None:
