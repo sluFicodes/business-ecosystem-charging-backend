@@ -80,7 +80,7 @@ class Engine:
                     seller_id = None
                     curated_party = created_product["relatedParty"]
                     for party in curated_party:
-                        if party["role"].lower() == "seller":
+                        if party.get("role", "").lower() == "seller":
                             seller_id = party["id"]
 
 
