@@ -35,7 +35,7 @@ logger = getLogger("wstore.default_logger")
 class PriceEngine:
     # Period constants
     PERIOD_ONETIME = "onetime"
-    PERIOD_MONTH = "month"
+    PERIOD_MONTH = " 1 month"
     def download_pricing(self, pop_id):
         price_url = get_service_url("catalog", "/productOfferingPrice/{}".format(pop_id))
         request = requests.get(price_url, verify=settings.VERIFY_REQUESTS)

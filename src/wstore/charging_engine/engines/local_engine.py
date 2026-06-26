@@ -102,12 +102,8 @@ class LocalEngine(Engine):
         end_datetime = None
 
         logger.info("recurringChargePeriod: %s", chargePeriod)
-        if chargePeriod == PriceEngine.PERIOD_ONETIME:
-            pass
-        elif chargePeriod == PriceEngine.PERIOD_MONTH or chargePeriod == "1 month":
-            end_time = now + relativedelta(months=1)
-            end_datetime = to_utc_z(end_time)
-        else:
+
+        if not chargePeriod == PriceEngine.PERIOD_ONETIME:
             parts = chargePeriod.split()
             if len(parts) == 2:
                 amount = int(parts[0])
