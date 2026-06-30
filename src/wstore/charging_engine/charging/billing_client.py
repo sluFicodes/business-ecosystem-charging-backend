@@ -46,7 +46,7 @@ class BillingClient:
 
     def get_product_id_by_cb(self, bill_id):
         url = get_service_url("billing", "appliedCustomerBillingRate")
-        response = requests.get(url, params={"bill.id": bill_id}, verify=settings.VERIFY_REQUESTS)
+        response = requests.get(url, params={"bill.id": bill_id, "limit": 1}, verify=settings.VERIFY_REQUESTS)
         response.raise_for_status()
         acbrs = response.json()
         if not acbrs:
