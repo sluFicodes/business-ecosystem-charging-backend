@@ -55,25 +55,33 @@ class BillingClient:
 
     def get_acbrs(self, product_id, pop_id, limit=100):
         url = get_service_url("billing", "appliedCustomerBillingRate")
-        params = {
-            "product.id": product_id,
-            "characteristic.tmfValue": pop_id,
-            "characteristic.name": "popid",
-            "isBilled": "true",
-            "limit": limit,
-            "offset": 0,
-        }
-        acbrs = []
-        while True:
-            response = requests.get(url, params=params, verify=settings.VERIFY_REQUESTS)
-            response.raise_for_status()
-            page = response.json()
-            if not page:
-                break
-            acbrs.extend(page)
-            if len(page) < limit:
-                break
-            params["offset"] += limit
+        for characteristic_key in ("characteristic.value", "characteristic.tmfValue"):
+            params = {
+                "product.id": product_id,
+                characteristic_key: pop_id,
+                "characteristic.name": "popid",
+                "isBilled": "true",
+                "limit": limit,
+                "offset": 0,
+            }
+            acbrs = []
+            try:
+                while True:
+                    response = requests.get(url, params=params, verify=settings.VERIFY_REQUESTS)
+                    response.raise_for_status()
+                    page = response.json()
+                    if not page:
+                        break
+                    acbrs.extend(page)
+                    if len(page) < limit:
+                        break
+                    params["offset"] += limit
+            except requests.exceptions.HTTPError as e:
+                # Only fall back to tmfValue on a 500; re-raise anything else or the last attempt.
+                if characteristic_key == "characteristic.tmfValue" or e.response is None or e.response.status_code != 500:
+                    raise
+                continue
+            break
         return sorted(acbrs, key=lambda x: utc_z_to_dt(x["date"]))
 
     def get_billing_account(self, account_id):
