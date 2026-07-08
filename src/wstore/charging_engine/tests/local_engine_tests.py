@@ -204,7 +204,7 @@ class LocalEngineTestCase(TestCase):
         ),
         (
             "month_period",
-            "month",
+            "1 month",
             datetime.datetime(2024, 1, 15, 0, 0, 0, tzinfo=datetime.timezone.utc),
             {
                 "startDateTime": "2024-01-15T00:00:00Z",
