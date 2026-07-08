@@ -28,7 +28,7 @@ from wstore.charging_engine import views as charging_views
 from wstore.charging_engine.accounting import views as accounting_views
 from wstore.ordering import views as ordering_views
 from wstore.charging_engine.cb_webhook import views as webhook_views
-from wstore.charging_engine import billing_http as billing_http_views
+from wstore.charging_engine import schedulers_by_http as billing_http_views
 from wstore.rss import views as rss_views
 from wstore.service import views as service_views
 
