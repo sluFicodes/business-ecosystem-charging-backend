@@ -255,7 +255,7 @@ RESULT_FILTER_POP = [
 RESULT_USAGE_POP = [
     {
         "priceType": "usage",
-        "recurringChargePeriod": "month",
+        "recurringChargePeriod": "1 month",
         "price": {
             "taxRate": "0",
             "dutyFreeAmount": {"unit": "EUR", "value": "5.0"},
@@ -268,7 +268,7 @@ RESULT_USAGE_POP = [
 RESULT_MULTIPLE_USAGE_POP = [
     {
         "priceType": "usage",
-        "recurringChargePeriod": "month",
+        "recurringChargePeriod": "1 month",
         "price": {
             "taxRate": "0",
             "dutyFreeAmount": {"unit": "EUR", "value": "2.50"},
@@ -323,7 +323,7 @@ RESULT_MULTIPLE_USAGE_NO_PREVIEW = [
         "name": "Usage POP",
         "description": "Usage POP description",
         "priceType": "usage",
-        "recurringChargePeriod": "month",
+        "recurringChargePeriod": "1 month",
         "price": {
             "taxRate": "0",
             "dutyFreeAmount": {"unit": "EUR", "value": "5.0"},
@@ -335,7 +335,7 @@ RESULT_MULTIPLE_USAGE_NO_PREVIEW = [
         "name": "Usage POP 2",
         "description": "Usage POP 2 description",
         "priceType": "usage",
-        "recurringChargePeriod": "month",
+        "recurringChargePeriod": "1 month",
         "price": {
             "taxRate": "0",
             "dutyFreeAmount": {"unit": "EUR", "value": "3.0"},
