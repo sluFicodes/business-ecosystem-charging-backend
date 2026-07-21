@@ -25,8 +25,6 @@ import requests
 
 from logging import getLogger
 
-from django.conf import settings
-
 from wstore.store_commons.database import get_database_connection
 from wstore.store_commons.resource import Resource
 from wstore.store_commons.utils.http import JsonResponse, authentication_required, build_response, supported_request_mime_types
@@ -38,6 +36,27 @@ from wstore.models import EmailConfig
 
 
 logger = getLogger("wstore.default_logger")
+
+SUPPORTED_CONTACT_US_TYPES = ("general", "technical", "onboarding", "legal")
+
+
+def _get_contact_us_destinations(email_config):
+    return {
+        "general": getattr(email_config, "contact_us_general", ""),
+        "technical": getattr(email_config, "contact_us_technical", ""),
+        "onboarding": getattr(email_config, "contact_us_onboarding", ""),
+        "legal": getattr(email_config, "contact_us_legal", ""),
+    }
+
+
+def _parse_contact_us_destinations(data):
+    contact_us_destinations = data["contactUsDestinations"]
+    return {
+        "general": contact_us_destinations["general"],
+        "technical": contact_us_destinations["technical"],
+        "onboarding": contact_us_destinations["onboarding"],
+        "legal": contact_us_destinations["legal"],
+    }
 
 
 class ChargePeriodCollection(Resource):
@@ -78,9 +97,10 @@ class NotificationConfigCollection(Resource):
 
         config_data = {
             "smtpServer": email_config.smtp_server,
-            "smtpPort": email_config.smtp_port,
+            "smtpPort": str(email_config.smtp_port),
             "email": email_config.email,
-            "emailUser": email_config.email_user
+            "emailUser": email_config.email_user,
+            "contactUsDestinations": _get_contact_us_destinations(email_config),
         }
 
         return JsonResponse(200, config_data)
@@ -98,6 +118,7 @@ class NotificationConfigCollection(Resource):
             email = data["email"]
             email_user = data["emailUser"]
             email_password = data["emailPassword"]
+            contact_us_destinations = _parse_contact_us_destinations(data)
         except:
             logger.error(f"Invalid email config")
             return build_response(request, 400, "The provided data is not a valid JSON object")
@@ -113,6 +134,10 @@ class NotificationConfigCollection(Resource):
             email_config.email = email
             email_config.email_user = email_user
             email_config.email_password = email_password
+            email_config.contact_us_general = contact_us_destinations["general"]
+            email_config.contact_us_technical = contact_us_destinations["technical"]
+            email_config.contact_us_onboarding = contact_us_destinations["onboarding"]
+            email_config.contact_us_legal = contact_us_destinations["legal"]
             email_config.save()
         else:
             # Create a new config
@@ -121,7 +146,11 @@ class NotificationConfigCollection(Resource):
                 smtp_port=smtp_port,
                 email=email,
                 email_user=email_user,
-                email_password=email_password
+                email_password=email_password,
+                contact_us_general=contact_us_destinations["general"],
+                contact_us_technical=contact_us_destinations["technical"],
+                contact_us_onboarding=contact_us_destinations["onboarding"],
+                contact_us_legal=contact_us_destinations["legal"],
             )
             email_config.save()
 
@@ -196,19 +225,39 @@ class NotificationCollection(Resource):
 
 
 class ConfiguredNotificationCollection(NotificationCollection):
+    def _get_configured_notification_data(self, request):
+        try:
+            data = self._get_notification_data(request)
+            logger.info(f"Support type: request.body: {request.body}")
+
+            support_type = json.loads(request.body)["supportType"]
+        except (TypeError, ValueError, KeyError):
+            raise ValueError("The provided data is not a valid JSON object")
+
+        if support_type not in SUPPORTED_CONTACT_US_TYPES:
+            raise ValueError("Unsupported support type")
+
+        data["supportType"] = support_type
+        return data
 
     @supported_request_mime_types(("application/json",))
     def create(self, request):
         try:
-            data = self._get_notification_data(request)
+            data = self._get_configured_notification_data(request)
             message = data["message"]
             subject = data["subject"]
+            support_type = data["supportType"]
         except ValueError:
             return build_response(request, 400, "The provided data is not a valid JSON object")
 
-        recipient_email = settings.NOTIFICATION_RECIPIENT_EMAIL
+        email_config = EmailConfig.objects.first()
+        if email_config is None:
+            logger.error("Contact-us notification configuration is not set")
+            return build_response(request, 500, "Contact-us notification configuration is not set")
 
-        if recipient_email is None or recipient_email == "":
+        recipient_email = _get_contact_us_destinations(email_config)[support_type]
+
+        if recipient_email == "":
             logger.error("Configured notification recipient email is not set")
             return build_response(request, 500, "Configured notification recipient email is not set")
 

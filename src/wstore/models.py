@@ -35,6 +35,10 @@ class EmailConfig(models.Model):
     email = models.CharField(max_length=100)
     email_user = models.CharField(max_length=100)
     email_password = models.CharField(max_length=100)
+    contact_us_general = models.CharField(max_length=100, blank=True, default="")
+    contact_us_technical = models.CharField(max_length=100, blank=True, default="")
+    contact_us_onboarding = models.CharField(max_length=100, blank=True, default="")
+    contact_us_legal = models.CharField(max_length=100, blank=True, default="")
 
 
 class Context(models.Model):

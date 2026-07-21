@@ -33,6 +33,8 @@ class AdminViewTestCase(TestCase):
     def setUp(self):
         views.requests = MagicMock()
         views.build_response = MagicMock()
+        views.JsonResponse = MagicMock()
+        views.EmailConfig = MagicMock()
         self._old_notification_recipient_email = settings.NOTIFICATION_RECIPIENT_EMAIL
         settings.NOTIFICATION_RECIPIENT_EMAIL = None
 
@@ -43,13 +45,25 @@ class AdminViewTestCase(TestCase):
     def tearDown(self):
         settings.NOTIFICATION_RECIPIENT_EMAIL = self._old_notification_recipient_email
 
-    def _mock_request(self, body):
+    def _mock_request(self, body, method="POST", is_staff=False):
         request = MagicMock()
-        request.method = "POST"
+        request.method = method
         request.user.is_anonymous = False
+        request.user.is_staff = is_staff
         request.META = {"CONTENT_TYPE": "application/json"}
         request.body = json.dumps(body)
+        request.path = "/charging/api/orderManagement/notify/configured"
         return request
+
+    def _contact_us_destinations(self, **overrides):
+        destinations = {
+            "general": "general@example.org",
+            "technical": "technical@example.org",
+            "onboarding": "onboarding@example.org",
+            "legal": "legal@example.org",
+        }
+        destinations.update(overrides)
+        return destinations
 
     def test_notifications_api(self):
         request = self._mock_request({
@@ -152,17 +166,23 @@ class AdminViewTestCase(TestCase):
         views.build_response.assert_called_once_with(request, 500, "Error sending notification email")
 
     def test_configured_notifications_api(self):
-        settings.NOTIFICATION_RECIPIENT_EMAIL = "configured@email.com"
+        email_config = MagicMock()
+        email_config.contact_us_general = "general@example.org"
+        email_config.contact_us_technical = "technical@example.org"
+        email_config.contact_us_onboarding = "onboarding@example.org"
+        email_config.contact_us_legal = "legal@example.org"
+        views.EmailConfig.objects.first.return_value = email_config
         request = self._mock_request({
             "message": "Test message",
-            "subject": "Test subject"
+            "subject": "Test subject",
+            "supportType": "technical",
         })
 
         api = views.ConfiguredNotificationCollection(permitted_methods=("POST",))
         api.create(request)
 
         self._email_instance.send_custom_email.assert_called_once_with(
-            "configured@email.com", "Test subject", "Test message"
+            "technical@example.org", "Test subject", "Test message"
         )
         views.build_response.assert_called_once_with(request, 200, "Notification sent successfully")
 
@@ -175,9 +195,16 @@ class AdminViewTestCase(TestCase):
         views.build_response.assert_called_once_with(request, 400, "The provided data is not a valid JSON object")
 
     def test_configured_notifications_api_missing_recipient(self):
+        email_config = MagicMock()
+        email_config.contact_us_general = ""
+        email_config.contact_us_technical = "technical@example.org"
+        email_config.contact_us_onboarding = "onboarding@example.org"
+        email_config.contact_us_legal = "legal@example.org"
+        views.EmailConfig.objects.first.return_value = email_config
         request = self._mock_request({
             "message": "Test message",
-            "subject": "Test subject"
+            "subject": "Test subject",
+            "supportType": "general",
         })
 
         api = views.ConfiguredNotificationCollection(permitted_methods=("POST",))
@@ -187,10 +214,16 @@ class AdminViewTestCase(TestCase):
         views.build_response.assert_called_once_with(request, 500, "Configured notification recipient email is not set")
 
     def test_configured_notifications_api_email_error(self):
-        settings.NOTIFICATION_RECIPIENT_EMAIL = "configured@email.com"
+        email_config = MagicMock()
+        email_config.contact_us_general = "general@example.org"
+        email_config.contact_us_technical = "technical@example.org"
+        email_config.contact_us_onboarding = "onboarding@example.org"
+        email_config.contact_us_legal = "legal@example.org"
+        views.EmailConfig.objects.first.return_value = email_config
         request = self._mock_request({
             "message": "Test message",
-            "subject": "Test subject"
+            "subject": "Test subject",
+            "supportType": "legal",
         })
 
         self._email_instance.send_custom_email.side_effect = Exception("Email service error")
@@ -199,6 +232,115 @@ class AdminViewTestCase(TestCase):
         api.create(request)
 
         self._email_instance.send_custom_email.assert_called_once_with(
-            "configured@email.com", "Test subject", "Test message"
+            "legal@example.org", "Test subject", "Test message"
         )
         views.build_response.assert_called_once_with(request, 500, "Error sending notification email")
+
+    def test_configured_notifications_api_invalid_support_type(self):
+        request = self._mock_request({
+            "message": "Test message",
+            "subject": "Test subject",
+            "supportType": "sales",
+        })
+
+        api = views.ConfiguredNotificationCollection(permitted_methods=("POST",))
+        api.create(request)
+
+        self._email_instance.send_custom_email.assert_not_called()
+        views.build_response.assert_called_once_with(request, 400, "The provided data is not a valid JSON object")
+
+    def test_configured_notifications_api_missing_configuration(self):
+        views.EmailConfig.objects.first.return_value = None
+        request = self._mock_request({
+            "message": "Test message",
+            "subject": "Test subject",
+            "supportType": "general",
+        })
+
+        api = views.ConfiguredNotificationCollection(permitted_methods=("POST",))
+        api.create(request)
+
+        self._email_instance.send_custom_email.assert_not_called()
+        views.build_response.assert_called_once_with(request, 500, "Contact-us notification configuration is not set")
+
+    def test_notification_config_read_includes_contact_us_destinations(self):
+        email_config = MagicMock()
+        email_config.smtp_server = "smtp.example.org"
+        email_config.smtp_port = 587
+        email_config.email = "source@example.org"
+        email_config.email_user = "smtp-user"
+        email_config.contact_us_general = "general@example.org"
+        email_config.contact_us_technical = "technical@example.org"
+        email_config.contact_us_onboarding = "onboarding@example.org"
+        email_config.contact_us_legal = "legal@example.org"
+
+        existing_configs = MagicMock()
+        existing_configs.count.return_value = 1
+        existing_configs.first.return_value = email_config
+        views.EmailConfig.objects.all.return_value = existing_configs
+
+        request = self._mock_request({}, method="GET", is_staff=True)
+        request.path = "/charging/api/orderManagement/notify/config"
+
+        api = views.NotificationConfigCollection(permitted_methods=("GET",))
+        api.read(request)
+
+        views.JsonResponse.assert_called_once_with(200, {
+            "smtpServer": "smtp.example.org",
+            "smtpPort": "587",
+            "email": "source@example.org",
+            "emailUser": "smtp-user",
+            "contactUsDestinations": self._contact_us_destinations(),
+        })
+
+    def test_notification_config_create_persists_contact_us_destinations(self):
+        email_config = MagicMock()
+        existing_configs = MagicMock()
+        existing_configs.count.return_value = 1
+        existing_configs.first.return_value = email_config
+        views.EmailConfig.objects.all.return_value = existing_configs
+
+        request = self._mock_request({
+            "smtpServer": "smtp.example.org",
+            "smtpPort": "587",
+            "email": "source@example.org",
+            "emailUser": "smtp-user",
+            "emailPassword": "secret",
+            "contactUsDestinations": self._contact_us_destinations(),
+        }, is_staff=True)
+        request.path = "/charging/api/orderManagement/notify/config"
+
+        api = views.NotificationConfigCollection(permitted_methods=("POST",))
+        api.create(request)
+
+        self.assertEqual("smtp.example.org", email_config.smtp_server)
+        self.assertEqual("587", email_config.smtp_port)
+        self.assertEqual("source@example.org", email_config.email)
+        self.assertEqual("smtp-user", email_config.email_user)
+        self.assertEqual("secret", email_config.email_password)
+        self.assertEqual("general@example.org", email_config.contact_us_general)
+        self.assertEqual("technical@example.org", email_config.contact_us_technical)
+        self.assertEqual("onboarding@example.org", email_config.contact_us_onboarding)
+        self.assertEqual("legal@example.org", email_config.contact_us_legal)
+        email_config.save.assert_called_once_with()
+        views.build_response.assert_called_once_with(request, 201, "Notification configuration created/updated successfully")
+
+    def test_notification_config_create_rejects_invalid_contact_us_destinations(self):
+        views.EmailConfig.objects.all.return_value.count.return_value = 0
+        request = self._mock_request({
+            "smtpServer": "smtp.example.org",
+            "smtpPort": "587",
+            "email": "source@example.org",
+            "emailUser": "smtp-user",
+            "emailPassword": "secret",
+            "contactUsDestinations": {
+                "general": "general@example.org",
+                "technical": "technical@example.org",
+            },
+        }, is_staff=True)
+        request.path = "/charging/api/orderManagement/notify/config"
+
+        api = views.NotificationConfigCollection(permitted_methods=("POST",))
+        api.create(request)
+
+        views.build_response.assert_called_once_with(request, 400, "The provided data is not a valid JSON object")
