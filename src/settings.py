@@ -220,6 +220,7 @@ CLIENTS = {
     "paypal": "wstore.charging_engine.payment_client.paypal_client.PayPalClient",
     "stripe": "wstore.charging_engine.payment_client.stripe_client.StripeClient",
     "dpas": "wstore.charging_engine.payment_client.dpas_client.DpasClient",
+    "redsys": "wstore.charging_engine.payment_client.redsys_client.RedsysClient",
     None: "wstore.charging_engine.payment_client.payment_client.PaymentClient",
 }
 

@@ -113,7 +113,7 @@ class DpasClient(PaymentClient):
     def check_payment_status(self, payment_reference):
         raise NotImplementedError("DPAS payment status is managed externally by payment-scheduler")
 
-    def charge_recurring(self, payment_reference, amount, currency):
+    def charge_recurring(self, cb, record, pre_auth_id, amount, currency):
         raise NotImplementedError("DPAS recurring charges are managed externally by payment-scheduler")
 
     def get_checkout_url(self):

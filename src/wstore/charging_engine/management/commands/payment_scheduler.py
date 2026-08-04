@@ -31,6 +31,7 @@ logger = getLogger("wstore.default_logger")
 
 CHAR_NAME_TO_TYPE = {
     'stripeCheckoutSessionId': 'stripe',
+    'redsysPreAuthorizationId': 'redsys',
 }
 
 
@@ -60,21 +61,30 @@ class Command(BaseCommand):
 
         return None, None
 
-    def _attempt_payment(self, cb, record, client: PaymentClient):
+    def _attempt_payment(self, cb, record, client: PaymentClient, pre_auth_id):
         amount = cb.get('taxIncludedAmount', {}).get('value')
         currency = cb.get('taxIncludedAmount', {}).get('unit')
 
-        new_reference, status = client.charge_recurring(record.payment_reference, amount, currency)
+        new_reference, status = client.charge_recurring(cb, record, pre_auth_id, amount, currency)
 
-        PaymentRecord.increment_retry_count(record.customerBill_id)
-        if new_reference:
-            PaymentRecord.update_payment_reference(record.customerBill_id, new_reference)
+        if not new_reference:
+            logger.warning(
+                f"Payment provider returned no reference for CB {cb['id']}, "
+                f"status: {status}"
+            )
+            return record, status
+
+        cb_id = cb['id']
+        PaymentRecord.increment_retry_count(cb_id)
+        record = PaymentRecord.get_by_customer_bill_id(cb_id)
 
         if status == 'succeeded':
-            self._billing_client.set_customer_bill('settled', record.customerBill_id)
-            logger.info(f"CB {record.customerBill_id} settled after payment attempt")
+            self._billing_client.set_customer_bill('settled', cb_id)
+            logger.info(f"CB {cb_id} settled after payment attempt")
         else:
-            logger.info(f"CB {record.customerBill_id} payment attempt status: {status}, will retry later")
+            logger.info(f"CB {cb_id} payment attempt status: {status}, will retry later")
+
+        return record, status
 
     def _process_cb(self, cb):
         cb_id = cb['id']
@@ -82,13 +92,13 @@ class Command(BaseCommand):
         try:
             record = PaymentRecord.get_by_customer_bill_id(cb_id)
         except PaymentRecord.DoesNotExist:
-            payment_type, payment_reference = self._get_payment_info_from_cb(cb_id)
-            if payment_type is None:
-                logger.warning(f"Cannot determine payment type for CB {cb_id}, skipping")
+            payment_type, pre_auth_id = self._get_payment_info_from_cb(cb_id)
+            if payment_type is None or pre_auth_id is None:
+                logger.warning(f"Cannot determine payment information for CB {cb_id}, skipping")
                 return
-            record = PaymentRecord.create(cb_id, payment_type=payment_type, payment_reference=payment_reference)
-            p_client: PaymentClient = PaymentClient.get_payment_client_class(record.payment_type)(None)
-            self._attempt_payment(cb, record, p_client)
+
+            p_client: PaymentClient = PaymentClient.get_payment_client_class(payment_type)(None)
+            self._attempt_payment(cb, None, p_client, pre_auth_id)
             return
 
         p_client: PaymentClient = PaymentClient.get_payment_client_class(record.payment_type)(None)
@@ -98,7 +108,21 @@ class Command(BaseCommand):
             self._billing_client.set_customer_bill('settled', cb_id)
             logger.info(f"CB {cb_id} settled")
         elif status == 'failed':
-            self._attempt_payment(cb, record, p_client)
+            payment_type, pre_auth_id = self._get_payment_info_from_cb(cb_id)
+
+            # it should never show these logs, because it means som strong incosistency
+            if payment_type is None or pre_auth_id is None:
+                logger.warning(f"Cannot determine payment information for CB {cb_id}, skipping retry")
+                return
+
+            if payment_type != record.payment_type:
+                logger.error(
+                    f"Payment type mismatch for CB {cb_id}: "
+                    f"record={record.payment_type}, product={payment_type}"
+                )
+                return
+
+            self._attempt_payment(cb, record, p_client, pre_auth_id)
 
     def handle(self, *args, **options):
         logger.info("Running payment scheduler")

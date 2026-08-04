@@ -67,6 +67,32 @@ class BillingClient:
             return None
         return acbrs[0].get("product", {}).get("id")
 
+    def get_acbrs_by_cb(self, product_id, cb_id, limit=100):
+        url = get_service_url("billing", "appliedCustomerBillingRate")
+        params = {
+            "product.id": product_id,
+            "bill.id": cb_id,
+            "isBilled": "true",
+            "limit": limit,
+            "offset": 0,
+        }
+        acbrs = []
+        try:
+            while True:
+                response = requests.get(url, params=params, verify=settings.VERIFY_REQUESTS)
+                response.raise_for_status()
+                page = response.json()
+                if not page:
+                    break
+                acbrs.extend(page)
+                if len(page) < limit:
+                    break
+                params["offset"] += limit
+        except requests.exceptions.HTTPError as e:
+                logger.error("get_acbr_by_cb fails returning acbrs")
+                raise
+        return acbrs
+
     def get_acbrs(self, product_id, pop_id, limit=100):
         url = get_service_url("billing", "appliedCustomerBillingRate")
         for characteristic_key in ("characteristic.value", "characteristic.tmfValue"):
@@ -132,6 +158,21 @@ class BillingClient:
                 "id": customer_bill_id,
                 "href": customer_bill_id
             }
+        }
+        # TODO: rollback for acbrs in case an error appears or some way to make it transactional
+        for acbr in batch_acbr:
+            url = get_service_url("billing", f"appliedCustomerBillingRate/{acbr['id']}")
+            try:
+                response = requests.patch(url, json=data, verify=settings.VERIFY_REQUESTS)
+                response.raise_for_status()
+            except requests.exceptions.HTTPError as e:
+                logger.error("Error updating customer rate: " + str(e))
+                raise
+
+    def set_acbrs_new_period(self, batch_acbr, period_coverage):
+
+        data = {
+            "period_coverage": period_coverage
         }
         # TODO: rollback for acbrs in case an error appears or some way to make it transactional
         for acbr in batch_acbr:

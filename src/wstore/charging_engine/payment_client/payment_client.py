@@ -54,7 +54,7 @@ class PaymentClient:
     def check_payment_status(self, payment_reference):
         pass
 
-    def charge_recurring(self, payment_reference, amount, currency):
+    def charge_recurring(self, cb, record, pre_auth_id, amount, currency):
         pass
 
 
