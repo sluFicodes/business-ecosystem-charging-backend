@@ -1,6 +1,6 @@
-# -*- encoding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
-# Copyright (c) 2023 ficodes
+# Copyright (c) 2026 Future Internet Consulting and Development Solutions S.L.
 
 # This file belongs to the business-charging-backend
 # of the Business API Ecosystem.
@@ -157,6 +157,7 @@ class StripeClient(PaymentClient):
                     "paymentItemExternalId": cb_id,
                     "state": state,
                 })
+                # TODO: payment external key need to be set here
                 PaymentRecord.create(cb_id, payment_type=self.NAME, payment_reference=session_id)
             if not page.has_more:
                 break
@@ -194,43 +195,60 @@ class StripeClient(PaymentClient):
             return 'pending'
         return 'failed'
 
-    def charge_recurring(self, payment_reference, amount, currency):
+    def charge_recurring(self, cb, record, pre_auth_id, amount, currency):
+        persisted_reference = None
         try:
-            if payment_reference.startswith('pi_'):
-                pi = stripe.PaymentIntent.retrieve(payment_reference)
+            if pre_auth_id.startswith('pi_'):
+                pi = stripe.PaymentIntent.retrieve(pre_auth_id)
                 customer_id = pi.customer
                 payment_method = pi.payment_method
             else:
-                session = stripe.checkout.Session.retrieve(payment_reference)
+                session = stripe.checkout.Session.retrieve(pre_auth_id)
                 customer_id = session.customer
                 pi = stripe.PaymentIntent.retrieve(session.payment_intent)
                 payment_method = pi.payment_method
 
             if not customer_id or not payment_method:
-                logger.error(f"Missing customer or payment method for reference {payment_reference}")
+                logger.error(f"Missing customer or payment method for pre-authorization {pre_auth_id}")
                 return None, 'failed'
 
+            retry_count = record.retry_count if record is not None else 0
+            previous_reference = record.payment_reference if record is not None else 'new'
             new_pi = stripe.PaymentIntent.create(
                 amount=int(Decimal(str(amount)) * 100),
                 currency=currency.lower(),
                 customer=customer_id,
                 payment_method=payment_method,
-                off_session=True,
-                confirm=True,
+                confirm=False,
+                idempotency_key=f"recurring:{cb['id']}:{retry_count}:{previous_reference}",
             )
 
-            if new_pi.status == 'succeeded':
-                return new_pi.id, 'succeeded'
-            if new_pi.status in ('processing', 'requires_action'):
-                return new_pi.id, 'pending'
-            return new_pi.id, 'failed'
+            if record is None:
+                try:
+                    record = PaymentRecord.create(cb['id'], payment_type=self.NAME, payment_reference=new_pi.id)
+                except Exception:
+                    persisted_record = PaymentRecord.get_by_customer_bill_id(cb['id'])
+                    if (persisted_record.payment_type != self.NAME or persisted_record.payment_reference != new_pi.id):
+                        raise PaymentClientError(self.NAME, "CustomerBill already belongs to another payment attempt")
+                    record = persisted_record
+            else:
+                record.payment_reference = new_pi.id
+                record.save()
+
+            persisted_reference = new_pi.id
+            confirmed_pi = new_pi.confirm(off_session=True)
+            if confirmed_pi.status == 'succeeded':
+                return confirmed_pi.id, 'succeeded'
+            if confirmed_pi.status in ('processing', 'requires_action', 'requires_confirmation'):
+                return confirmed_pi.id, 'pending'
+            return confirmed_pi.id, 'failed'
 
         except stripe.error.CardError as e:
-            logger.error(f"Card error during recurring charge for {payment_reference}: {e}")
-            return None, 'failed'
+            logger.error(f"Card error during recurring charge for {pre_auth_id}: {e}")
+            return persisted_reference, 'failed'
         except Exception as e:
-            logger.error(f"Error during recurring charge for {payment_reference}: {e}")
-            return None, 'failed'
+            logger.error(f"Error during recurring charge for {pre_auth_id}: {e}")
+            return persisted_reference, 'pending'
 
     def batch_payout(self, payouts):
         # TODO: Translate to Stripe API.

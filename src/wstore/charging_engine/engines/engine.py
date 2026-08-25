@@ -60,8 +60,6 @@ class Engine:
             contracts = self._order.contracts if related_contract is None else related_contract
             for contract in contracts:
 
-                logger.debug(f"contract: {contract.product_id}")
-
                 # TODO: In the future I will transform this _get_item that is O(n^2) to a hashmap o Dict in this case that is O(1) complexity
                 item = self._get_item(contract.item_id, raw_order)
 
@@ -72,6 +70,7 @@ class Engine:
                 # TODO: reset product to created and before this method, terminate cb and acbrs (I think it is not needed based on what Stefania said in dc).
                 created_product = inventory_client.create_product(product_model) if related_contract is None else inventory_client.get_product(contract.product_id)
                 contract.product_id = created_product["id"]
+                logger.debug(f"contract: {contract.product_id}")
 
                 if len(acbr_models) > 0:
                     logger.info("Received acbr models " + json.dumps(acbr_models, default=str))

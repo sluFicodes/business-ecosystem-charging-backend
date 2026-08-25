@@ -76,6 +76,13 @@ class WstoreConfig(AppConfig):
                 )
                 logger.info("Created customer_bill_idx index on wstore_order")
 
+            payment_indexes = db.wstore_paymentrecord.index_information()
+            if "payment_customer_bill_unique_idx" not in payment_indexes:
+                db.wstore_paymentrecord.create_index(
+                    [("customerBill_id", 1)], name="payment_customer_bill_unique_idx", unique=True
+                )
+                logger.info("Created payment_customer_bill_unique_idx on wstore_paymentrecord")
+
         except Exception as e:
             # Don't fail startup if index creation fails
             logger.warning(f"Could not create indexes: {e}")

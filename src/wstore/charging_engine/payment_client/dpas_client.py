@@ -1,3 +1,23 @@
+# -*- coding: utf-8 -*-
+
+# Copyright (c) 2026 Future Internet Consulting and Development Solutions S.L.
+
+# This file belongs to the business-charging-backend
+# of the Business API Ecosystem.
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import hashlib
 import hmac
 from wstore.charging_engine.payment_client.payment_client import PaymentClient
@@ -113,7 +133,7 @@ class DpasClient(PaymentClient):
     def check_payment_status(self, payment_reference):
         raise NotImplementedError("DPAS payment status is managed externally by payment-scheduler")
 
-    def charge_recurring(self, payment_reference, amount, currency):
+    def charge_recurring(self, cb, record, pre_auth_id, amount, currency):
         raise NotImplementedError("DPAS recurring charges are managed externally by payment-scheduler")
 
     def get_checkout_url(self):

@@ -139,12 +139,15 @@ class InventoryClient:
         """
         Activates a given product by changing its state to Active and providing a startDate
         :param product_id: Id of the product to be activated
+        :return activation datetime
         """
+        activation_date = to_utc_z(datetime.now(timezone.utc))
         patch_body = {
             "status": "active",
-            "startDate": to_utc_z(datetime.now(timezone.utc))
+            "startDate": activation_date
         }
         self.patch_product(product_id, patch_body)
+        return activation_date
 
     def suspend_product(self, product_id):
         """

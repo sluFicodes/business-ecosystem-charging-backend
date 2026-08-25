@@ -293,7 +293,7 @@ class Order(models.Model):
 
 class PaymentRecord(models.Model):
     _id = models.ObjectIdField()
-    customerBill_id = models.CharField(max_length=100)
+    customerBill_id = models.CharField(max_length=100, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     payment_type = models.CharField(max_length=50)
     payment_reference = models.CharField(max_length=255)

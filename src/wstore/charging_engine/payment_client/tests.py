@@ -23,10 +23,13 @@ import mock
 from django.test import TestCase
 from mock import MagicMock
 from parameterized import parameterized
+from urllib.parse import parse_qs, urlparse
+from xml.sax.saxutils import escape as xml_escape
 
 
 from wstore.charging_engine.payment_client import payment_client
 from wstore.charging_engine.payment_client import paypal_client
+from wstore.charging_engine.payment_client import redsys_client
 from wstore.charging_engine.payment_client import stripe_client
 
 
@@ -76,6 +79,362 @@ class PaypalTestCase(TestCase):
         paypal_client.paypalrestsdk.Payout().create.assert_called_once()
 
 
+class RedsysTestCase(TestCase):
+    tags = ("payment-client", "payment-client-redsys")
+
+    def test_start_redirection_payment_returns_frontend_post_route(self):
+        order = MagicMock(
+            order_id="order-1",
+            hash_key=b"test-secret-key",
+            contracts=[MagicMock(item_id="item-1", offering="offering-1")],
+        )
+        client = redsys_client.RedsysClient(order)
+        transactions = [{
+            "item": "item-1",
+            "price": "6.29",
+            "billId": "bill-1",
+        }]
+        offering = MagicMock()
+        offering.name = "Test offering"
+
+        with mock.patch.object(redsys_client.settings, "SITE", "http://localhost:4200/"), \
+                mock.patch.object(redsys_client, "_new_order_number", return_value="260727123456"), \
+                mock.patch.object(
+                    redsys_client.Offering.objects,
+                    "get",
+                    return_value=offering,
+                ):
+            checkout_url = client.start_redirection_payment(transactions)
+
+        parsed_url = urlparse(checkout_url)
+        query = parse_qs(parsed_url.query)
+
+        self.assertEqual(
+            parsed_url.geturl().split("?", 1)[0],
+            "http://localhost:4200/redsys-payment",
+        )
+        self.assertEqual(
+            set(query),
+            {
+                "RedsysPaymentUrl",
+                "Ds_SignatureVersion",
+                "Ds_MerchantParameters",
+                "Ds_Signature",
+            },
+        )
+        self.assertEqual(
+            query["RedsysPaymentUrl"],
+            [f"{redsys_client.REDSYS_BASE_URL}/realizarPago"],
+        )
+        self.assertEqual(
+            query["Ds_SignatureVersion"],
+            [redsys_client.SIGNATURE_VERSION],
+        )
+
+        merchant_parameters = query["Ds_MerchantParameters"][0]
+        decoded_params = redsys_client._decode_params(merchant_parameters)
+        self.assertEqual(decoded_params["DS_MERCHANT_AMOUNT"], "629")
+        self.assertTrue(
+            decoded_params["DS_MERCHANT_URLOK"].startswith(
+                "http://localhost:4200/checkout?client=redsys&action=accept&ref=order-1&sig="
+            )
+        )
+        self.assertEqual(
+            query["Ds_Signature"],
+            [redsys_client._sign("260727123456", merchant_parameters)],
+        )
+
+    def test_end_redirection_payment_decodes_form_encoded_merchant_data(self):
+        order = MagicMock()
+        order.order_id = "order-1"
+        client = redsys_client.RedsysClient(order)
+        encoded_params = redsys_client._encode_params({
+            "Ds_Order": "260721034827",
+            "Ds_Response": "0000",
+            "Ds_Amount": "629",
+            "Ds_MerchantData": (
+                "%7B%22ref%22%3A+%22order-1%22%2C+%22bills%22%3A+"
+                "%5B%22bill-1%22%5D%7D"
+            ),
+        })
+
+        with mock.patch.object(redsys_client, "_verify_signature", return_value=True), \
+                mock.patch.object(redsys_client, "PaymentRecord") as payment_record:
+            references, payouts = client.end_redirection_payment(
+                Ds_MerchantParameters=encoded_params,
+                Ds_Signature="signature",
+            )
+
+        self.assertEqual(references, [])
+        self.assertEqual(
+            payouts,
+            [{"paymentItemExternalId": "bill-1", "state": "processed"}],
+        )
+        payment_record.create.assert_called_once_with(
+            "bill-1",
+            payment_type="redsys",
+            payment_reference="260721034827",
+        )
+
+    def test_end_redirection_payment_returns_redsys_pre_authorization(self):
+        order = MagicMock()
+        order.order_id = "order-1"
+        client = redsys_client.RedsysClient(order)
+        encoded_params = redsys_client._encode_params({
+            "Ds_Order": "260721616918",
+            "Ds_Response": "0000",
+            "Ds_Amount": "1839",
+            "Ds_Merchant_Identifier": "card-token",
+            "Ds_Merchant_Cof_Txnid": "2607211916510",
+            "Ds_MerchantData": (
+                "%7B%22ref%22%3A+%22order-1%22%2C+%22bills%22%3A+"
+                "%5B%22bill-1%22%5D%7D"
+            ),
+        })
+
+        with mock.patch.object(redsys_client, "_verify_signature", return_value=True), \
+                mock.patch.object(redsys_client, "PaymentRecord") as payment_record:
+            pre_auth_ids, payouts = client.end_redirection_payment(
+                Ds_MerchantParameters=encoded_params,
+                Ds_Signature="signature",
+            )
+
+        self.assertEqual(pre_auth_ids, ["card-token:2607211916510"])
+        payment_record.create.assert_called_once_with(
+            "bill-1",
+            payment_type="redsys",
+            payment_reference="260721616918",
+        )
+
+    @parameterized.expand([
+        ("authorized", "F", "0000", "succeeded"),
+        ("denied", "F", "0190", "failed"),
+        ("not_final", "P", "0000", "pending"),
+    ])
+    def test_check_payment_status_uses_soap(
+        self,
+        name,
+        ds_state,
+        ds_response,
+        expected,
+    ):
+        client = redsys_client.RedsysClient(None)
+        inner_xml = (
+            '<Messages><Version Ds_Version="0.0"><Message>'
+            '<Response Ds_Version="0.0">'
+            "<Ds_Order>260721616918</Ds_Order>"
+            f"<Ds_State>{ds_state}</Ds_State>"
+            f"<Ds_Response>{ds_response}</Ds_Response>"
+            "</Response></Message></Version></Messages>"
+        )
+        soap_response = (
+            '<soapenv:Envelope '
+            'xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">'
+            "<soapenv:Body><consultaOperacionesResponse>"
+            "<consultaOperacionesReturn>"
+            f"{xml_escape(inner_xml)}"
+            "</consultaOperacionesReturn>"
+            "</consultaOperacionesResponse></soapenv:Body>"
+            "</soapenv:Envelope>"
+        )
+        response = MagicMock(content=soap_response.encode())
+
+        with mock.patch.object(
+            redsys_client.requests,
+            "post",
+            return_value=response,
+        ) as post:
+            status = client.check_payment_status(
+                "260721616918",
+            )
+
+        self.assertEqual(status, expected)
+        response.raise_for_status.assert_called_once_with()
+        request = post.call_args
+        self.assertEqual(request.args[0], redsys_client.REDSYS_QUERY_URL)
+        self.assertIn(
+            b"<Ds_Order>260721616918</Ds_Order>",
+            request.kwargs["data"],
+        )
+        self.assertIn(
+            b"<SignatureVersion>HMAC_SHA256_V1</SignatureVersion>",
+            request.kwargs["data"],
+        )
+        self.assertEqual(
+            request.kwargs["headers"]["SOAPAction"],
+            "consultaOperaciones",
+        )
+
+    def test_check_payment_status_treats_missing_operation_as_failed(self):
+        client = redsys_client.RedsysClient(None)
+        inner_xml = (
+            '<Messages><Version Ds_Version="0.0"><Message><ErrorMsg>'
+            "<Ds_ErrorCode>XML0024</Ds_ErrorCode>"
+            "</ErrorMsg></Message></Version></Messages>"
+        )
+        soap_response = (
+            "<Envelope><Body><consultaOperacionesReturn>"
+            f"{xml_escape(inner_xml)}"
+            "</consultaOperacionesReturn></Body></Envelope>"
+        )
+        response = MagicMock(content=soap_response.encode())
+
+        with mock.patch.object(
+            redsys_client.requests,
+            "post",
+            return_value=response,
+        ):
+            status = client.check_payment_status(
+                "260721616918",
+            )
+
+        self.assertEqual(status, "failed")
+
+    def test_check_payment_status_keeps_pending_when_soap_fails(self):
+        client = redsys_client.RedsysClient(None)
+
+        with mock.patch.object(
+            redsys_client.requests,
+            "post",
+            side_effect=Exception("connection lost"),
+        ):
+            status = client.check_payment_status(
+                "260721616918",
+            )
+
+        self.assertEqual(status, "pending")
+
+    def test_soap_signature_matches_verified_sandbox_request(self):
+        version_xml = (
+            '<Version Ds_Version="0.0"><Message><Transaction>'
+            "<Ds_MerchantCode>999008881</Ds_MerchantCode>"
+            "<Ds_Terminal>001</Ds_Terminal>"
+            "<Ds_Order>260723890989</Ds_Order>"
+            "<Ds_TransactionType>0</Ds_TransactionType>"
+            "</Transaction></Message></Version>"
+        )
+
+        with mock.patch.object(
+            redsys_client,
+            "SECRET_KEY",
+            "sq7HjrUOBfKmC576ILgskD5srU870gJ7",
+        ):
+            signature = redsys_client._soap_signature(
+                "260723890989",
+                version_xml,
+            )
+
+        self.assertEqual(
+            signature,
+            "q7LbX1P32WQSisGT+A8ZV+fMeVJo6kR0OjYUBCxPkUI=",
+        )
+
+    def test_charge_recurring_uses_pre_authorization_token(self):
+        client = redsys_client.RedsysClient(None)
+        record = MagicMock(
+            customerBill_id="bill-1",
+            payment_reference="260721000001",
+            retry_count=0,
+            pk="record-1",
+        )
+        with mock.patch.object(
+            redsys_client,
+            "_new_order_number",
+            return_value="260721999999",
+        ), mock.patch.object(
+            client,
+            "_rest_request",
+            return_value={"Ds_Response": "0000"},
+        ) as rest_request:
+            reference, status = client.charge_recurring(
+                {"id": "bill-1"},
+                record,
+                "card-token:2607211916510",
+                "18.39",
+                "EUR",
+            )
+
+        self.assertEqual(reference, "260721999999")
+        self.assertEqual(status, "succeeded")
+        record.save.assert_called_once_with()
+        request_params = rest_request.call_args[0][0]
+        self.assertEqual(request_params["DS_MERCHANT_IDENTIFIER"], "card-token")
+        self.assertEqual(
+            request_params["DS_MERCHANT_COF_TXNID"],
+            "2607211916510",
+        )
+
+    def test_charge_recurring_without_verifiable_response_is_pending(self):
+        client = redsys_client.RedsysClient(None)
+        created_record = MagicMock(
+            customerBill_id="bill-1",
+            payment_type="redsys",
+            payment_reference="260721999999",
+            retry_count=0,
+        )
+
+        with mock.patch.object(
+            redsys_client,
+            "_new_order_number",
+            return_value="260721999999",
+        ), mock.patch.object(
+            client,
+            "_rest_request",
+            side_effect=Exception("connection lost"),
+        ), mock.patch.object(
+            redsys_client.PaymentRecord,
+            "create",
+            return_value=created_record,
+        ) as create_record:
+            reference, status = client.charge_recurring(
+                {"id": "bill-1"},
+                None,
+                "card-token:2607211916510",
+                "18.39",
+                "EUR",
+            )
+
+        self.assertEqual(reference, "260721999999")
+        self.assertEqual(status, "pending")
+        create_record.assert_called_once_with(
+            "bill-1",
+            payment_type="redsys",
+            payment_reference="260721999999",
+        )
+
+    def test_merchant_parameters_use_unpadded_base64url(self):
+        encoded = redsys_client._encode_params({"DS_MERCHANT_AMOUNT": "629"})
+
+        self.assertNotIn("=", encoded)
+        self.assertEqual(
+            redsys_client._decode_params(encoded),
+            {"DS_MERCHANT_AMOUNT": "629"},
+        )
+
+    def test_signature_matches_redsys_hmac_sha512_v2_example(self):
+        merchant_parameters = (
+            "eyJEU19NRVJDSEFOVF9BTU9VTlQiOiI5OTkiLCJEU19NRVJDSEFOVF9PUkRFUiI6IjEyMzQ1Njc4OTAi"
+            "LCJEU19NRVJDSEFOVF9NRVJDSEFOVENPREUiOiI5OTkwMDg4ODEiLCJEU19NRVJDSEFOVF9DVVJSRU5DWSI6"
+            "Ijk3OCIsIkRTX01FUkNIQU5UX1RSQU5TQUNUSU9OVFlQRSI6IjAiLCJEU19NRVJDSEFOVF9URVJNSU5BTCI6"
+            "IjEiLCJEU19NRVJDSEFOVF9NRVJDSEFOVFVSTCI6Imh0dHA6XC9cL3d3dy5wcnVlYmEuY29tXC91cmxOb3Rp"
+            "ZmljYWNpb24ucGhwIiwiRFNfTUVSQ0hBTlRfVVJMT0siOiJodHRwOlwvXC93d3cucHJ1ZWJhLmNvbVwvdXJs"
+            "T0sucGhwIiwiRFNfTUVSQ0hBTlRfVVJMS08iOiJodHRwOlwvXC93d3cucHJ1ZWJhLmNvbVwvdXJsS08ucGhw"
+            "In0"
+        )
+
+        with mock.patch.object(
+            redsys_client,
+            "SECRET_KEY",
+            "sq7HjrUOBfKmC576ILgskD5srU870gJ7",
+        ):
+            signature = redsys_client._sign("1234567890", merchant_parameters)
+
+        self.assertEqual(
+            signature,
+            "Vjo02eSWq249IeZZp3R-ArFnGLhKY0OuzDDlx1BuVtZDC2yhczA7_11uZhsYzLZBCMFAz8u8uzGDX3AErHKmmw",
+        )
+
+
 class StripeTestCalse(TestCase):
     tags = ("payment-client", "payment-client-stripe")
 
@@ -83,6 +442,7 @@ class StripeTestCalse(TestCase):
         stripe_client.stripe = MagicMock()
         stripe_client.stripe.error.CardError = _StripeCardError
         stripe_client.Offering = MagicMock(**{"objects.get.return_value": MagicMock()})
+        stripe_client.PaymentRecord = MagicMock()
 
     @parameterized.expand(
         [
@@ -251,7 +611,6 @@ class StripeTestCalse(TestCase):
             ("pi_succeeded", "pi_123", "succeeded", "succeeded"),
             ("pi_processing", "pi_123", "processing", "pending"),
             ("pi_requires_action", "pi_123", "requires_action", "pending"),
-            ("pi_requires_confirmation", "pi_123", "requires_confirmation", "pending"),
             ("pi_failed", "pi_123", "canceled", "failed"),
         ]
     )
@@ -260,6 +619,21 @@ class StripeTestCalse(TestCase):
         stripe_client.stripe.PaymentIntent.retrieve.return_value = MagicMock(status=pi_status)
 
         self.assertEquals(stripe_payment_client.check_payment_status(reference), expected)
+
+    def test_check_payment_status_keeps_unconfirmed_payment_intent_pending(self):
+        stripe_payment_client = stripe_client.StripeClient(MagicMock())
+        payment_intent = MagicMock(
+            id="pi_123",
+            status="requires_confirmation",
+        )
+        stripe_client.stripe.PaymentIntent.retrieve.return_value = (
+            payment_intent
+        )
+
+        status = stripe_payment_client.check_payment_status("pi_123")
+
+        self.assertEqual(status, "pending")
+        payment_intent.cancel.assert_not_called()
 
     @parameterized.expand(
         [
@@ -284,12 +658,33 @@ class StripeTestCalse(TestCase):
     )
     def test_charge_recurring_payment_intent(self, name, new_status, expected_state):
         stripe_payment_client = stripe_client.StripeClient(MagicMock())
+        record = MagicMock(
+            customerBill_id="cb-1",
+            payment_reference="pi_old_attempt",
+            retry_count=2,
+            pk="record-1",
+        )
         stripe_client.stripe.PaymentIntent.retrieve.return_value = MagicMock(
             customer="cus_1", payment_method="pm_1"
         )
-        stripe_client.stripe.PaymentIntent.create.return_value = MagicMock(id="pi_new", status=new_status)
-
-        result = stripe_payment_client.charge_recurring("pi_123", "10.00", "EUR")
+        new_payment_intent = MagicMock(
+            id="pi_new",
+            status="requires_confirmation",
+        )
+        new_payment_intent.confirm.return_value = MagicMock(
+            id="pi_new",
+            status=new_status,
+        )
+        stripe_client.stripe.PaymentIntent.create.return_value = (
+            new_payment_intent
+        )
+        result = stripe_payment_client.charge_recurring(
+            {"id": "cb-1"},
+            record,
+            "pi_123",
+            "10.00",
+            "EUR",
+        )
 
         self.assertEquals(result, ("pi_new", expected_state))
         stripe_client.stripe.PaymentIntent.create.assert_called_once_with(
@@ -297,42 +692,152 @@ class StripeTestCalse(TestCase):
             currency="eur",
             customer="cus_1",
             payment_method="pm_1",
-            off_session=True,
-            confirm=True,
+            confirm=False,
+            idempotency_key="recurring:cb-1:2:pi_old_attempt",
         )
+        new_payment_intent.confirm.assert_called_once_with(
+            off_session=True,
+        )
+        record.save.assert_called_once_with()
 
     def test_charge_recurring_from_session(self):
         stripe_payment_client = stripe_client.StripeClient(MagicMock())
+        record = MagicMock(
+            customerBill_id="cb-1",
+            payment_reference="pi_old_attempt",
+            retry_count=0,
+            pk="record-1",
+        )
         stripe_client.stripe.checkout.Session.retrieve.return_value = MagicMock(
             customer="cus_1", payment_intent="pi_old"
         )
         stripe_client.stripe.PaymentIntent.retrieve.return_value = MagicMock(payment_method="pm_1")
-        stripe_client.stripe.PaymentIntent.create.return_value = MagicMock(id="pi_new", status="succeeded")
-
-        result = stripe_payment_client.charge_recurring("cs_123", "5", "USD")
+        new_payment_intent = MagicMock(
+            id="pi_new",
+            status="requires_confirmation",
+        )
+        new_payment_intent.confirm.return_value = MagicMock(
+            id="pi_new",
+            status="succeeded",
+        )
+        stripe_client.stripe.PaymentIntent.create.return_value = (
+            new_payment_intent
+        )
+        result = stripe_payment_client.charge_recurring(
+            {"id": "cb-1"},
+            record,
+            "cs_123",
+            "5",
+            "USD",
+        )
 
         self.assertEquals(result, ("pi_new", "succeeded"))
 
+    def test_charge_recurring_creates_record_after_preparing_intent(self):
+        stripe_payment_client = stripe_client.StripeClient(MagicMock())
+        created_record = MagicMock(
+            customerBill_id="cb-1",
+            payment_type="stripe",
+            payment_reference="pi_new",
+            retry_count=0,
+        )
+        stripe_client.stripe.PaymentIntent.retrieve.return_value = MagicMock(
+            customer="cus_1",
+            payment_method="pm_1",
+        )
+        new_payment_intent = MagicMock(
+            id="pi_new",
+            status="requires_confirmation",
+        )
+        new_payment_intent.confirm.return_value = MagicMock(
+            id="pi_new",
+            status="succeeded",
+        )
+        stripe_client.stripe.PaymentIntent.create.return_value = (
+            new_payment_intent
+        )
+        stripe_client.PaymentRecord.create.return_value = created_record
+
+        result = stripe_payment_client.charge_recurring(
+            {"id": "cb-1"},
+            None,
+            "pi_123",
+            "10",
+            "EUR",
+        )
+
+        self.assertEqual(result, ("pi_new", "succeeded"))
+        stripe_client.PaymentRecord.create.assert_called_once_with(
+            "cb-1",
+            payment_type="stripe",
+            payment_reference="pi_new",
+        )
+        new_payment_intent.confirm.assert_called_once_with(
+            off_session=True,
+        )
+
     def test_charge_recurring_missing_payment_method(self):
         stripe_payment_client = stripe_client.StripeClient(MagicMock())
+        record = MagicMock(
+            customerBill_id="cb-1",
+            retry_count=0,
+            pk="record-1",
+        )
         stripe_client.stripe.PaymentIntent.retrieve.return_value = MagicMock(
             customer="cus_1", payment_method=None
         )
 
-        self.assertEquals(stripe_payment_client.charge_recurring("pi_123", "10", "EUR"), (None, "failed"))
+        self.assertEquals(
+            stripe_payment_client.charge_recurring(
+                {"id": "cb-1"},
+                record,
+                "pi_123",
+                "10",
+                "EUR",
+            ),
+            (None, "failed"),
+        )
         stripe_client.stripe.PaymentIntent.create.assert_not_called()
 
     def test_charge_recurring_card_error(self):
         stripe_payment_client = stripe_client.StripeClient(MagicMock())
+        record = MagicMock(
+            customerBill_id="cb-1",
+            retry_count=0,
+            pk="record-1",
+        )
         stripe_client.stripe.PaymentIntent.retrieve.return_value = MagicMock(
             customer="cus_1", payment_method="pm_1"
         )
         stripe_client.stripe.PaymentIntent.create.side_effect = _StripeCardError("card declined")
 
-        self.assertEquals(stripe_payment_client.charge_recurring("pi_123", "10", "EUR"), (None, "failed"))
+        self.assertEquals(
+            stripe_payment_client.charge_recurring(
+                {"id": "cb-1"},
+                record,
+                "pi_123",
+                "10",
+                "EUR",
+            ),
+            (None, "failed"),
+        )
 
     def test_charge_recurring_generic_error(self):
         stripe_payment_client = stripe_client.StripeClient(MagicMock())
+        record = MagicMock(
+            customerBill_id="cb-1",
+            retry_count=0,
+            pk="record-1",
+        )
         stripe_client.stripe.PaymentIntent.retrieve.side_effect = Exception("boom")
 
-        self.assertEquals(stripe_payment_client.charge_recurring("pi_123", "10", "EUR"), (None, "failed"))
+        self.assertEquals(
+            stripe_payment_client.charge_recurring(
+                {"id": "cb-1"},
+                record,
+                "pi_123",
+                "10",
+                "EUR",
+            ),
+            (None, "pending"),
+        )
