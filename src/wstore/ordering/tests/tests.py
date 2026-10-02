@@ -1150,8 +1150,9 @@ class InventoryClientTestCase(TestCase):
         operator_party = {'id': 'operator:1', 'role': 'SellerOperator'}
         inventory_client.get_operator_party_roles = MagicMock()
         inventory_client.get_operator_party_roles.return_value = [operator_party]
+        inventory_client.normalize_party_ref = MagicMock()
         norm_party = {'id': 'party:1', 'role': 'Seller'}
-        inventory_client.normalize_party_ref = MagicMock(side_effect=[norm_party, operator_party])
+        inventory_client.normalize_party_ref.side_effect = [norm_party, operator_party]
 
         client = inventory_client.InventoryClient()
         client.download_spec = MagicMock()
