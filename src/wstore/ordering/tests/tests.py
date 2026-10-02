@@ -1150,16 +1150,15 @@ class InventoryClientTestCase(TestCase):
         operator_party = {'id': 'operator:1', 'role': 'SellerOperator'}
         inventory_client.get_operator_party_roles = MagicMock()
         inventory_client.get_operator_party_roles.return_value = [operator_party]
-        inventory_client.normalize_party_ref = MagicMock()
         norm_party = {'id': 'party:1', 'role': 'Seller'}
-        inventory_client.normalize_party_ref.return_value = norm_party
+        inventory_client.normalize_party_ref = MagicMock(side_effect=[norm_party, operator_party])
 
         client = inventory_client.InventoryClient()
         client.download_spec = MagicMock()
         client.download_spec.return_value = spec_res
         client.build_inventory_char = MagicMock()
         client.build_inventory_char.return_value = self.build_char_return
-        client.create_resource(spec_id, party)
+        client.create_resource(spec_id, party + [operator_party])
 
         expected_calls_post = [call("http://localhost:9090/resourceInventory/resource", json={
             "resourceCharacteristic": [self.build_char_return for _ in spec_res["resourceSpecCharacteristic"]],
@@ -1197,14 +1196,14 @@ class InventoryClientTestCase(TestCase):
         inventory_client.get_operator_party_roles = MagicMock()
         inventory_client.get_operator_party_roles.return_value = [operator_party]
         norm_party = {'id': 'party:1', 'role': 'Seller'}
-        inventory_client.normalize_party_ref.return_value = norm_party
+        inventory_client.normalize_party_ref = MagicMock(side_effect=[norm_party, operator_party])
 
         client = inventory_client.InventoryClient()
         client.download_spec = MagicMock()
         client.download_spec.return_value = spec_serv
         client.build_inventory_char = MagicMock()
         client.build_inventory_char.return_value = self.build_char_return
-        client.create_service(spec_id, party)
+        client.create_service(spec_id, party + [operator_party])
 
         expected_calls_post = [call("http://localhost:7070/serviceInventory/service", json={
             "serviceCharacteristic": [self.build_char_return for _ in spec_serv["specCharacteristic"]],
